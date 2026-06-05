@@ -1872,7 +1872,7 @@ export function SettingsDialog({ children, defaultTab = "account", open: control
   useEffect(() => {
     if (!open) return
     window.ipc.invoke('oauth:getState', null).then((result) => {
-      const connected = result.config?.jobraker-recruiter?.connected ?? false
+      const connected = result.config?.['jobraker-recruiter']?.connected ?? false
       setJobrakerRecruiterConnected(connected)
     }).catch(() => {
       setJobrakerRecruiterConnected(false)

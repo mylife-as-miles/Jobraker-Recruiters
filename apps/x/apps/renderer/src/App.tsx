@@ -909,7 +909,7 @@ function App() {
       window.ipc.invoke('voice:getConfig', null),
       window.ipc.invoke('oauth:getState', null),
     ]).then(([config, oauthState]) => {
-      const jobrakerRecruiterConnected = oauthState.config?.jobraker-recruiter?.connected ?? false
+      const jobrakerRecruiterConnected = oauthState.config?.['jobraker-recruiter']?.connected ?? false
       const hasVoice = !!config.deepgram || jobrakerRecruiterConnected
       setVoiceAvailable(hasVoice)
       setTtsAvailable(!!config.elevenlabs || jobrakerRecruiterConnected)

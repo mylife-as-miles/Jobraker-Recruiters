@@ -8,7 +8,7 @@ interface WelcomeStepProps {
 }
 
 export function WelcomeStep({ state }: WelcomeStepProps) {
-  const jobrakerRecruiterState = state.providerStates.jobraker-recruiter || { isConnected: false, isLoading: false, isConnecting: false }
+  const jobrakerRecruiterState = state.providerStates['jobraker-recruiter'] || { isConnected: false, isLoading: false, isConnecting: false }
 
   return (
     <div className="flex flex-col items-center justify-center text-center flex-1">

@@ -16,7 +16,7 @@ export function useAnalyticsIdentity() {
         const config = result.config || {}
 
         // Identify if Jobraker Recruiter account is connected
-        const jobrakerRecruiter = config.jobraker-recruiter
+        const jobrakerRecruiter = config['jobraker-recruiter']
         if (jobrakerRecruiter?.connected && jobrakerRecruiter?.userId) {
           identifyUser(jobrakerRecruiter.userId)
         }

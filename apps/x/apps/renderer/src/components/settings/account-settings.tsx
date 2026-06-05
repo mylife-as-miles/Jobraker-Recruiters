@@ -68,7 +68,7 @@ export function AccountSettings({ dialogOpen }: AccountSettingsProps) {
     try {
       setConnectionLoading(true)
       const result = await window.ipc.invoke('oauth:getState', null)
-      const connected = result.config?.jobraker-recruiter?.connected ?? false
+      const connected = result.config?.['jobraker-recruiter']?.connected ?? false
       setIsJobrakerRecruiterConnected(connected)
     } catch {
       setIsJobrakerRecruiterConnected(false)

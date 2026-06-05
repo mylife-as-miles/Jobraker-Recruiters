@@ -202,7 +202,7 @@ function ChatInputInner({
   // Check Jobraker Recruiter sign-in state
   useEffect(() => {
     window.ipc.invoke('oauth:getState', null).then((result) => {
-      setIsJobrakerRecruiterConnected(result.config?.jobraker-recruiter?.connected ?? false)
+      setIsJobrakerRecruiterConnected(result.config?.['jobraker-recruiter']?.connected ?? false)
     }).catch(() => setIsJobrakerRecruiterConnected(false))
   }, [isActive])
 
@@ -210,7 +210,7 @@ function ChatInputInner({
   useEffect(() => {
     const cleanup = window.ipc.on('oauth:didConnect', () => {
       window.ipc.invoke('oauth:getState', null).then((result) => {
-        setIsJobrakerRecruiterConnected(result.config?.jobraker-recruiter?.connected ?? false)
+        setIsJobrakerRecruiterConnected(result.config?.['jobraker-recruiter']?.connected ?? false)
       }).catch(() => setIsJobrakerRecruiterConnected(false))
     })
     return cleanup

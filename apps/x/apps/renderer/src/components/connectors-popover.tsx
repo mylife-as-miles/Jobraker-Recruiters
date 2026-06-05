@@ -140,7 +140,7 @@ export function ConnectorsPopover({ children, tooltip, open: openProp, onOpenCha
 
   const isJobrakerRecruiterUnconnected = (() => {
     if (!c.providers.includes('jobraker-recruiter')) return false
-    const jobrakerRecruiterState = c.providerStates.jobraker-recruiter
+    const jobrakerRecruiterState = c.providerStates['jobraker-recruiter']
     return !jobrakerRecruiterState?.isConnected || jobrakerRecruiterState?.isLoading
   })()
 
@@ -210,7 +210,7 @@ export function ConnectorsPopover({ children, tooltip, open: openProp, onOpenCha
             <>
               {/* Jobraker Recruiter Account - show in "all" mode always, or in "unconnected" mode only when not connected */}
               {c.providers.includes('jobraker-recruiter') && (() => {
-                const jobrakerRecruiterState = c.providerStates.jobraker-recruiter
+                const jobrakerRecruiterState = c.providerStates['jobraker-recruiter']
                 const isJobrakerRecruiterConnected = jobrakerRecruiterState?.isConnected && !jobrakerRecruiterState?.isLoading
                 if (isUnconnectedMode && isJobrakerRecruiterConnected) return null
                 return (

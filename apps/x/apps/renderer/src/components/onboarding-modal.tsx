@@ -902,7 +902,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
   // Step 0: Sign in to Jobraker Recruiter (with BYOK option)
   const renderSignInStep = () => {
-    const jobrakerRecruiterState = providerStates.jobraker-recruiter || { isConnected: false, isLoading: false, isConnecting: false }
+    const jobrakerRecruiterState = providerStates['jobraker-recruiter'] || { isConnected: false, isLoading: false, isConnecting: false }
 
     return (
       <div className="flex flex-col items-center text-center">

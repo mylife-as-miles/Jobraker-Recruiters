@@ -652,7 +652,7 @@ export function SidebarContentPanel({
         const result = await window.ipc.invoke('oauth:getState', null)
         const config = result.config || {}
         const hasError = Object.values(config).some((entry) => Boolean(entry?.error))
-        const connected = config.jobraker-recruiter?.connected ?? false
+        const connected = config['jobraker-recruiter']?.connected ?? false
         if (mounted) {
           setHasOauthError(hasError)
           setIsJobrakerRecruiterConnected(connected)
