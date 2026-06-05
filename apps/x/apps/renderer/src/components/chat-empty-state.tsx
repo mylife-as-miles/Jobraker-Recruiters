@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bot, Mail, MessageSquare, Search, Sparkles, UserCheck } from 'lucide-react'
+import { ArrowUpRight, Bot, Mail, MessageSquare, Search, UserCheck } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/relative-time'
@@ -19,11 +19,25 @@ interface ChatEmptyStateProps {
   wide?: boolean
 }
 
-const SUGGESTED_ACTIONS: { icon: typeof Mail; title: string; sub: string; prompt: string }[] = [
-  { icon: Search, title: 'Find candidates', sub: 'for an open role', prompt: 'Find candidates for our [role title] opening — prioritize people with seed-stage startup experience' },
-  { icon: Mail, title: 'Draft outreach', sub: 'to a candidate', prompt: "Write a personalized outreach message to [candidate name] for our [role] opening" },
-  { icon: UserCheck, title: 'Screen a profile', sub: 'for startup fit', prompt: 'Summarize [candidate name]\'s fit for our [role] — highlight early-stage experience and growth trajectory' },
-  { icon: Bot, title: 'Automate follow-ups', sub: 'across your pipeline', prompt: 'Set up a multi-channel follow-up sequence for candidates in our [role] pipeline' },
+const SUGGESTED_ACTIONS: { icon: typeof Mail; title: string; description: string; prompt: string }[] = [
+  {
+    icon: Search,
+    title: 'Find candidates',
+    description: 'Search 800M+ profiles for your open role',
+    prompt: 'Find candidates for our [role title] opening — prioritize people with seed-stage startup experience',
+  },
+  {
+    icon: Mail,
+    title: 'Draft outreach',
+    description: 'Personalized messages that get replies',
+    prompt: "Write a personalized outreach message to [candidate name] for our [role] opening",
+  },
+  {
+    icon: UserCheck,
+    title: 'Screen a profile',
+    description: 'Assess startup fit and growth trajectory',
+    prompt: "Summarize [candidate name]'s fit for our [role] — highlight early-stage experience and growth trajectory",
+  },
 ]
 
 /**
@@ -38,39 +52,72 @@ export function ChatEmptyState({
   wide = false,
 }: ChatEmptyStateProps) {
   return (
-    <div className={cn('mx-auto flex w-full flex-col gap-6 px-2 py-6', wide ? 'max-w-2xl' : 'max-w-md')}>
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-border bg-background text-foreground">
-          <Sparkles className="size-[17px]" />
-        </div>
-        <div>
-          <div className="text-base font-semibold tracking-tight">What role are you filling?</div>
-          <div className="text-xs text-muted-foreground">Source, screen, and outreach — or pick up an active search.</div>
+    <div
+      className={cn(
+        'mx-auto flex w-full flex-col items-center justify-center px-4 py-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-700',
+        wide ? 'max-w-2xl' : 'max-w-md'
+      )}
+    >
+      <div className="mb-4 flex justify-center">
+        <div className="relative flex size-16 items-center justify-center rounded-2xl border border-brand/20 bg-foreground/5 shadow-[0_0_15px_rgba(29,255,0,0.05)]">
+          <Bot className="size-8 text-brand" />
+          <div className="absolute -bottom-0.5 -right-0.5 flex size-5 items-center justify-center rounded-full border-2 border-background bg-brand">
+            <span className="size-1.5 rounded-full bg-primary-foreground" />
+          </div>
         </div>
       </div>
 
+      <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+        How can <span className="text-brand">Jobraker Recruiter</span> help you today?
+      </h2>
+      <p className="mt-3 max-w-md text-sm text-muted-foreground md:text-base">
+        Source candidates, draft outreach, and screen profiles — all from one chat.
+      </p>
+
+      <div
+        className={cn(
+          'mt-6 grid w-full gap-3 md:mt-8 md:gap-4',
+          wide ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'
+        )}
+      >
+        {SUGGESTED_ACTIONS.map((action) => (
+          <button
+            key={action.title}
+            type="button"
+            onClick={() => onPickPrompt(action.prompt)}
+            className="chat-suggestion-card chat-glass-panel flex min-h-[120px] flex-col justify-between rounded-xl p-4 text-left transition-all"
+          >
+            <div>
+              <action.icon className="mb-2 size-5 text-brand" />
+              <h4 className="mb-1 text-sm font-semibold text-card-foreground">{action.title}</h4>
+              <p className="text-xs leading-relaxed text-muted-foreground">{action.description}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+
       {recentRuns.length > 0 && (
-        <div>
-          <div className="flex items-center px-1 pb-2 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="mt-8 w-full text-left">
+          <div className="mb-2 flex items-center px-1 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
             <span className="flex-1">Recent chats</span>
             {onOpenChatHistory && (
               <button
                 type="button"
                 onClick={onOpenChatHistory}
-                className="inline-flex items-center gap-0.5 text-[11px] font-medium normal-case tracking-normal text-primary hover:underline"
+                className="inline-flex items-center gap-0.5 text-[11px] font-medium normal-case tracking-normal text-brand hover:underline"
               >
                 View all
                 <ArrowUpRight className="size-3" />
               </button>
             )}
           </div>
-          <div className="flex flex-col gap-0.5">
+          <div className="chat-glass-panel flex flex-col gap-1 rounded-xl p-2">
             {recentRuns.slice(0, 4).map((run) => (
               <button
                 key={run.id}
                 type="button"
                 onClick={() => onSelectRun?.(run.id)}
-                className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left hover:bg-accent"
+                className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-brand/8"
               >
                 <MessageSquare className="size-3.5 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate text-[13px]">{run.title || '(Untitled chat)'}</span>
@@ -80,28 +127,6 @@ export function ChatEmptyState({
           </div>
         </div>
       )}
-
-      <div>
-        <div className="px-1 pb-2 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {recentRuns.length > 0 ? 'Or start fresh' : 'Get started'}
-        </div>
-        <div className="flex flex-col gap-2">
-          {SUGGESTED_ACTIONS.map((action) => (
-            <button
-              key={action.title}
-              type="button"
-              onClick={() => onPickPrompt(action.prompt)}
-              className="flex items-start gap-2.5 rounded-lg border border-border bg-background px-3 py-2.5 text-left transition-colors hover:bg-accent"
-            >
-              <action.icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <div className="text-[12.8px] font-medium">{action.title}</div>
-                <div className="mt-0.5 text-[11.5px] text-muted-foreground">{action.sub}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

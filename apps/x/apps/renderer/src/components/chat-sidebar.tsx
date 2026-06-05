@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { ChatAssistantRow } from '@/components/chat-assistant-row'
 import { ChatHeader } from '@/components/chat-header'
 import { ChatEmptyState } from '@/components/chat-empty-state'
 import {
@@ -407,11 +408,13 @@ export function ChatSidebar({
         )
       }
       return (
-        <Message key={item.id} from={item.role} data-message-id={item.id}>
-          <MessageContent>
-            <MessageResponse components={streamdownComponents}>{item.content}</MessageResponse>
-          </MessageContent>
-        </Message>
+        <ChatAssistantRow key={item.id}>
+          <Message from={item.role} data-message-id={item.id}>
+            <MessageContent>
+              <MessageResponse components={streamdownComponents}>{item.content}</MessageResponse>
+            </MessageContent>
+          </Message>
+        </ChatAssistantRow>
       )
     }
 
@@ -610,7 +613,7 @@ export function ChatSidebar({
                           className="relative flex-1"
                       >
                         <ConversationContent className={cn(
-                          'mx-auto w-full max-w-4xl px-3',
+                          'chat-conversation-content mx-auto w-full max-w-4xl px-4 md:px-6',
                           tabHasConversation ? 'pb-28' : 'pb-0',
                           !tabHasConversation && isMaximized && 'min-h-full items-center justify-center',
                         )}>
@@ -672,19 +675,23 @@ export function ChatSidebar({
                               ))}
 
                               {tabState.currentAssistantMessage && (
-                                <Message from="assistant">
-                                  <MessageContent>
-                                    <MessageResponse components={streamdownComponents}>{tabState.currentAssistantMessage}</MessageResponse>
-                                  </MessageContent>
-                                </Message>
+                                <ChatAssistantRow>
+                                  <Message from="assistant">
+                                    <MessageContent>
+                                      <MessageResponse components={streamdownComponents}>{tabState.currentAssistantMessage}</MessageResponse>
+                                    </MessageContent>
+                                  </Message>
+                                </ChatAssistantRow>
                               )}
 
                               {isActive && isProcessing && !tabState.currentAssistantMessage && (
-                                <Message from="assistant">
-                                  <MessageContent>
-                                    <Shimmer duration={1}>Thinking...</Shimmer>
-                                  </MessageContent>
-                                </Message>
+                                <ChatAssistantRow>
+                                  <Message from="assistant">
+                                    <MessageContent>
+                                      <Shimmer duration={1}>Thinking...</Shimmer>
+                                    </MessageContent>
+                                  </Message>
+                                </ChatAssistantRow>
                               )}
                             </>
                             )}
@@ -696,9 +703,9 @@ export function ChatSidebar({
                 })}
               </div>
 
-              <div className="sticky bottom-0 z-10 bg-background pb-12 pt-0 shadow-lg">
+              <div className="jobraker-recruiter-composer-dock sticky bottom-0 z-10 pb-12 pt-0">
                 <div className="pointer-events-none absolute inset-x-0 -top-6 h-6 bg-linear-to-t from-background to-transparent" />
-                <div className="mx-auto w-full max-w-4xl px-3">
+                <div className="mx-auto w-full max-w-4xl px-4 md:px-6">
                   {chatTabs.map((tab) => {
                     const isActive = tab.id === activeChatTabId
                     const tabState = getTabState(tab.id)

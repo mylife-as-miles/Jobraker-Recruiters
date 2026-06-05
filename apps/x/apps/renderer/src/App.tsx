@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/markdown-editor';
 import { ChatSidebar } from './components/chat-sidebar';
 import { ChatHeader } from './components/chat-header';
+import { ChatAssistantRow } from './components/chat-assistant-row';
 import { ChatEmptyState } from './components/chat-empty-state';
 import { ChatInputWithMentions, type StagedAttachment } from './components/chat-input-with-mentions';
 import { ChatMessageAttachments } from '@/components/chat-message-attachments'
@@ -5106,11 +5107,13 @@ function App() {
         )
       }
       return (
-        <Message key={item.id} from={item.role} data-message-id={item.id}>
-          <MessageContent>
-            <MessageResponse components={streamdownComponents}>{item.content}</MessageResponse>
-          </MessageContent>
-        </Message>
+        <ChatAssistantRow key={item.id}>
+          <Message from={item.role} data-message-id={item.id}>
+            <MessageContent>
+              <MessageResponse components={streamdownComponents}>{item.content}</MessageResponse>
+            </MessageContent>
+          </Message>
+        </ChatAssistantRow>
       )
     }
 
@@ -5751,15 +5754,15 @@ function App() {
                 </div>
               ) : (
               <FileCardProvider onOpenKnowledgeFile={(path) => { navigateToFile(path) }}>
-              <div className="flex min-h-0 flex-1 flex-col">
+              <div className="flex min-h-0 flex-1 flex-col" data-chat-page-shell>
                 <div className="relative min-h-0 flex-1">
                   {chatTabs.map((tab) => {
                     const isActive = tab.id === activeChatTabId
                     const tabState = getChatTabStateForRender(tab.id)
                     const tabHasConversation = tabState.conversation.length > 0 || tabState.currentAssistantMessage
                     const tabConversationContentClassName = tabHasConversation
-                      ? "mx-auto w-full max-w-4xl pb-28"
-                      : "mx-auto w-full max-w-4xl min-h-full items-center justify-center pb-0"
+                      ? "chat-conversation-content mx-auto w-full max-w-4xl px-4 md:px-6 pb-28"
+                      : "chat-conversation-content mx-auto w-full max-w-4xl px-4 md:px-6 min-h-full items-center justify-center pb-0"
                     return (
                       <div
                         key={tab.id}
@@ -5856,19 +5859,23 @@ function App() {
                                 ))}
 
                                 {tabState.currentAssistantMessage && (
-                                  <Message from="assistant">
-                                    <MessageContent>
-                                      <SmoothStreamingMessage text={tabState.currentAssistantMessage.replace(/<\/?voice>/g, '')} components={streamdownComponents} />
-                                    </MessageContent>
-                                  </Message>
+                                  <ChatAssistantRow>
+                                    <Message from="assistant">
+                                      <MessageContent>
+                                        <SmoothStreamingMessage text={tabState.currentAssistantMessage.replace(/<\/?voice>/g, '')} components={streamdownComponents} />
+                                      </MessageContent>
+                                    </Message>
+                                  </ChatAssistantRow>
                                 )}
 
                                 {isActive && isProcessing && !tabState.currentAssistantMessage && (
-                                  <Message from="assistant">
-                                    <MessageContent>
-                                      <Shimmer duration={1}>Thinking...</Shimmer>
-                                    </MessageContent>
-                                  </Message>
+                                  <ChatAssistantRow>
+                                    <Message from="assistant">
+                                      <MessageContent>
+                                        <Shimmer duration={1}>Thinking...</Shimmer>
+                                      </MessageContent>
+                                    </Message>
+                                  </ChatAssistantRow>
                                 )}
                               </>
                             )}
@@ -5880,9 +5887,9 @@ function App() {
                   })}
                 </div>
 
-                <div className="jobraker-recruiter-composer-dock sticky bottom-0 z-10 bg-background pb-12 pt-0 shadow-lg">
+                <div className="jobraker-recruiter-composer-dock sticky bottom-0 z-10 pb-12 pt-0">
                   <div className="pointer-events-none absolute inset-x-0 -top-6 h-6 bg-linear-to-t from-background to-transparent" />
-                  <div className="mx-auto w-full max-w-4xl px-4">
+                  <div className="mx-auto w-full max-w-4xl px-4 md:px-6">
                     {chatTabs.map((tab) => {
                       const isActive = tab.id === activeChatTabId
                       const tabState = getChatTabStateForRender(tab.id)
