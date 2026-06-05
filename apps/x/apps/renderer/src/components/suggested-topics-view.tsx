@@ -162,7 +162,7 @@ export function SuggestedTopicsView({ onExploreTopic }: SuggestedTopicsViewProps
           setTopics(parseTopics(result.data))
         }
       } catch {
-        if (!cancelled) setError('No suggested topics yet. Check back once your knowledge graph has more data.')
+        if (!cancelled) setError('No suggested roles or searches yet. Check back once your recruiting pipeline has more data.')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -212,7 +212,7 @@ export function SuggestedTopicsView({ onExploreTopic }: SuggestedTopicsViewProps
           <Lightbulb className="size-6 text-muted-foreground" />
         </div>
         <p className="text-sm text-muted-foreground">
-          {error ?? 'No suggested topics yet. Check back once your knowledge graph has more data.'}
+          {error ?? 'No suggested roles or searches yet. Check back once your recruiting pipeline has more data.'}
         </p>
       </div>
     )
@@ -226,7 +226,7 @@ export function SuggestedTopicsView({ onExploreTopic }: SuggestedTopicsViewProps
           <h2 className="text-base font-semibold text-foreground">Suggested Topics</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Suggested notes surfaced from your knowledge graph. Track one to start a tracking note.
+          Suggested searches surfaced from your recruiting pipeline. Track one to start a role brief.
         </p>
       </div>
       <div className="flex-1 overflow-y-auto p-6">

@@ -25,7 +25,7 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
   const [onboardingPath, setOnboardingPath] = useState<OnboardingPath>(null)
 
   // LLM setup state
-  const [llmProvider, setLlmProvider] = useState<LlmProviderFlavor>("openai")
+  const [llmProvider, setLlmProvider] = useState<LlmProviderFlavor>("google")
   const [modelsCatalog, setModelsCatalog] = useState<Record<string, LlmModelOption[]>>({})
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsError, setModelsError] = useState<string | null>(null)
@@ -62,9 +62,6 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
   const [slackPickerOpen, setSlackPickerOpen] = useState(false)
   const [slackDiscovering, setSlackDiscovering] = useState(false)
   const [slackDiscoverError, setSlackDiscoverError] = useState<string | null>(null)
-
-  // Inline upsell callout dismissed
-  const [upsellDismissed, setUpsellDismissed] = useState(false)
 
   // Composio Gmail/Calendar sync was removed — flags are seeded false and
   // never flipped. Kept here so legacy gating expressions still type-check.
@@ -164,7 +161,7 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
     if (Object.keys(modelsCatalog).length === 0) return
     setProviderConfigs(prev => {
       const next = { ...prev }
-      const cloudProviders: LlmProviderFlavor[] = ["openai", "anthropic", "google"]
+      const cloudProviders: LlmProviderFlavor[] = ["google"]
       for (const provider of cloudProviders) {
         const models = modelsCatalog[provider]
         if (models?.length && !next[provider].model) {
@@ -603,12 +600,6 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
     startConnect('google', { clientId, clientSecret })
   }, [startConnect])
 
-  // Switch to jobraker-recruiter path from BYOK inline callout
-  const handleSwitchToJobrakerRecruiter = useCallback(() => {
-    setOnboardingPath('jobraker-recruiter')
-    setCurrentStep(0)
-  }, [])
-
   return {
     // Step state
     currentStep,
@@ -667,10 +658,6 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
     handleSlackSaveWorkspaces,
     handleSlackDisable,
 
-    // Upsell
-    upsellDismissed,
-    setUpsellDismissed,
-
     // Composio/Gmail state
     useComposioForGoogle,
     gmailConnected,
@@ -693,7 +680,6 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
     handleNext,
     handleBack,
     handleComplete,
-    handleSwitchToJobrakerRecruiter,
   }
 }
 

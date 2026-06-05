@@ -531,8 +531,8 @@ export function HomeView({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-[13.5px] leading-snug">
-                  <span className="font-medium">Connect your tools.</span>
-                  <span className="text-muted-foreground"> Bring context from the apps you already use.</span>
+                  <span className="font-medium">Connect your recruiting stack.</span>
+                  <span className="text-muted-foreground"> LinkedIn, email, ATS, and more — candidate context in one workspace.</span>
                 </div>
                 <div className="mt-3 flex min-h-5 flex-wrap items-center gap-1.5">
                   {toolkitLogosLoaded && toolkitPreviews.map((toolkit) => (
@@ -571,8 +571,8 @@ export function HomeView({
                 <MessageSquare className="size-[15px]" />
               </div>
               <div className="min-w-0 flex-1 text-[13.5px] leading-snug">
-                <span className="font-medium">Ask anything</span>
-                <span className="text-muted-foreground"> — create presentations, do research, collaborate on docs.</span>
+                <span className="font-medium">Start a search</span>
+                <span className="text-muted-foreground"> — source candidates, draft outreach, or screen profiles for your open roles.</span>
               </div>
               <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-medium text-primary">
                 New chat

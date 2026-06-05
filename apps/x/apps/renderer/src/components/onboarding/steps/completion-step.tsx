@@ -39,7 +39,7 @@ export function CompletionStep({ state }: CompletionStepProps) {
         transition={{ delay: 0.25 }}
         className="text-3xl font-bold tracking-tight mb-3"
       >
-        You're All Set!
+        You're ready to hire
       </motion.h2>
 
       <motion.p
@@ -49,9 +49,9 @@ export function CompletionStep({ state }: CompletionStepProps) {
         className="text-base text-muted-foreground leading-relaxed max-w-sm mb-8"
       >
         {hasConnections ? (
-          <>Give me 30 minutes to build your context graph. I can still help with other things on your computer.</>
+          <>We're syncing your recruiting context in the background. Start sourcing, screening, and outreach now — your pipeline builds as you work.</>
         ) : (
-          <>You can connect your accounts anytime from the sidebar to start syncing data.</>
+          <>Connect email and calendar anytime from the sidebar to power outreach sequences and interview scheduling.</>
         )}
       </motion.p>
 
@@ -124,7 +124,7 @@ export function CompletionStep({ state }: CompletionStepProps) {
           size="lg"
           className="w-full max-w-xs h-12 text-base font-medium"
         >
-          Start Using Jobraker Recruiter
+          Start recruiting with Jobraker Recruiter
         </Button>
       </motion.div>
     </div>

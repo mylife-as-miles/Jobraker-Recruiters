@@ -63,9 +63,11 @@ module.exports = {
             name: '@electron-forge/maker-squirrel',
             config: (arch) => ({
                 authors: 'jobraker-recruiter',
-                description: 'AI coworker with memory',
+                description: 'AI recruiting for lean teams — source, screen, and outreach without the headcount',
                 name: `jobraker-recruiter-win32-${arch}`,
                 setupExe: `jobraker-recruiter-win32-${arch}-${pkg.version}-setup.exe`,
+                setupIcon: path.join(__dirname, 'icons', 'icon.ico'),
+                iconUrl: 'https://jobraker-recruiter.com/icon.ico',
             })
         },
         {
@@ -74,7 +76,7 @@ module.exports = {
                 options: {
                     name: `jobraker-recruiter`,
                     bin: "jobraker-recruiter",
-                    description: 'AI coworker with memory',
+                    description: 'AI recruiting for lean teams — source, screen, and outreach without the headcount',
                     maintainer: 'jobraker-recruiter',
                     homepage: 'https://jobraker-recruiter.com'
                 }
@@ -86,7 +88,7 @@ module.exports = {
                 options: {
                     name: `jobraker-recruiter`,
                     bin: "jobraker-recruiter",
-                    description: 'AI coworker with memory',
+                    description: 'AI recruiting for lean teams — source, screen, and outreach without the headcount',
                     homepage: 'https://jobraker-recruiter.com'
                 }
             }

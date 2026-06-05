@@ -1,4 +1,4 @@
-import { Mail, Calendar, FolderOpen, FileText, Presentation } from 'lucide-react'
+import { Mail, Search, UserCheck, Bot, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface Suggestion {
@@ -10,34 +10,34 @@ export interface Suggestion {
 
 const defaultSuggestions: Suggestion[] = [
   {
-    id: 'email-draft',
-    label: 'Draft an email',
-    prompt: "Let's draft an email response to [name]",
+    id: 'find-candidates',
+    label: 'Find candidates',
+    prompt: 'Find candidates for our [role title] — prioritize seed-stage startup experience',
+    icon: <Search className="h-4 w-4" />,
+  },
+  {
+    id: 'draft-outreach',
+    label: 'Draft outreach',
+    prompt: 'Write personalized outreach to [candidate name] for our [role] opening',
     icon: <Mail className="h-4 w-4" />,
   },
   {
-    id: 'meeting-prep',
-    label: 'Prep for a meeting',
-    prompt: 'Help me prep for my next meeting with [name]',
-    icon: <Calendar className="h-4 w-4" />,
+    id: 'screen-profile',
+    label: 'Screen a profile',
+    prompt: "Summarize [candidate name]'s fit for our [role] — highlight startup experience",
+    icon: <UserCheck className="h-4 w-4" />,
   },
   {
-    id: 'doc-collab',
-    label: 'Work on a document',
-    prompt: "Let's work on [document name]",
-    icon: <FileText className="h-4 w-4" />,
+    id: 'pipeline-followup',
+    label: 'Pipeline follow-ups',
+    prompt: 'Set up automated follow-ups for candidates in our [role] pipeline',
+    icon: <Bot className="h-4 w-4" />,
   },
   {
-    id: 'organize-files',
-    label: 'Organize files',
-    prompt: 'Help me organize [folder or files]',
-    icon: <FolderOpen className="h-4 w-4" />,
-  },
-  {
-    id: 'create-presentation',
-    label: 'Create a presentation',
-    prompt: 'Create a pdf presentation on [topic]',
-    icon: <Presentation className="h-4 w-4" />,
+    id: 'interview-prep',
+    label: 'Prep for interview',
+    prompt: 'Prep me for my interview with [candidate name] — summarize their background and startup fit',
+    icon: <Users className="h-4 w-4" />,
   },
 ]
 

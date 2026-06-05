@@ -411,7 +411,7 @@ const reposConfig = [
   {
     slug: 'jobraker-recruiter/jobraker-recruiter',
     label: 'Jobraker Recruiter',
-    description: 'AI coworker with memory',
+    description: 'AI recruiting for lean teams — source, screen, and outreach without the headcount',
   },
   {
     slug: 'openai/openai-cookbook',

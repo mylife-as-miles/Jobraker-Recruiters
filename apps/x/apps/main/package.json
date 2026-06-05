@@ -1,7 +1,7 @@
 {
     "name": "jobraker-recruiter",
     "productName": "Jobraker Recruiter",
-    "description": "AI coworker with memory",
+    "description": "AI recruiting for lean teams — source, screen, and outreach without the headcount",
     "type": "module",
     "version": "0.1.0",
     "main": ".package/dist/main.cjs",

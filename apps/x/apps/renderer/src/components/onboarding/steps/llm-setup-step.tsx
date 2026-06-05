@@ -1,4 +1,4 @@
-import { Loader2, CheckCircle2, ArrowLeft, X, Lightbulb } from "lucide-react"
+import { Loader2, CheckCircle2, ArrowLeft } from "lucide-react"
 import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,48 +10,30 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import {
-  OpenAIIcon,
-  AnthropicIcon,
-  GoogleIcon,
-  OllamaIcon,
-  OpenRouterIcon,
-  VercelIcon,
-  GenericApiIcon,
-} from "../provider-icons"
+import { GoogleIcon, OllamaIcon } from "../provider-icons"
 import type { OnboardingState, LlmProviderFlavor } from "../use-onboarding-state"
 
 interface LlmSetupStepProps {
   state: OnboardingState
 }
 
-const primaryProviders: Array<{ id: LlmProviderFlavor; name: string; description: string; color: string; icon: React.ReactNode }> = [
-  { id: "openai", name: "OpenAI", description: "GPT models", color: "bg-green-500/10 text-green-600 dark:text-green-400", icon: <OpenAIIcon /> },
-  { id: "anthropic", name: "Anthropic", description: "Claude models", color: "bg-orange-500/10 text-orange-600 dark:text-orange-400", icon: <AnthropicIcon /> },
+const providers: Array<{ id: LlmProviderFlavor; name: string; description: string; color: string; icon: React.ReactNode }> = [
   { id: "google", name: "Gemini", description: "Google AI Studio", color: "bg-blue-500/10 text-blue-600 dark:text-blue-400", icon: <GoogleIcon /> },
-  { id: "ollama", name: "Ollama", description: "Local models", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400", icon: <OllamaIcon /> },
-]
-
-const moreProviders: Array<{ id: LlmProviderFlavor; name: string; description: string; color: string; icon: React.ReactNode }> = [
-  { id: "openrouter", name: "OpenRouter", description: "Multiple models, one key", color: "bg-pink-500/10 text-pink-600 dark:text-pink-400", icon: <OpenRouterIcon /> },
-  { id: "aigateway", name: "AI Gateway", description: "Vercel AI Gateway", color: "bg-sky-500/10 text-sky-600 dark:text-sky-400", icon: <VercelIcon /> },
-  { id: "openai-compatible", name: "OpenAI-Compatible", description: "Custom endpoint", color: "bg-gray-500/10 text-gray-600 dark:text-gray-400", icon: <GenericApiIcon /> },
+  { id: "ollama", name: "Ollama", description: "Gemma 4 Models", color: "bg-purple-500/10 text-purple-600 dark:text-purple-400", icon: <OllamaIcon /> },
 ]
 
 export function LlmSetupStep({ state }: LlmSetupStepProps) {
   const {
     llmProvider, setLlmProvider, modelsCatalog, modelsLoading, modelsError,
     activeConfig, testState, setTestState, showApiKey,
-    showBaseURL, isLocalProvider, canTest, showMoreProviders, setShowMoreProviders,
+    showBaseURL, isLocalProvider, canTest,
     updateProviderConfig, handleTestAndSaveLlmConfig, handleBack,
-    upsellDismissed, setUpsellDismissed, handleSwitchToJobrakerRecruiter,
   } = state
 
-  const isMoreProvider = moreProviders.some(p => p.id === llmProvider)
   const modelsForProvider = modelsCatalog[llmProvider] || []
   const showModelInput = isLocalProvider || modelsForProvider.length === 0
 
-  const renderProviderCard = (provider: typeof primaryProviders[0], index: number) => {
+  const renderProviderCard = (provider: typeof providers[0], index: number) => {
     const isSelected = llmProvider === provider.id
     return (
       <motion.button
@@ -93,53 +75,12 @@ export function LlmSetupStep({ state }: LlmSetupStepProps) {
         Select a provider and configure your API key
       </p>
 
-      {/* Inline Jobraker Recruiter upsell callout */}
-      {!upsellDismissed && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, height: 0 }}
-          className="rounded-xl bg-primary/5 border border-primary/20 p-4 mb-6 flex items-start gap-3"
-        >
-          <Lightbulb className="size-5 text-primary shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground">
-              <span className="font-medium">Tip:</span> Hosted models recommended. Locally run LLMs can struggle with Jobraker Recruiter's parallel background agents. Bring your own API keys below, or sign in for instant access.
-            </p>
-            <button
-              onClick={handleSwitchToJobrakerRecruiter}
-              className="text-sm text-primary font-medium hover:underline mt-1 inline-block"
-            >
-              Sign in instead
-            </button>
-          </div>
-          <button
-            onClick={() => setUpsellDismissed(true)}
-            className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          >
-            <X className="size-4" />
-          </button>
-        </motion.div>
-      )}
-
       {/* Provider selection */}
       <div className="space-y-3 mb-4">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Provider</span>
         <div className="grid gap-2 sm:grid-cols-2">
-          {primaryProviders.map((p, i) => renderProviderCard(p, i))}
+          {providers.map((p, i) => renderProviderCard(p, i))}
         </div>
-        {(showMoreProviders || isMoreProvider) ? (
-          <div className="grid gap-2 sm:grid-cols-2 mt-2">
-            {moreProviders.map((p, i) => renderProviderCard(p, i + 4))}
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowMoreProviders(true)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
-          >
-            More providers...
-          </button>
-        )}
       </div>
 
       {/* Separator */}

@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bot, Mail, MessageSquare, Sparkles, Telescope } from 'lucide-react'
+import { ArrowUpRight, Bot, Mail, MessageSquare, Search, Sparkles, UserCheck } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/relative-time'
@@ -20,9 +20,10 @@ interface ChatEmptyStateProps {
 }
 
 const SUGGESTED_ACTIONS: { icon: typeof Mail; title: string; sub: string; prompt: string }[] = [
-  { icon: Mail, title: 'Draft a reply', sub: 'to an email', prompt: "Let's draft a reply to [name]'s email" },
-  { icon: Bot, title: 'Set up a background agent', sub: 'that automates tasks', prompt: 'Set up a background agent that automates [task]' },
-  { icon: Telescope, title: 'Research a topic', sub: 'create a local wiki for me', prompt: 'Research [topic] and create a local wiki for me' },
+  { icon: Search, title: 'Find candidates', sub: 'for an open role', prompt: 'Find candidates for our [role title] opening — prioritize people with seed-stage startup experience' },
+  { icon: Mail, title: 'Draft outreach', sub: 'to a candidate', prompt: "Write a personalized outreach message to [candidate name] for our [role] opening" },
+  { icon: UserCheck, title: 'Screen a profile', sub: 'for startup fit', prompt: 'Summarize [candidate name]\'s fit for our [role] — highlight early-stage experience and growth trajectory' },
+  { icon: Bot, title: 'Automate follow-ups', sub: 'across your pipeline', prompt: 'Set up a multi-channel follow-up sequence for candidates in our [role] pipeline' },
 ]
 
 /**
@@ -43,8 +44,8 @@ export function ChatEmptyState({
           <Sparkles className="size-[17px]" />
         </div>
         <div>
-          <div className="text-base font-semibold tracking-tight">What are we working on?</div>
-          <div className="text-xs text-muted-foreground">Ask anything, or pick up where you left off.</div>
+          <div className="text-base font-semibold tracking-tight">What role are you filling?</div>
+          <div className="text-xs text-muted-foreground">Source, screen, and outreach — or pick up an active search.</div>
         </div>
       </div>
 

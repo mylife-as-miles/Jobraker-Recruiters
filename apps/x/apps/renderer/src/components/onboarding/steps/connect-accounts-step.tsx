@@ -98,7 +98,7 @@ export function ConnectAccountsStep({ state }: ConnectAccountsStepProps) {
         Connect Your Accounts
       </h2>
       <p className="text-base text-muted-foreground text-center leading-relaxed mb-8">
-        Jobraker Recruiter gets smarter the more it knows about your work. Connect your accounts to get started. You can find more tools in Settings.
+        Connect the tools you recruit with every day — email for outreach, calendar for interviews, and meeting notes for candidate context. Add more integrations anytime in Settings.
       </p>
 
       {providersLoading ? (
@@ -116,7 +116,7 @@ export function ConnectAccountsStep({ state }: ConnectAccountsStepProps) {
               {useComposioForGoogle ? (
                 <ProviderCard
                   name="Gmail"
-                  description="Read emails for context and drafts."
+                  description="Track candidate threads and send personalized outreach."
                   icon={<GmailIcon />}
                   iconBg="bg-red-500/10"
                   iconColor="text-red-500"
@@ -127,7 +127,7 @@ export function ConnectAccountsStep({ state }: ConnectAccountsStepProps) {
               ) : (
                 <ProviderCard
                   name="Google"
-                  description="Jobraker Recruiter uses your email and calendar to provide personalized, context-aware assistance"
+                  description="Power outreach sequences, follow-ups, and interview scheduling from one workspace."
                   icon={<GmailIcon />}
                   iconBg="bg-red-500/10"
                   iconColor="text-red-500"
@@ -139,7 +139,7 @@ export function ConnectAccountsStep({ state }: ConnectAccountsStepProps) {
               {useComposioForGoogleCalendar && (
                 <ProviderCard
                   name="Google Calendar"
-                  description="Read meetings and your schedule."
+                  description="Sync interviews and hiring meetings to your pipeline."
                   icon={<Calendar className="size-5" />}
                   iconBg="bg-blue-500/10"
                   iconColor="text-blue-500"
@@ -168,7 +168,7 @@ export function ConnectAccountsStep({ state }: ConnectAccountsStepProps) {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-semibold">Jobraker Recruiter Meeting Notes</div>
-                  <div className="text-xs text-muted-foreground truncate">Built in. Ready to use.</div>
+                  <div className="text-xs text-muted-foreground truncate">Capture interview notes and candidate debriefs automatically.</div>
                 </div>
               </div>
               <div className="shrink-0">

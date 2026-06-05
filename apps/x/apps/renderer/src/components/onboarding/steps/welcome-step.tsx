@@ -1,4 +1,3 @@
-import { Loader2, CheckCircle2 } from "lucide-react"
 import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import type { OnboardingState } from "../use-onboarding-state"
@@ -8,8 +7,6 @@ interface WelcomeStepProps {
 }
 
 export function WelcomeStep({ state }: WelcomeStepProps) {
-  const jobrakerRecruiterState = state.providerStates['jobraker-recruiter'] || { isConnected: false, isLoading: false, isConnecting: false }
-
   return (
     <div className="flex flex-col items-center justify-center text-center flex-1">
       {/* Logo with ambient glow */}
@@ -19,8 +16,8 @@ export function WelcomeStep({ state }: WelcomeStepProps) {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="relative mb-8"
       >
-        <div className="absolute inset-0 size-16 rounded-2xl bg-primary/10 blur-xl scale-[2.5]" />
-        <img src="/logo-only.png" alt="Jobraker Recruiter" className="relative size-16" />
+        <div className="absolute inset-0 size-16 rounded-2xl bg-brand/15 blur-xl scale-[2.5]" />
+        <img src="/logo-only.png" alt="Jobraker Recruiter" className="relative size-16 rounded-2xl object-cover brand-glow" />
       </motion.div>
 
       {/* Tagline badge */}
@@ -31,7 +28,7 @@ export function WelcomeStep({ state }: WelcomeStepProps) {
         className="inline-flex items-center gap-2 rounded-full border bg-muted/50 px-3.5 py-1.5 text-xs font-medium text-muted-foreground mb-6"
       >
         <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
-        Your AI coworker, with memory
+        Your AI recruiting copilot
       </motion.div>
 
       {/* Main heading */}
@@ -49,75 +46,25 @@ export function WelcomeStep({ state }: WelcomeStepProps) {
         transition={{ delay: 0.3 }}
         className="text-base text-muted-foreground leading-relaxed max-w-sm mb-10"
       >
-        Jobraker Recruiter connects to your work, builds a knowledge graph, and uses that context to help you get things done. Private and on your machine.
+        Go from open role to qualified pipeline in hours, not weeks. Describe your ideal candidate in plain English, search 800M+ profiles, and launch personalized outreach the same day — built for lean teams that can't wait on headcount.
       </motion.p>
 
-      {/* Sign in / connected state */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
         className="w-full max-w-xs"
       >
-        {jobrakerRecruiterState.isConnected ? (
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-              <CheckCircle2 className="size-5" />
-              <span className="text-sm font-medium">Connected to Jobraker Recruiter</span>
-            </div>
-            <Button
-              onClick={() => {
-                state.setOnboardingPath('jobraker-recruiter')
-                state.setCurrentStep(2)
-              }}
-              size="lg"
-              className="w-full h-12 text-base font-medium"
-            >
-              Continue
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-4">
-            <Button
-              onClick={() => {
-                state.setOnboardingPath('jobraker-recruiter')
-                state.startConnect('jobraker-recruiter')
-              }}
-              size="lg"
-              className="w-full h-12 text-base font-medium"
-              disabled={jobrakerRecruiterState.isConnecting}
-            >
-              {jobrakerRecruiterState.isConnecting ? (
-                <><Loader2 className="size-5 animate-spin mr-2" />Waiting for sign in...</>
-              ) : (
-                "Sign in with Jobraker Recruiter"
-              )}
-            </Button>
-            {jobrakerRecruiterState.isConnecting && (
-              <p className="text-xs text-muted-foreground animate-pulse">
-                Complete sign in in your browser, then return here.
-              </p>
-            )}
-          </div>
-        )}
-      </motion.div>
-
-      {/* BYOK link */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="mt-8"
-      >
-        <button
+        <Button
           onClick={() => {
             state.setOnboardingPath('byok')
             state.setCurrentStep(1)
           }}
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4 decoration-muted-foreground/30 hover:decoration-foreground/50"
+          size="lg"
+          className="w-full h-12 text-base font-medium"
         >
-          I want to bring my own API key
-        </button>
+          Start with my own API key
+        </Button>
       </motion.div>
     </div>
   )

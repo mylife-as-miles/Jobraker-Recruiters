@@ -217,7 +217,7 @@ function createWindow() {
     minWidth: 600,
     minHeight: 480,
     show: false, // Don't show until ready
-    backgroundColor: "#252525", // Prevent white flash (matches dark mode)
+    backgroundColor: "#0a0a0a", // Prevent white flash (matches dark mode canvas)
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 12, y: 12 },
     webPreferences: {

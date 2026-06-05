@@ -41,7 +41,7 @@ const tabs: TabConfig[] = [
     id: "account",
     label: "Account",
     icon: User,
-    description: "Manage your Jobraker Recruiter account",
+    description: "Manage your recruiting workspace and subscription",
   },
   {
     id: "connections",
@@ -255,17 +255,11 @@ interface LlmModelOption {
 }
 
 const primaryProviders: Array<{ id: LlmProviderFlavor; name: string; description: string }> = [
-  { id: "openai", name: "OpenAI", description: "GPT models" },
-  { id: "anthropic", name: "Anthropic", description: "Claude models" },
   { id: "google", name: "Gemini", description: "Google AI Studio" },
-  { id: "ollama", name: "Ollama (Local)", description: "Run models locally" },
+  { id: "ollama", name: "Ollama", description: "Gemma 4 Models" },
 ]
 
-const moreProviders: Array<{ id: LlmProviderFlavor; name: string; description: string }> = [
-  { id: "openrouter", name: "OpenRouter", description: "Multiple models, one key" },
-  { id: "aigateway", name: "AI Gateway (Vercel)", description: "Vercel's AI Gateway" },
-  { id: "openai-compatible", name: "OpenAI-Compatible", description: "Custom OpenAI-compatible API" },
-]
+const moreProviders: Array<{ id: LlmProviderFlavor; name: string; description: string }> = []
 
 const preferredDefaults: Partial<Record<LlmProviderFlavor, string>> = {
   openai: "gpt-5.2",
@@ -278,7 +272,7 @@ const defaultBaseURLs: Partial<Record<LlmProviderFlavor, string>> = {
 }
 
 function ModelSettings({ dialogOpen }: { dialogOpen: boolean }) {
-  const [provider, setProvider] = useState<LlmProviderFlavor>("openai")
+  const [provider, setProvider] = useState<LlmProviderFlavor>("google")
   const [defaultProvider, setDefaultProvider] = useState<LlmProviderFlavor | null>(null)
   const [providerConfigs, setProviderConfigs] = useState<Record<LlmProviderFlavor, { apiKey: string; baseURL: string; models: string[]; knowledgeGraphModel: string; meetingNotesModel: string; liveNoteAgentModel: string }>>({
     openai: { apiKey: "", baseURL: "", models: [""], knowledgeGraphModel: "", meetingNotesModel: "", liveNoteAgentModel: "" },
@@ -451,7 +445,7 @@ function ModelSettings({ dialogOpen }: { dialogOpen: boolean }) {
     if (Object.keys(modelsCatalog).length === 0) return
     setProviderConfigs(prev => {
       const next = { ...prev }
-      const cloudProviders: LlmProviderFlavor[] = ["openai", "anthropic", "google"]
+      const cloudProviders: LlmProviderFlavor[] = ["google"]
       for (const prov of cloudProviders) {
         const catalog = modelsCatalog[prov]
         if (catalog?.length && !next[prov].models[0]) {
@@ -635,18 +629,18 @@ function ModelSettings({ dialogOpen }: { dialogOpen: boolean }) {
         <div className="grid gap-2 grid-cols-2">
           {primaryProviders.map(renderProviderCard)}
         </div>
-        {(showMoreProviders || isMoreProvider) ? (
+        {moreProviders.length > 0 && (showMoreProviders || isMoreProvider) ? (
           <div className="grid gap-2 grid-cols-2 mt-2">
             {moreProviders.map(renderProviderCard)}
           </div>
-        ) : (
+        ) : moreProviders.length > 0 ? (
           <button
             onClick={() => setShowMoreProviders(true)}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors mt-1"
           >
             More providers...
           </button>
-        )}
+        ) : null}
       </div>
 
       {/* Model selection - side by side */}

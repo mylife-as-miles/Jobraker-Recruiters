@@ -1133,6 +1133,8 @@
   --radius-4xl: calc(var(--radius) + 16px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -1268,8 +1270,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-family: Questrial, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     text-rendering: optimizeLegibility;
   }
 
@@ -1530,4 +1531,73 @@
     opacity: 1;
     transform: translateX(-120%);
   }
+}
+
+/* ============================================================
+   Jobraker brand theme
+   Signature bright-green accent (#1dff00) + dark canvas, ported
+   from the Jobraker marketing app. Drives primary / ring /
+   sidebar-active states via --main-color and adds brand glow,
+   gradient text and a green-tinted scrollbar.
+   ============================================================ */
+:root {
+  /* #1dff00 expressed in oklch */
+  --brand: oklch(0.87 0.28 142);
+  --brand-strong: oklch(0.78 0.27 143);
+  --brand-soft: oklch(0.87 0.28 142 / 0.12);
+  --main-color: var(--brand);
+  /* Green surfaces always pair with dark text (matches Jobraker) */
+  --primary-foreground: oklch(0.16 0 0);
+  --ring: var(--brand);
+  --scrollbar-thumb: oklch(0.87 0.28 142 / 0.42);
+  --scrollbar-thumb-hover: oklch(0.87 0.28 142 / 0.68);
+}
+
+.dark {
+  --brand: oklch(0.87 0.28 142);
+  --brand-strong: oklch(0.78 0.27 143);
+  --brand-soft: oklch(0.87 0.28 142 / 0.16);
+  --main-color: var(--brand);
+  --primary-foreground: oklch(0.16 0 0);
+  --ring: var(--brand);
+  /* Deepen the canvas toward Jobraker's near-black while keeping cards lifted */
+  --background: oklch(0.12 0 0);
+  --popover: oklch(0.16 0 0);
+  --sidebar: oklch(0.1 0 0);
+  --scrollbar-track: oklch(0.16 0 0);
+  --scrollbar-thumb: oklch(0.87 0.28 142 / 0.34);
+  --scrollbar-thumb-hover: oklch(0.87 0.28 142 / 0.6);
+}
+
+/* Brand gradient fill (logo-adjacent surfaces, CTAs) */
+.bg-brand-gradient {
+  background-image: linear-gradient(135deg, var(--brand-strong), var(--brand));
+}
+
+/* Brand gradient text (wordmark-style headings) */
+.text-brand-gradient {
+  background-image: linear-gradient(90deg, var(--brand-strong), var(--brand));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Ambient green glow used around brand marks / focal cards */
+.brand-glow {
+  box-shadow:
+    0 0 14px color-mix(in oklab, var(--brand) 22%, transparent),
+    0 0 32px color-mix(in oklab, var(--brand) 10%, transparent);
+}
+
+.card-hover {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--brand) 40%, transparent);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--brand) 18%, transparent);
 }

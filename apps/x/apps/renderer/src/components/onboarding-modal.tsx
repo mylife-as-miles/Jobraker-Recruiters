@@ -907,12 +907,12 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     return (
       <div className="flex flex-col items-center text-center">
         <div className="flex items-center justify-center gap-3 mb-3">
-          <span className="text-lg font-medium text-muted-foreground">Your AI coworker, with memory</span>
+          <span className="text-lg font-medium text-muted-foreground">Your AI recruiting copilot</span>
         </div>
         <DialogHeader className="space-y-3 mb-8">
           <DialogTitle className="text-2xl">Sign in to Jobraker Recruiter</DialogTitle>
           <DialogDescription className="text-base max-w-md mx-auto">
-            Connect your Jobraker Recruiter account for instant access to all models through our gateway — no API keys needed.
+            Source, screen, and outreach at startup speed. Sign in for instant access to AI models — no API keys needed.
           </DialogDescription>
         </DialogHeader>
 
@@ -1058,7 +1058,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     return (
       <div className="flex flex-col">
         <div className="flex items-center justify-center gap-3 mb-3">
-          <span className="text-lg font-medium text-muted-foreground">Your AI coworker, with memory</span>
+          <span className="text-lg font-medium text-muted-foreground">Your AI recruiting copilot</span>
         </div>
         <DialogHeader className="text-center mb-3">
           <DialogTitle className="text-2xl">Choose your model</DialogTitle>
@@ -1358,12 +1358,12 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
           <CheckCircle2 className="size-10 text-green-600" />
         </div>
         <DialogHeader className="space-y-3">
-          <DialogTitle className="text-2xl">You're All Set!</DialogTitle>
+          <DialogTitle className="text-2xl">You're ready to hire</DialogTitle>
           <DialogDescription className="text-base max-w-md mx-auto">
             {hasConnections ? (
-              <>Give me 30 minutes to build your context graph.<br />I can still help with other things on your computer.</>
+              <>We're syncing your recruiting context in the background. Start sourcing, screening, and outreach now — your pipeline builds as you work.</>
             ) : (
-              <>You can connect your accounts anytime from the sidebar to start syncing data.</>
+              <>Connect email and calendar anytime from the sidebar to power outreach sequences and interview scheduling.</>
             )}
           </DialogDescription>
         </DialogHeader>

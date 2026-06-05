@@ -711,6 +711,15 @@ export function SidebarContentPanel({
       <SidebarHeader className="titlebar-drag-region">
         {/* Top spacer to clear the traffic lights + fixed toggle row */}
         <div className="h-8" />
+        {/* Brand mark */}
+        <div className="titlebar-no-drag flex items-center gap-2 px-3 pb-1">
+          <img
+            src="/logo-only.png"
+            alt="Jobraker"
+            className="size-6 rounded-md object-cover brand-glow"
+          />
+          <span className="text-sm font-semibold tracking-tight">Jobraker</span>
+        </div>
         {/* Quick actions */}
         <div className="titlebar-no-drag flex items-center gap-1.5 px-3 pb-2">
           {onNewChat && (
