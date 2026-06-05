@@ -28,7 +28,7 @@ export function useTheme() {
 }
 
 export function ThemeProvider({
-  defaultTheme = "system",
+  defaultTheme = "dark",
   children,
 }: {
   defaultTheme?: Theme
@@ -52,6 +52,7 @@ export function ThemeProvider({
 
     root.classList.remove("light", "dark")
     root.classList.add(resolved)
+    root.style.colorScheme = resolved
     setResolvedTheme(resolved)
   }, [theme])
 
@@ -64,6 +65,7 @@ export function ThemeProvider({
       const resolved = getSystemTheme()
       document.documentElement.classList.remove("light", "dark")
       document.documentElement.classList.add(resolved)
+      document.documentElement.style.colorScheme = resolved
       setResolvedTheme(resolved)
     }
 

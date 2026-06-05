@@ -1217,48 +1217,50 @@
 }
 
 .dark {
-  --background: var(--bg-color, oklch(0.145 0 0));
-  --foreground: var(--text-color, oklch(0.985 0 0));
-  --card: var(--bg-color, oklch(0.205 0 0));
-  --card-foreground: var(--text-color, oklch(0.985 0 0));
-  --popover: var(--bg-color, oklch(0.205 0 0));
-  --popover-foreground: var(--text-color, oklch(0.985 0 0));
-  --primary: var(--main-color, oklch(0.922 0 0));
-  --primary-foreground: var(--bg-color, oklch(0.205 0 0));
-  --secondary: var(--sub-alt-color, oklch(0.269 0 0));
-  --secondary-foreground: var(--text-color, oklch(0.985 0 0));
-  --muted: var(--sub-alt-color, oklch(0.269 0 0));
-  --muted-foreground: var(--sub-color, oklch(0.708 0 0));
-  --accent: var(--sub-color, oklch(0.269 0 0));
-  --accent-foreground: var(--text-color, oklch(0.985 0 0));
-  --destructive: var(--error-color, oklch(0.704 0.191 22.216));
-  --border: var(--sub-alt-color, oklch(1 0 0 / 10%));
-  --input: var(--sub-alt-color, oklch(1 0 0 / 15%));
-  --ring: var(--main-color, oklch(0.556 0 0));
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: var(--bg-color, oklch(0.205 0 0));
-  --sidebar-foreground: var(--text-color, oklch(0.985 0 0));
-  --sidebar-primary: var(--main-color, oklch(0.488 0.243 264.376));
-  --sidebar-primary-foreground: var(--bg-color, oklch(0.985 0 0));
-  --sidebar-accent: var(--sub-color, oklch(0.35 0 0));
-  --sidebar-accent-foreground: var(--text-color, oklch(0.985 0 0));
-  --sidebar-border: var(--sub-alt-color, oklch(1 0 0 / 10%));
-  --sidebar-ring: var(--main-color, oklch(0.556 0 0));
-  --scrollbar-track: oklch(0.2 0 0);
-  --scrollbar-thumb: oklch(0.4 0 0);
-  --scrollbar-thumb-hover: oklch(0.5 0 0);
-  --jobraker-recruiter-panel: oklch(0.269 0 0);
-  --jobraker-recruiter-raised: oklch(0.205 0 0);
+  color-scheme: dark;
+  --background: var(--bg-color, oklch(0 0 0));
+  --foreground: var(--text-color, oklch(0.98 0.01 250));
+  --card: var(--bg-color, oklch(0 0 0));
+  --card-foreground: var(--text-color, oklch(0.98 0.01 250));
+  --popover: var(--bg-color, oklch(0.14 0.02 260));
+  --popover-foreground: var(--text-color, oklch(0.98 0.01 250));
+  --primary: var(--main-color, oklch(0.87 0.28 142));
+  --primary-foreground: var(--bg-color, oklch(0.16 0 0));
+  --secondary: var(--sub-alt-color, oklch(0.22 0.02 260));
+  --secondary-foreground: var(--text-color, oklch(0.98 0.01 250));
+  --muted: var(--sub-alt-color, oklch(0.22 0.02 260));
+  --muted-foreground: var(--sub-color, oklch(0.68 0.02 260));
+  --accent: var(--sub-color, oklch(0.22 0.02 260));
+  --accent-foreground: var(--text-color, oklch(0.98 0.01 250));
+  --destructive: var(--error-color, oklch(0.87 0.28 142));
+  --border: var(--sub-alt-color, oklch(0.22 0.02 260));
+  --input: var(--sub-alt-color, oklch(0.22 0.02 260));
+  --ring: var(--main-color, oklch(0.87 0.28 142));
+  --chart-1: oklch(0.87 0.28 142);
+  --chart-2: oklch(0.78 0.27 143);
+  --chart-3: oklch(0.68 0.2 142);
+  --chart-4: oklch(0.58 0.16 142);
+  --chart-5: oklch(0.48 0.12 142);
+  --sidebar: var(--bg-color, oklch(0 0 0));
+  --sidebar-foreground: var(--text-color, oklch(0.98 0.01 250));
+  --sidebar-primary: var(--main-color, oklch(0.87 0.28 142));
+  --sidebar-primary-foreground: var(--bg-color, oklch(0.16 0 0));
+  --sidebar-accent: var(--sub-color, oklch(0.22 0.02 260));
+  --sidebar-accent-foreground: var(--text-color, oklch(0.98 0.01 250));
+  --sidebar-border: var(--sub-alt-color, oklch(0.22 0.02 260));
+  --sidebar-ring: var(--main-color, oklch(0.87 0.28 142));
+  --scrollbar-track: oklch(0.08 0 0);
+  --scrollbar-thumb: oklch(0.87 0.28 142 / 0.34);
+  --scrollbar-thumb-hover: oklch(0.87 0.28 142 / 0.6);
+  --card-surface: color-mix(in oklab, var(--background) 92%, var(--foreground));
+  --jobraker-recruiter-panel: oklch(0.18 0 0);
+  --jobraker-recruiter-raised: oklch(0.1 0 0);
   --jobraker-recruiter-wash: color-mix(in oklab, var(--background) 80%, var(--primary) 20%);
   --jobraker-recruiter-hairline: color-mix(in oklab, var(--border) 70%, var(--foreground) 30%);
-  --jobraker-recruiter-command: oklch(0.922 0 0);
-  --jobraker-recruiter-attention: oklch(0.769 0.188 70.08);
-  --jobraker-recruiter-shadow: 0 1px 2px rgb(0 0 0 / 0.24), 0 22px 44px rgb(0 0 0 / 0.28);
-  --jobraker-recruiter-shadow-soft: 0 1px 2px rgb(0 0 0 / 0.2), 0 12px 28px rgb(0 0 0 / 0.18);
+  --jobraker-recruiter-command: oklch(0.98 0.01 250);
+  --jobraker-recruiter-attention: oklch(0.87 0.28 142);
+  --jobraker-recruiter-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 22px 44px rgb(0 0 0 / 0.45);
+  --jobraker-recruiter-shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 28px rgb(0 0 0 / 0.35);
 }
 
 @layer base {
@@ -1560,13 +1562,6 @@
   --main-color: var(--brand);
   --primary-foreground: oklch(0.16 0 0);
   --ring: var(--brand);
-  /* Deepen the canvas toward Jobraker's near-black while keeping cards lifted */
-  --background: oklch(0.12 0 0);
-  --popover: oklch(0.16 0 0);
-  --sidebar: oklch(0.1 0 0);
-  --scrollbar-track: oklch(0.16 0 0);
-  --scrollbar-thumb: oklch(0.87 0.28 142 / 0.34);
-  --scrollbar-thumb-hover: oklch(0.87 0.28 142 / 0.6);
 }
 
 /* Brand gradient fill (logo-adjacent surfaces, CTAs) */
