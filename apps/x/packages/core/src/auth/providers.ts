@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { getJobrakerRecruiterConfig } from '../config/jobrakerRecruiter.js';
+import { getJobrakerRecruiterConfig } from '../config/jobraker-recruiter.js';
 
 /**
  * Discovery configuration - how to get OAuth endpoints

@@ -49,7 +49,7 @@ import { classifySchedule, processJobrakerRecruiterInstruction } from '@x/core/d
 import { getBillingInfo } from '@x/core/dist/billing/billing.js';
 import { summarizeMeeting } from '@x/core/dist/knowledge/summarize_meeting.js';
 import { getAccessToken } from '@x/core/dist/auth/tokens.js';
-import { getJobrakerRecruiterConfig } from '@x/core/dist/config/jobrakerRecruiter.js';
+import { getJobrakerRecruiterConfig } from '@x/core/dist/config/jobraker-recruiter.js';
 import { runLiveNoteAgent } from '@x/core/dist/knowledge/live-note/runner.js';
 import { listImportantThreads, listEverythingElseThreads, saveMessageBodyHeight, triggerSync as triggerGmailSync, sendThreadReply, archiveThread, trashThread, markThreadRead, getAccountEmail, getConnectionStatus as getGmailConnectionStatus } from '@x/core/dist/knowledge/sync_gmail.js';
 import { liveNoteBus } from '@x/core/dist/knowledge/live-note/bus.js';

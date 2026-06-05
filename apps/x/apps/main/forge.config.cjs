@@ -5,6 +5,16 @@
 const path = require('path');
 const pkg = require('./package.json');
 
+function runPackageBuild(cwd) {
+    const { execSync } = require('child_process');
+    execSync('npm run build', {
+        cwd,
+        stdio: 'inherit',
+        shell: true,
+        env: { ...process.env, CI: 'true' },
+    });
+}
+
 module.exports = {
     packagerConfig: {
         executableName: 'jobraker-recruiter',
@@ -119,38 +129,23 @@ module.exports = {
 
             // Build shared (TypeScript compilation) - no dependencies
             console.log('Building shared...');
-            execSync('pnpm run build', {
-                cwd: path.join(__dirname, '../../packages/shared'),
-                stdio: 'inherit'
-            });
+            runPackageBuild(path.join(__dirname, '../../packages/shared'));
 
             // Build core (TypeScript compilation) - depends on shared
             console.log('Building core...');
-            execSync('pnpm run build', {
-                cwd: path.join(__dirname, '../../packages/core'),
-                stdio: 'inherit'
-            });
+            runPackageBuild(path.join(__dirname, '../../packages/core'));
 
             // Build renderer (Vite build) - depends on shared
             console.log('Building renderer...');
-            execSync('pnpm run build', {
-                cwd: path.join(__dirname, '../renderer'),
-                stdio: 'inherit'
-            });
+            runPackageBuild(path.join(__dirname, '../renderer'));
 
             // Build preload (TypeScript compilation) - depends on shared
             console.log('Building preload...');
-            execSync('pnpm run build', {
-                cwd: path.join(__dirname, '../preload'),
-                stdio: 'inherit'
-            });
+            runPackageBuild(path.join(__dirname, '../preload'));
 
             // Build main (TypeScript compilation) - depends on core, shared
             console.log('Building main (tsc)...');
-            execSync('pnpm run build', {
-                cwd: __dirname,
-                stdio: 'inherit'
-            });
+            runPackageBuild(__dirname);
 
             // Bundle main process with esbuild (inlines all dependencies)
             console.log('Bundling main process...');
