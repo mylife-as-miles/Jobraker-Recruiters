@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-    <a href="https://www.jobraker-recruiter.com/" target="_blank" rel="noopener">
+  <a href="https://www.jobraker-recruiter.com/" target="_blank" rel="noopener">
     <img alt="Website" src="https://img.shields.io/badge/Website-10b981?labelColor=10b981&logo=window&logoColor=white">
   </a>
   <a href="https://discord.gg/wajrgmJQ6b" target="_blank" rel="noopener">
@@ -20,30 +20,30 @@
   <a href="https://x.com/intent/user?screen_name=jobraker-recruiterhq" target="_blank" rel="noopener">
     <img alt="Twitter" src="https://img.shields.io/twitter/follow/jobraker-recruiterhq?style=social">
   </a>
-  <a href="https://www.ycombinator.com" target="_blank" rel="noopener">
-    <img alt="Y Combinator" src="https://img.shields.io/badge/Y%20Combinator-S24-orange">
-  </a>
 </p>
 
-# Jobraker Recruiter  
-**Open-source AI coworker that turns work into a knowledge graph and acts on it**
+# Jobraker Recruiter
+**AI recruiting for lean teams — source, screen, and outreach without the headcount**
 
 </h5>
 
-Jobraker Recruiter connects to your email and meeting notes, builds a long-lived knowledge graph, and uses that context to help you get work done - privately, on your machine.
+Jobraker Recruiter is a local-first desktop copilot for recruiters and hiring managers at lean startups. Describe your ideal candidate in plain English, search across 800M+ profiles, screen for startup fit, and draft personalized outreach — all from one chat, with your data staying on your machine.
+
+**Jobraker** (in `Jobraker/`) is the job-seeker product. **Jobraker Recruiter** is the recruiter-side companion in this monorepo.
 
 You can do things like:
-- `Build me a deck about our next quarter roadmap` → generates a PDF using context from your knowledge graph
-- `Prep me for my meeting with Alex` → pulls past decisions, open questions, and relevant threads into a crisp brief (or a voice note)
-- Track a person, company or topic through live notes
-- Visualize, edit, and update your knowledge graph anytime (it’s just Markdown)
-- Record voice memos that automatically capture and update key takeaways in the graph
+- `Find candidates for our founding engineer role` → search and shortlist profiles with seed-stage experience
+- `Draft outreach to [candidate] for our PM opening` → personalized messages grounded in role context
+- `Screen this profile for startup fit` → summarize strengths, gaps, and growth trajectory
+- `Set up follow-ups across our pipeline` → multi-step outreach across your active searches
+- Build a long-lived knowledge graph from email, meetings, and notes to keep hiring context compounding
 
-Download latest for Mac/Windows/Linux: [Download](https://www.jobraker-recruiter.com/downloads)
+**Download for Mac / Windows / Linux:** [jobraker-recruiter.com/downloads](https://www.jobraker-recruiter.com/downloads)
 
-⭐ If you find Jobraker Recruiter useful, please star the repo. It helps more people find it.
+⭐ If you find Jobraker Recruiter useful, please star the repo.
 
 ## Demo
+
 [![Demo](https://github.com/user-attachments/assets/8b9a859b-d4f1-47ca-9d1d-9d26d982e15d)](https://www.youtube.com/watch?v=7xTpciZCfpw)
 
 [Watch the full video](https://www.youtube.com/watch?v=7xTpciZCfpw)
@@ -52,105 +52,148 @@ Download latest for Mac/Windows/Linux: [Download](https://www.jobraker-recruiter
 
 ## Installation
 
-**Download latest for Mac/Windows/Linux:** [Download](https://www.jobraker-recruiter.com/downloads)
+**Latest installers:** [Download](https://www.jobraker-recruiter.com/downloads)
 
-**All release files:**   https://github.com/jobraker-recruiter/jobraker-recruiter/releases/latest
+**All release files:** https://github.com/jobraker-recruiter/jobraker-recruiter/releases/latest
+
+### First launch
+
+On first run, choose **Start with my own API key** and configure an LLM provider:
+
+| Provider | Notes |
+|----------|--------|
+| **Gemini** | Recommended; uses your Google AI API key |
+| **Ollama** | Local models (Gemma 4 family) — no cloud key required |
+
+Model config is stored at `~/.jobraker-recruiter/config/models.json`.
 
 ### Google setup
-To connect Google services (Gmail, Calendar, and Drive), follow [Google setup](https://github.com/jobraker-recruiter/jobraker-recruiter/blob/main/google-setup.md).
 
-### Voice input
-To enable voice input and voice notes (optional), add a Deepgram API key in `~/.jobraker-recruiter/config/deepgram.json`
+To connect Google services (Gmail, Calendar, and Drive), follow [Google setup](google-setup.md).
 
-### Voice output
+### Voice input (optional)
 
-To enable voice output (optional), add an ElevenLabs API key in `~/.jobraker-recruiter/config/elevenlabs.json`
+Add a Deepgram API key in `~/.jobraker-recruiter/config/deepgram.json`
 
-### Web search
+### Voice output (optional)
 
-To use Exa research search (optional), add the Exa API key in `~/.jobraker-recruiter/config/exa-search.json`
+Add an ElevenLabs API key in `~/.jobraker-recruiter/config/elevenlabs.json`
 
-### External tools
+### Web search (optional)
 
-To enable external tools (optional), you can add any MCP server or use Composio tools by adding an API key in `~/.jobraker-recruiter/config/composio.json`
+Add an Exa API key in `~/.jobraker-recruiter/config/exa-search.json`
+
+### External tools (optional)
+
+Connect MCP servers or Composio tools via `~/.jobraker-recruiter/config/composio.json`
 
 All API key files use the same format:
-```
+
+```json
 {
   "apiKey": "<key>"
 }
 ```
 
+---
+
 ## What it does
 
-Jobraker Recruiter is a **local-first AI coworker** that can:
-- **Remember** the important context you don’t want to re-explain (people, projects, decisions, commitments)
-- **Understand** what’s relevant right now (before a meeting, while replying to an email, when writing a doc)
-- **Help you act** by drafting, summarizing, planning, and producing real artifacts (briefs, emails, docs, PDF slides)
+Jobraker Recruiter helps lean teams move from open role to qualified pipeline faster:
 
-Under the hood, Jobraker Recruiter maintains an **Obsidian-compatible vault** of plain Markdown notes with backlinks — a transparent “working memory” you can inspect and edit.
+- **Source** — describe the role and search large profile indexes with natural language
+- **Screen** — evaluate fit, summarize backgrounds, and compare candidates
+- **Outreach** — draft and refine personalized messages and follow-up sequences
+- **Remember** — accumulate hiring context in a local Markdown knowledge vault
+
+Under the hood, the app maintains an **Obsidian-compatible vault** of plain Markdown notes with backlinks — transparent working memory you can inspect and edit.
 
 ## Integrations
 
-Jobraker Recruiter builds memory from the work you already do, including:
+Jobraker Recruiter builds context from the work you already do:
+
 - **Gmail** (email)
-- **Google Calendar** 
+- **Google Calendar**
 - **Jobraker Recruiter meeting notes** or **Fireflies**
+- **Composio** — Slack, Linear, GitHub, CRMs, and more
 
-It also contains a library of product integrations through Composio.dev
+## How it's different
 
-## How it’s different
+Most recruiting tools treat every search as a cold start.
 
-Most AI tools reconstruct context on demand by searching transcripts or documents.
+Jobraker Recruiter keeps **long-lived knowledge** instead:
 
-Jobraker Recruiter maintains **long-lived knowledge** instead:
-- context accumulates over time
-- relationships are explicit and inspectable
+- hiring context accumulates over time
+- relationships between people, roles, and companies stay explicit
 - notes are editable by you, not hidden inside a model
 - everything lives on your machine as plain Markdown
 
-The result is memory that compounds, rather than retrieval that starts cold every time.
-
-## What you can do with it
-
-- **Meeting prep** from prior decisions, threads, and open questions
-- **Email drafting** grounded in history and commitments
-- **Docs & decks** generated from your ongoing context (including PDF slides)
-- **Follow-ups**: capture decisions, action items, and owners so nothing gets dropped
-- **On-your-machine help**: create files, summarize into notes, and run workflows using local tools (with explicit, reviewable actions)
-
 ## Live notes
 
-Live notes are notes that stay updated automatically. You can create one by typing '@jobraker-recruiter' on a note. 
+Live notes stay updated automatically. Create one by typing `@jobraker-recruiter` in a note.
 
-- Track a competitor or market topic across X, Reddit, and the news
-- Monitor a person, project, or deal across web or your communications
-- Keep a running summary of any subject you care about
+- Track a role, company, or candidate across web and communications
+- Monitor pipeline stages and open questions
+- Keep running summaries of active searches
 
-Everything is written back into your local Markdown vault. You control what runs and when.
+Everything is written back into your local Markdown vault.
 
-## Bring your own model
+## Extend with tools (MCP)
 
-Jobraker Recruiter works with the model setup you prefer:
-- **Local models** via Ollama or LM Studio
-- **Hosted models** (bring your own API key/provider)
-- Swap models anytime — your data stays in your local Markdown vault
+Connect external tools via **Model Context Protocol (MCP)** — search, databases, CRMs, support tools, automations, or your own internal APIs.
 
-## Extend Jobraker Recruiter with tools (MCP)
-
-Jobraker Recruiter can connect to external tools and services via **Model Context Protocol (MCP)**.
-That means you can plug in (for example) search, databases, CRMs, support tools, and automations - or your own internal tools.
-
-Examples: Exa (web search), Twitter/X, ElevenLabs (voice), Slack, Linear/Jira, GitHub, and more.
+Examples: Exa (web search), Slack, Linear/Jira, GitHub, ElevenLabs (voice), and more.
 
 ## Local-first by design
 
-- All data is stored locally as plain Markdown
+- Data stored locally as plain Markdown
 - No proprietary formats or hosted lock-in
-- You can inspect, edit, back up, or delete everything at any time
+- Inspect, edit, back up, or delete everything at any time
 
 ---
+
+## Development
+
+This monorepo includes the Electron desktop app, Next.js web apps, CLI, Python SDK, and the Jobraker job-seeker app.
+
+### Electron desktop app (`apps/x`)
+
+```bash
+cd apps/x
+pnpm install
+npm run deps    # build shared → core → preload
+npm run dev     # Vite renderer + Electron main
+```
+
+**Production build (Windows):**
+
+```bash
+cd apps/x/apps/main
+npm run package   # packaged app
+npm run make      # Squirrel installer (.exe)
+```
+
+Installer output: `apps/x/apps/main/out/make/squirrel.windows/x64/`
+
+See [CLAUDE.md](CLAUDE.md) for architecture, build order, and feature docs (`LIVE_NOTE.md`, `ANALYTICS.md`).
+
+### Monorepo layout
+
+```
+jobraker-recruiters/
+├── apps/x/                  # Electron desktop (Jobraker Recruiter)
+├── apps/jobraker-recruiter/ # Next.js web dashboard
+├── apps/jobraker-recruiter-x/
+├── apps/cli/
+├── apps/python-sdk/
+├── Jobraker/                # Job-seeker Vite + Supabase app
+└── CLAUDE.md                # Agent / developer reference
+```
+
+---
+
 <div align="center">
 
 [Discord](https://discord.gg/wajrgmJQ6b) · [Twitter](https://x.com/intent/user?screen_name=jobraker-recruiterhq)
+
 </div>
