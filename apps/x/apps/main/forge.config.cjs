@@ -64,15 +64,15 @@ module.exports = {
             config: (arch) => ({
                 authors: 'jobraker-recruiter',
                 description: 'AI coworker with memory',
-                name: `Jobraker Recruiter-win32-${arch}`,
-                setupExe: `Jobraker Recruiter-win32-${arch}-${pkg.version}-setup.exe`,
+                name: `jobraker-recruiter-win32-${arch}`,
+                setupExe: `jobraker-recruiter-win32-${arch}-${pkg.version}-setup.exe`,
             })
         },
         {
             name: '@electron-forge/maker-deb',
             config: (arch) => ({
                 options: {
-                    name: `Jobraker Recruiter-linux`,
+                    name: `jobraker-recruiter`,
                     bin: "jobraker-recruiter",
                     description: 'AI coworker with memory',
                     maintainer: 'jobraker-recruiter',
@@ -84,7 +84,7 @@ module.exports = {
             name: '@electron-forge/maker-rpm',
             config: {
                 options: {
-                    name: `Jobraker Recruiter-linux`,
+                    name: `jobraker-recruiter`,
                     bin: "jobraker-recruiter",
                     description: 'AI coworker with memory',
                     homepage: 'https://jobraker-recruiter.com'
