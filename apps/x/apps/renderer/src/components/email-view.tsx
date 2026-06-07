@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, Bold, CheckCheck, Forward, Italic, Link as LinkIcon, List, ListOrdered, LoaderIcon, Mail, Paperclip, Quote, RefreshCw, Reply, ReplyAll, Search, Send, Sparkles, Strikethrough, Trash2 } from 'lucide-react'
+import { Archive, Bold, CheckCheck, Forward, Italic, Link as LinkIcon, List, ListOrdered, LoaderIcon, Mail, Paperclip, Quote, RefreshCw, Reply, ReplyAll, Search, Send, Sparkles, Strikethrough, Trash2, TrendingUp } from 'lucide-react'
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
@@ -189,7 +189,7 @@ function buildRecipients(
   return { to, cc }
 }
 
-// Subject line for a reply ("Re: …") or forward ("Fwd: …"), avoiding double prefixes.
+// Subject line for a reply ("Re: â€¦") or forward ("Fwd: â€¦"), avoiding double prefixes.
 function composeSubject(mode: ComposeMode, rawSubject?: string): string {
   const raw = (rawSubject || '').trim()
   if (mode === 'forward') return /^fwd:/i.test(raw) ? raw : `Fwd: ${raw}`.trim()
@@ -269,7 +269,7 @@ function splitPlainTextQuote(text: string): { visible: string; quoted: string | 
   return { visible, quoted }
 }
 
-// True if the HTML — after stripping quoted/hidden content — defines its
+// True if the HTML â€” after stripping quoted/hidden content â€” defines its
 // own visual layout (real images, tables, explicit backgrounds). Unstyled
 // HTML (Gmail replies, Outlook one-liners wrapped in MsoNormal boilerplate,
 // outreach emails with only a tracking pixel, reply HTML whose only image
@@ -367,7 +367,7 @@ function PlainTextBody({ message }: { message: GmailThreadMessage }) {
           aria-label={showQuote ? 'Hide quoted text' : 'Show quoted text'}
           aria-expanded={showQuote}
         >
-          <span>•••</span>
+          <span>â€¢â€¢â€¢</span>
         </button>
       )}
       {message.attachments && message.attachments.length > 0 && (
@@ -459,7 +459,7 @@ function HtmlMessageBody({ message, threadId }: { message: GmailThreadMessage; t
           aria-label={showQuotes ? 'Hide quoted text' : 'Show quoted text'}
           aria-expanded={showQuotes}
         >
-          <span>•••</span>
+          <span>â€¢â€¢â€¢</span>
         </button>
       )}
       {message.attachments && message.attachments.length > 0 && (
@@ -664,7 +664,7 @@ function RecipientField({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => onChange(value.filter((_, idx) => idx !== index))}
             >
-              ×
+              Ã—
             </button>
           </span>
         ))}
@@ -730,7 +730,7 @@ function ComposeBox({
       StarterKit.configure({ link: false }),
       Link.configure({ openOnClick: false, autolink: true }),
       Placeholder.configure({
-        placeholder: mode === 'forward' ? 'Write a message…' : 'Write your reply…',
+        placeholder: mode === 'forward' ? 'Write a messageâ€¦' : 'Write your replyâ€¦',
       }),
     ],
     editorProps: {
@@ -837,7 +837,7 @@ function ComposeBox({
     const threadSubject = thread.subject || '(No subject)'
 
     const lines: string[] = []
-    lines.push(`Help me refine this draft email response. **Please ask me how I want to refine it before making any changes** — wait for my answer, then apply the edits.`)
+    lines.push(`Help me refine this draft email response. **Please ask me how I want to refine it before making any changes** â€” wait for my answer, then apply the edits.`)
     lines.push('')
     lines.push(`**Mode:** ${modeLabel}`)
     lines.push(`**Subject:** ${threadSubject}`)
@@ -856,7 +856,7 @@ function ComposeBox({
 
     lines.push(`## Current draft`)
     lines.push('')
-    lines.push(currentDraft || '(empty — no draft yet)')
+    lines.push(currentDraft || '(empty â€” no draft yet)')
 
     window.__pendingEmailDraft = { prompt: lines.join('\n') }
     window.dispatchEvent(new Event('email-block:draft-with-assistant'))
@@ -866,7 +866,7 @@ function ComposeBox({
     <div className="gmail-compose-card">
       <div className="gmail-compose-header">
         <span>{modeLabel}</span>
-        <button type="button" onClick={onClose} aria-label="Close compose">×</button>
+        <button type="button" onClick={onClose} aria-label="Close compose">Ã—</button>
       </div>
       <RecipientField
         label="To"
@@ -925,7 +925,7 @@ function ComposeBox({
             title="Send this reply via Gmail"
           >
             {sending ? <LoaderIcon size={15} className="animate-spin" /> : <Send size={15} />}
-            {sending ? 'Sending…' : 'Send'}
+            {sending ? 'Sendingâ€¦' : 'Send'}
           </button>
           <button
             type="button"
@@ -987,7 +987,7 @@ function ThreadDetail({
       <div className="gmail-detail-toolbar">
         <div className="gmail-thread-subject-inline">{thread.subject || '(No subject)'}</div>
         <button type="button" className="gmail-icon-button" onClick={onClose} aria-label="Close thread">
-          <span>×</span>
+          <span>Ã—</span>
         </button>
       </div>
 
@@ -1089,7 +1089,7 @@ const initialSectionState: SectionState = {
   loadingPage: false,
 }
 
-// Module-level survives unmount/remount within the renderer process — so switching
+// Module-level survives unmount/remount within the renderer process â€” so switching
 // panels and coming back doesn't reload from scratch.
 let persistedImportant: SectionState | null = null
 let persistedOther: SectionState | null = null
@@ -1319,9 +1319,9 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
     }
   }, [setSection])
 
-  // Initial load — fetch page 1 of Important. On first-ever mount we do a
+  // Initial load â€” fetch page 1 of Important. On first-ever mount we do a
   // non-silent load (shows loading state). On re-mount with persisted state we
-  // do a silent reconcile against the cache — necessary because the watcher
+  // do a silent reconcile against the cache â€” necessary because the watcher
   // subscription only runs while mounted, so any cache changes that happened
   // while the panel was unmounted would otherwise stay invisible.
   useEffect(() => {
@@ -1345,7 +1345,7 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
     void reloadFirstPage('other')
   }, [important.hasReachedEnd, other.threads.length, other.loadingPage, reloadFirstPage])
 
-  // Live updates: watcher on inbox_lists/ → silently refresh visible sections
+  // Live updates: watcher on inbox_lists/ â†’ silently refresh visible sections
   // when files change. Throttled to at most one reload per ~3s so a burst of
   // backend writes (sync processing many threads sequentially) coalesces into
   // a small number of in-place updates rather than a flicker storm.
@@ -1370,7 +1370,7 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
     }
     lastReloadAtRef.current = Date.now()
     void reloadFirstPage('important', { silent: true })
-    // Only refresh Other if it had been loaded — otherwise the chained
+    // Only refresh Other if it had been loaded â€” otherwise the chained
     // effect handles it once Important hits hasReachedEnd.
     if (otherHasThreadsRef.current) {
       void reloadFirstPage('other', { silent: true })
@@ -1378,8 +1378,8 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
   }, [reloadFirstPage])
 
   // Leading-edge throttle:
-  // - First event after a quiet period (≥ THROTTLE) → fire immediately.
-  // - During an active burst → queue a trailing fire at the next throttle
+  // - First event after a quiet period (â‰¥ THROTTLE) â†’ fire immediately.
+  // - During an active burst â†’ queue a trailing fire at the next throttle
   //   boundary. Subsequent events while a trailing fire is pending do nothing
   //   (so a continuous stream of writes can't starve the reload).
   const triggerLiveReload = useCallback(() => {
@@ -1433,7 +1433,7 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
 
   // Manual refresh: wake the background sync loop. It updates inbox_lists/,
   // the watcher fires, and triggerLiveReload picks up the changes. The
-  // spinner is a UX cue — we stop it shortly after the sync poke.
+  // spinner is a UX cue â€” we stop it shortly after the sync poke.
   const refreshInFlightRef = useRef(false)
   const refresh = useCallback(async () => {
     if (refreshInFlightRef.current) return
@@ -1455,7 +1455,7 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
     }
   }, [])
 
-  // Kick off a live refresh on mount only when there's no persisted data —
+  // Kick off a live refresh on mount only when there's no persisted data â€”
   // otherwise we'd clobber the snapshot the user already had.
   useEffect(() => {
     if (hadPersistedDataOnMount.current) return
@@ -1484,6 +1484,18 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
   const initialLoading = !hasAny && refreshing
   const needsEmailConnect = emailConnection?.connected === false
   const needsEmailReconnect = emailConnection?.connected === true && !emailConnection.hasRequiredScope
+  const outreachStats = useMemo(() => {
+    const threads = [...important.threads, ...other.threads]
+    const unread = threads.filter((thread) => thread.unread).length
+    const drafts = threads.filter((thread) => thread.gmail_draft || thread.draft_response).length
+    const replies = threads.filter((thread) => thread.messages.length > 1).length
+    return {
+      active: threads.length,
+      unread,
+      drafts,
+      replies,
+    }
+  }, [important.threads, other.threads])
 
   const renderRow = (thread: GmailThread) => {
     const latest = latestMessage(thread)
@@ -1559,18 +1571,52 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
   return (
     <div className="gmail-shell">
       <div className="gmail-main">
-        <div className="gmail-topbar">
-          <div className="gmail-search">
-            <Search size={18} />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search loaded mail"
-            />
+        <div className="gmail-outreach-hero">
+          <div className="gmail-outreach-hero-main">
+            <div className="gmail-outreach-orb">
+              <Send size={20} />
+            </div>
+            <div>
+              <h1>Outreach</h1>
+              <p>Manage candidate replies, AI-drafted follow-ups, and recruiting conversations from Gmail.</p>
+            </div>
           </div>
-          <button type="button" className="gmail-icon-button" onClick={() => void refresh()} aria-label="Refresh">
-            {refreshing ? <LoaderIcon size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-          </button>
+          <div className="gmail-outreach-actions">
+            <div className="gmail-search">
+              <Search size={18} />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search candidates, roles, or threads"
+              />
+            </div>
+            <button type="button" className="gmail-icon-button" onClick={() => void refresh()} aria-label="Refresh">
+              {refreshing ? <LoaderIcon size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="gmail-outreach-stats" aria-label="Outreach summary">
+          <div className="gmail-outreach-stat">
+            <span>Active threads</span>
+            <strong>{outreachStats.active}</strong>
+            <em>Loaded from Gmail</em>
+          </div>
+          <div className="gmail-outreach-stat">
+            <span>Unread replies</span>
+            <strong>{outreachStats.unread}</strong>
+            <em>Needs recruiter review</em>
+          </div>
+          <div className="gmail-outreach-stat">
+            <span>AI drafts</span>
+            <strong>{outreachStats.drafts}</strong>
+            <em>Ready to refine</em>
+          </div>
+          <div className="gmail-outreach-stat">
+            <span>Conversations</span>
+            <strong>{outreachStats.replies}</strong>
+            <em><TrendingUp size={11} /> Warm threads</em>
+          </div>
         </div>
 
         {error && !hasAny ? (
@@ -1633,7 +1679,7 @@ export function EmailView({ initialThreadId, threadIdVersion }: EmailViewProps =
           </div>
         ) : (
           <div className="gmail-empty-state">
-            {initialLoading ? 'Loading Gmail threads…' : 'No Gmail threads in your inbox cache yet.'}
+            {initialLoading ? 'Loading Gmail threadsâ€¦' : 'No Gmail threads in your inbox cache yet.'}
           </div>
         )}
       </div>
