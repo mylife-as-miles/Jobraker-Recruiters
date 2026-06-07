@@ -35,7 +35,7 @@
   }
 }
 
-/* Radix Collapsible expand/collapse — animate height (via the radix CSS var)
+/* Radix Collapsible expand/collapse â€” animate height (via the radix CSS var)
    plus a subtle fade. Used by the web search card. */
 @keyframes collapsible-down {
   from {
@@ -245,27 +245,27 @@
 }
 
 .gmail-shell {
-  --gm-bg: #0f0f12;
-  --gm-bg-card: #131317;
-  --gm-bg-input: #1c1c20;
-  --gm-bg-row-hover: #16161a;
-  --gm-bg-row-selected: #1a1620;
-  --gm-bg-row-selected-hover: #1d1825;
+  --gm-bg: #020302;
+  --gm-bg-card: #080b08;
+  --gm-bg-input: rgba(255, 255, 255, 0.035);
+  --gm-bg-row-hover: rgba(57, 255, 20, 0.045);
+  --gm-bg-row-selected: rgba(57, 255, 20, 0.075);
+  --gm-bg-row-selected-hover: rgba(57, 255, 20, 0.1);
   --gm-bg-iframe: #fafafa;
-  --gm-bg-pill: #1c1c20;
-  --gm-bg-pill-hover: #232328;
+  --gm-bg-pill: rgba(255, 255, 255, 0.045);
+  --gm-bg-pill-hover: rgba(57, 255, 20, 0.08);
   --gm-text: #e4e4e7;
   --gm-text-strong: #fafafa;
   --gm-text-muted: #71717a;
   --gm-text-faint: #52525b;
   --gm-text-body: #d4d4d8;
-  --gm-border: #1f1f24;
-  --gm-border-strong: #2e2e35;
-  --gm-accent: #a78bfa;
-  --gm-accent-hover: #b9a6ff;
-  --gm-accent-glow: rgba(167, 139, 250, 0.45);
-  --gm-accent-fg: #18181b;
-  --gm-icon-hover-bg: #1f1f24;
+  --gm-border: rgba(255, 255, 255, 0.08);
+  --gm-border-strong: rgba(255, 255, 255, 0.14);
+  --gm-accent: #39ff14;
+  --gm-accent-hover: #9dff00;
+  --gm-accent-glow: rgba(57, 255, 20, 0.4);
+  --gm-accent-fg: #031003;
+  --gm-icon-hover-bg: rgba(57, 255, 20, 0.08);
   --gm-placeholder: #52525b;
 
   display: flex;
@@ -273,7 +273,10 @@
   min-height: 0;
   width: 100%;
   overflow: hidden;
-  background: var(--gm-bg);
+  background:
+    radial-gradient(circle at 80% 0%, rgba(57, 255, 20, 0.07), transparent 24%),
+    radial-gradient(circle at 10% 0%, rgba(255, 255, 255, 0.04), transparent 18%),
+    var(--gm-bg);
   color: var(--gm-text);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-feature-settings: "ss01", "cv11";
@@ -313,6 +316,105 @@
   padding: 0;
 }
 
+.gmail-outreach-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 24px 14px;
+}
+
+.gmail-outreach-hero-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.gmail-outreach-orb {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(57, 255, 20, 0.24);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle, rgba(57, 255, 20, 0.24), rgba(57, 255, 20, 0.07) 58%, transparent 72%);
+  color: var(--gm-accent);
+  box-shadow:
+    0 0 0 8px rgba(57, 255, 20, 0.035),
+    0 0 28px rgba(57, 255, 20, 0.18);
+}
+
+.gmail-outreach-hero h1 {
+  margin: 0;
+  color: var(--gm-text-strong);
+  font-size: 27px;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.gmail-outreach-hero p {
+  margin: 8px 0 0;
+  color: color-mix(in oklab, var(--gm-text-muted) 88%, white 12%);
+  font-size: 13px;
+}
+
+.gmail-outreach-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gmail-outreach-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 24px 16px;
+}
+
+.gmail-outreach-stat {
+  min-height: 78px;
+  border: 1px solid var(--gm-border);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    var(--gm-bg-card);
+  padding: 12px 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+.gmail-outreach-stat span {
+  display: block;
+  color: color-mix(in oklab, var(--gm-text-muted) 85%, white 15%);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.gmail-outreach-stat strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--gm-text-strong);
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.gmail-outreach-stat em {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 7px;
+  color: color-mix(in oklab, var(--gm-accent) 75%, white 10%);
+  font-size: 10px;
+  font-style: normal;
+}
+
 .gmail-topbar {
   display: flex;
   align-items: center;
@@ -326,12 +428,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  width: min(520px, 100%);
-  height: 32px;
+  width: min(420px, 38vw);
+  height: 42px;
   padding: 0 12px;
-  border-radius: 8px;
+  border: 1px solid var(--gm-border);
+  border-radius: 12px;
   background: var(--gm-bg-input);
   color: var(--gm-text-muted);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .gmail-search input {
@@ -352,11 +456,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--gm-border);
+  border-radius: 12px;
+  background: var(--gm-bg-input);
   color: var(--gm-text-muted);
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
@@ -374,9 +478,13 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
-  background: var(--gm-bg);
+  margin: 0 24px 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.01)),
+    var(--gm-bg-card);
   border: none;
-  border-radius: 0;
+  border: 1px solid var(--gm-border);
+  border-radius: 14px;
 }
 
 .gmail-row-group {
@@ -391,9 +499,9 @@
   display: flex;
   justify-content: space-between;
   height: 32px;
-  padding: 0 24px;
+  padding: 0 18px;
   align-items: center;
-  background: var(--gm-bg);
+  background: rgba(255, 255, 255, 0.025);
   border-bottom: 1px solid var(--gm-border);
   color: var(--gm-text-faint);
   font-size: 11px;
@@ -407,7 +515,8 @@
 }
 
 .gmail-section + .gmail-section {
-  margin-top: 28px;
+  margin-top: 0;
+  border-top: 1px solid var(--gm-border);
 }
 
 .gmail-section-sentinel {
@@ -428,8 +537,8 @@
   align-items: center;
   gap: 16px;
   width: 100%;
-  min-height: 40px;
-  padding: 0 24px;
+  min-height: 48px;
+  padding: 0 18px;
   border: none;
   background: transparent;
   color: var(--gm-text-muted);
@@ -491,7 +600,7 @@
 
 .gmail-row-selected {
   background: var(--gm-bg-row-selected);
-  box-shadow: inset 2px 0 0 var(--gm-accent);
+  box-shadow: inset 3px 0 0 var(--gm-accent);
 }
 
 .gmail-row-selected:hover {
@@ -1666,7 +1775,7 @@
   box-shadow: 0 0 6px color-mix(in oklab, var(--brand) 55%, transparent);
 }
 
-/* ───────────────────────── Recruiter dashboards ───────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Recruiter dashboards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .recruiter-scroll {
   scrollbar-width: thin;
