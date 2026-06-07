@@ -317,12 +317,12 @@ export function MatchBar({ score }: { score: number }) {
 // ───────────────────────── Skeletons ─────────────────────────
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn('recruiter-shimmer rounded-md', className)} />
+  return <div className={cn('premium-skeleton recruiter-shimmer rounded-md', className)} />
 }
 
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={cn('rounded-2xl border border-border/50 bg-foreground/[0.02] p-5', className)}>
+    <div className={cn('premium-skeleton-card rounded-2xl border border-border/50 bg-foreground/[0.02] p-5', className)}>
       <Skeleton className="h-3 w-24" />
       <Skeleton className="mt-4 h-7 w-20" />
       <Skeleton className="mt-3 h-3 w-32" />

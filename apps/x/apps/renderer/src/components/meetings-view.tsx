@@ -20,7 +20,6 @@ import {
   loadMeetingEvents,
   localDateKey,
   meetingPlatformLabel,
-  normalizeMeetingEvent,
   personLabel,
   selectVisibleDays,
   startOfMonth,
@@ -142,7 +141,7 @@ function parseDescriptionParts(value: string): DescriptionPart[] {
 }
 
 function UpcomingEvents() {
-  const [events, setEvents] = useState<UpcomingEvent[]>([])
+  const [events, setEvents] = useState<MeetingEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
@@ -188,7 +187,7 @@ function UpcomingEvents() {
       const windowEnd = addDays(todayStart, UPCOMING_MAX_DAYS) // exclusive
 
       const settled = await Promise.allSettled(
-        jsonEntries.map(async (entry): Promise<UpcomingEvent | null> => {
+        jsonEntries.map(async (entry): Promise<MeetingEvent | null> => {
           const result = await window.ipc.invoke('workspace:readFile', {
             path: entry.path,
             encoding: 'utf8',
@@ -205,7 +204,7 @@ function UpcomingEvents() {
         }),
       )
 
-      const collected: UpcomingEvent[] = []
+      const collected: MeetingEvent[] = []
       for (const r of settled) {
         if (r.status === 'fulfilled' && r.value) collected.push(r.value)
       }
@@ -371,7 +370,7 @@ function NowBadge() {
   )
 }
 
-function UpcomingEventItem({ event, isLast }: { event: UpcomingEvent; isLast: boolean }) {
+function UpcomingEventItem({ event, isLast }: { event: MeetingEvent; isLast: boolean }) {
   const [open, setOpen] = useState(false)
   const isNow = isEventNow(event)
   const platform = meetingPlatformLabel(event.conferenceLink)
@@ -433,7 +432,7 @@ function UpcomingEventItem({ event, isLast }: { event: UpcomingEvent; isLast: bo
   )
 }
 
-function EventDetailsPopover({ event, onClose }: { event: UpcomingEvent; onClose: () => void }) {
+function EventDetailsPopover({ event, onClose }: { event: MeetingEvent; onClose: () => void }) {
   const organizer = personLabel(event.organizer) ?? personLabel(event.creator)
   const attendees = event.attendees.map(attendeeLabel).filter((label): label is string => Boolean(label))
   const descriptionParts = event.description ? parseDescriptionParts(event.description) : []
@@ -800,7 +799,7 @@ export function MeetingsView({ onOpenNote, onTakeMeetingNotes, meetingState, mee
         </p>
       </div>
       <div className="flex-1 overflow-auto">
-        <UpcomingEvents />
+        <MeetingEvents />
         <div className="p-6">
         {loading ? (
           <div className="flex items-center justify-center py-10">

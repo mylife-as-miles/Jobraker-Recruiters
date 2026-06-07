@@ -19,6 +19,7 @@ import type { ConversationItem } from '@/lib/chat-conversation'
 import { runLogToConversation } from '@/lib/run-to-conversation'
 import { CompactConversation } from '@/components/compact-conversation'
 import { RichMarkdownViewer } from '@/components/rich-markdown-viewer'
+import { PageTransition, PremiumEmptyState, PremiumListSkeleton } from '@/components/premium-states'
 
 // ---------------------------------------------------------------------------
 // Trigger helpers (inlined; extract to shared <TriggersEditor> as a follow-up)
@@ -1341,7 +1342,7 @@ function TaskDetail({
     }
 
     return (
-        <div className="flex h-full flex-col overflow-hidden">
+        <PageTransition className="flex h-full flex-col overflow-hidden">
             {/* Top bar — back to list, sidebar toggle when collapsed */}
             <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
                 <button
@@ -1550,30 +1551,30 @@ export function BgTasksView({ onCreateWithCopilot, onEditWithCopilot, initialSlu
             </div>
             <div className="flex-1 overflow-auto p-6">
                 {loading ? (
-                    <div className="flex h-full items-center justify-center">
-                        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    <div className="mx-auto w-full max-w-5xl">
+                        <PremiumListSkeleton rows={5} />
                     </div>
                 ) : error ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-                        <div className="rounded-full bg-muted p-3">
-                            <ListChecks className="size-6 text-muted-foreground" />
-                        </div>
-                        <p className="text-sm text-muted-foreground">{error}</p>
-                    </div>
+                    <PremiumEmptyState
+                        icon={<ListChecks className="size-6" />}
+                        title="Background tasks could not load"
+                        description={error}
+                        className="h-full"
+                    />
                 ) : items.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-                        <div className="rounded-full bg-muted p-3">
-                            <ListChecks className="size-6 text-muted-foreground" />
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                            No background tasks yet.
-                        </p>
-                        <Button size="sm" onClick={() => setShowNewDialog(true)}>
-                            <Plus className="size-3" /> Create your first task
-                        </Button>
-                    </div>
+                    <PremiumEmptyState
+                        icon={<ListChecks className="size-6" />}
+                        title="No background tasks yet"
+                        description="Create persistent recruiting agents that run on schedules or respond to workspace events."
+                        action={(
+                            <Button size="sm" variant="outline" onClick={() => setShowNewDialog(true)}>
+                                <Plus className="size-3" /> Create your first task
+                            </Button>
+                        )}
+                        className="h-full"
+                    />
                 ) : (
-                    <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+                    <div className="premium-scroll-reveal is-visible overflow-hidden rounded-xl border border-border/60 bg-card">
                         <table className="w-full table-fixed border-collapse">
                             <colgroup>
                                 <col className="w-[45%]" />
@@ -1698,6 +1699,6 @@ export function BgTasksView({ onCreateWithCopilot, onEditWithCopilot, initialSlu
                 }}
                 onCreateWithCopilot={onCreateWithCopilot}
             />
-        </div>
+        </PageTransition>
     )
 }
