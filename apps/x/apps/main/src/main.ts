@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, protocol, net, shell, session, type Session } from "electron";
+import { app, BrowserWindow, desktopCapturer, protocol, net, shell, session, Menu, type Session } from "electron";
 import path from "node:path";
 import {
   setupIpcHandlers,
@@ -142,8 +142,8 @@ console.log("rendererPath", rendererPath);
 // Register custom protocol for serving built renderer files in production
 // AND for serving local workspace files to the renderer (images, PDFs, video).
 //
-//   app://workspace/<rel-path>  → workspace file (path-traversal guarded)
-//   app://<anything-else>/...   → renderer SPA (existing behavior)
+//   app://workspace/<rel-path>  â†’ workspace file (path-traversal guarded)
+//   app://<anything-else>/...   â†’ renderer SPA (existing behavior)
 function registerAppProtocol() {
   protocol.handle("app", (request) => {
     const url = new URL(request.url);
@@ -160,7 +160,7 @@ function registerAppProtocol() {
       }
     }
 
-    // Renderer SPA — existing logic
+    // Renderer SPA â€” existing logic
     let urlPath = url.pathname;
     if (urlPath === "/" || !path.extname(urlPath)) {
       urlPath = "/index.html";
@@ -211,6 +211,9 @@ function configureSessionPermissions(targetSession: Session): void {
 }
 
 function createWindow() {
+  const isMac = process.platform === "darwin";
+  const isWin = process.platform === "win32";
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -218,8 +221,18 @@ function createWindow() {
     minHeight: 480,
     show: false, // Don't show until ready
     backgroundColor: "#000000", // Prevent white flash (matches pitch-black dark theme)
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 12, y: 12 },
+    ...(isMac
+      ? {
+          titleBarStyle: "hiddenInset" as const,
+          trafficLightPosition: { x: 12, y: 12 },
+        }
+      : isWin
+        ? {
+            titleBarStyle: "hidden" as const,
+            titleBarOverlay: true,
+            autoHideMenuBar: true,
+          }
+        : {}),
     webPreferences: {
       // IMPORTANT: keep Node out of renderer
       nodeIntegration: false,
@@ -237,6 +250,15 @@ function createWindow() {
 
   setMainWindowForDeepLinks(win);
   win.on("closed", () => setMainWindowForDeepLinks(null));
+
+  if (isWin) {
+    // Match renderer title bars (h-10) and theme tokens.
+    win.setTitleBarOverlay({
+      color: "#000000",
+      symbolColor: "#71717a",
+      height: 40,
+    });
+  }
 
   // Show window when content is ready to prevent blank screen
   win.once("ready-to-show", () => {
@@ -305,7 +327,7 @@ app.whenReady().then(async () => {
   // Initialize all config files before UI can access them
   await initConfigs();
 
-  // PostHog identify() is idempotent — call it on every startup so existing
+  // PostHog identify() is idempotent â€” call it on every startup so existing
   // signed-in installs (and every cold start of v0.3.4+) get re-identified.
   // Otherwise main-process events stay anonymous until the user re-signs-in.
   identifyIfSignedIn().catch((error) => {
@@ -314,6 +336,10 @@ app.whenReady().then(async () => {
 
   registerBrowserControlService(new ElectronBrowserControlService());
   registerNotificationService(new ElectronNotificationService());
+
+  if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(null);
+  }
 
   setupIpcHandlers();
   setupBrowserEventForwarding();
@@ -333,10 +359,10 @@ app.whenReady().then(async () => {
   // start services watcher
   startServicesWatcher();
 
-  // start live-note agent event watcher (forwards bus → renderer)
+  // start live-note agent event watcher (forwards bus â†’ renderer)
   startLiveNoteAgentWatcher();
 
-  // start bg-task agent event watcher (forwards bus → renderer)
+  // start bg-task agent event watcher (forwards bus â†’ renderer)
   startBackgroundTaskAgentWatcher();
 
   // start live-note scheduler (cron / window)
