@@ -1,7 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowRight, Bot, Calendar, Clock, FileText, Mail, MessageSquare, Mic, Plug, Plus, Video } from 'lucide-react'
-import { extractConferenceLink } from '@/lib/calendar-event'
-import { SettingsDialog } from '@/components/settings-dialog'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  ArrowUp,
+  Bell,
+  Bot,
+  Briefcase,
+  Calendar,
+  ChevronDown,
+  FileText,
+  Mail,
+  Plus,
+  Search,
+  Send,
+  Sparkles,
+  Users,
+} from 'lucide-react'
+import { PageTransition, PremiumEmptyState, PremiumSkeleton, ScrollReveal } from '@/components/premium-states'
 
 interface TreeNode {
   path: string
@@ -25,569 +38,378 @@ type HomeViewProps = {
   onOpenNote: (path: string) => void
   onOpenRun: (runId: string) => void
   onTakeMeetingNotes: () => void
-  onOpenChat?: () => void
+  onOpenChat?: (prompt?: string) => void
+  onOpenRecruiterScreen?: (screen: 'roles' | 'candidates' | 'pipeline' | 'analytics') => void
+  onOpenSearch?: () => void
 }
 
-type CalEvent = {
-  id: string
-  summary: string
-  start: Date
-  end: Date | null
-  isAllDay: boolean
-  conferenceLink: string | null
-  rawStart: { dateTime?: string; date?: string } | undefined
-  rawEnd: { dateTime?: string; date?: string } | undefined
-  location: string | null
-  htmlLink: string | null
-  source: string
-}
+const topMatches = [
+  { name: 'Teni Ogunleye', role: 'Senior Product Designer', meta: 'Lagos, Nigeria - 4y exp', score: 96 },
+  { name: 'Femi Okoro', role: 'Product Designer', meta: 'Remote - 5y exp', score: 92 },
+  { name: 'Chinaza Uche', role: 'UX/UI Designer', meta: 'Lagos, Nigeria - 3y exp', score: 89 },
+  { name: 'David Adeyemi', role: 'Product Designer', meta: 'Abuja, Nigeria - 6y exp', score: 87 },
+  { name: 'Amara Nwosu', role: 'Design Systems Lead', meta: 'Remote - 7y exp', score: 85 },
+  { name: 'Kola Balogun', role: 'UX Researcher', meta: 'Lagos, Nigeria - 5y exp', score: 82 },
+]
 
-type RawCalEvent = {
-  id?: string
-  summary?: string
-  start?: { dateTime?: string; date?: string }
-  end?: { dateTime?: string; date?: string }
-  location?: string
-  htmlLink?: string
-  status?: string
-  attendees?: Array<{ self?: boolean; responseStatus?: string }>
-}
+const pipeline = [
+  { label: 'Sourced', value: '128', icon: Users, tone: 'text-cyan-300' },
+  { label: 'Screening', value: '42', icon: FileText, tone: 'text-lime-300' },
+  { label: 'Interview', value: '18', icon: Send, tone: 'text-amber-300' },
+  { label: 'Offer', value: '6', icon: Briefcase, tone: 'text-lime-300' },
+]
 
-type EmailThread = { threadId: string; subject: string; from: string }
-type ToolkitPreview = { slug: string; logo: string; name: string; description: string }
+const fallbackAgents: TaskItem[] = [
+  { slug: 'sourcing-agent', name: 'Sourcing Agent', active: true, lastAttemptAt: 'Finding product designers in Lagos' },
+  { slug: 'outreach-agent', name: 'Outreach Agent', active: true, lastAttemptAt: 'Reaching out to top candidates' },
+  { slug: 'screening-agent', name: 'Screening Agent', active: true, lastAttemptAt: 'Reviewing resumes for 3 roles' },
+]
 
-function greeting(): string {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
+function greeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
   return 'Good evening'
 }
 
-function todayLabel(): string {
-  return new Date().toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })
-}
-
-function timeOfDay(d: Date): string {
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function relativeFromNow(start: Date): string {
-  const ms = start.getTime() - Date.now()
-  if (ms <= 0) return 'now'
-  const min = Math.round(ms / 60000)
-  if (min < 60) return `in ${min}m`
-  const hr = Math.round(min / 60)
-  if (hr < 24) return `in ${hr}h`
-  return start.toLocaleDateString([], { weekday: 'short' })
-}
-
-function relativeAgo(iso?: string): string {
-  if (!iso) return ''
-  const t = new Date(iso).getTime()
-  if (Number.isNaN(t)) return ''
-  const min = Math.round((Date.now() - t) / 60000)
-  if (min < 1) return 'just now'
-  if (min < 60) return `${min}m ago`
-  const hr = Math.round(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  const d = Math.round(hr / 24)
-  return `${d}d ago`
-}
-
-function parseAllDay(s: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
-  if (!m) return null
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-}
-
-function normalizeCalEvent(raw: RawCalEvent, sourcePath: string): CalEvent | null {
-  if (raw.status === 'cancelled') return null
-  const declined = raw.attendees?.find((a) => a.self)?.responseStatus === 'declined'
-  if (declined) return null
-  const timed = raw.start?.dateTime
-  const allDay = raw.start?.date
-  const isAllDay = !timed && Boolean(allDay)
-  let start: Date | null = null
-  let end: Date | null = null
-  if (timed) {
-    start = new Date(timed)
-    end = raw.end?.dateTime ? new Date(raw.end.dateTime) : null
-  } else if (allDay) {
-    start = parseAllDay(allDay)
-    end = raw.end?.date ? parseAllDay(raw.end.date) : null
-  }
-  if (!start || Number.isNaN(start.getTime())) return null
-  return {
-    id: raw.id ?? sourcePath,
-    summary: raw.summary?.trim() || '(No title)',
-    start,
-    end,
-    isAllDay,
-    conferenceLink: extractConferenceLink(raw as unknown as Record<string, unknown>) ?? null,
-    rawStart: raw.start,
-    rawEnd: raw.end,
-    location: raw.location?.trim() || null,
-    htmlLink: raw.htmlLink ?? null,
-    source: sourcePath,
-  }
-}
-
-function noteLabel(node: TreeNode): string {
-  if (node.kind === 'file' && node.name.toLowerCase().endsWith('.md')) return node.name.slice(0, -3)
-  return node.name
-}
-
-function triggerMeetingCapture(event: CalEvent, openConference: boolean) {
-  window.__pendingCalendarEvent = {
-    summary: event.summary,
-    start: event.rawStart,
-    end: event.rawEnd,
-    location: event.location ?? undefined,
-    htmlLink: event.htmlLink ?? undefined,
-    conferenceLink: event.conferenceLink ?? undefined,
-    source: event.source,
-  }
-  if (openConference && event.conferenceLink) {
-    window.open(event.conferenceLink, '_blank')
-  }
-  window.dispatchEvent(new Event('calendar-block:join-meeting'))
-}
-
-const CARD = 'rounded-xl border border-border bg-card p-4'
-const TOOLKIT_PREVIEW_LIMIT = 8
-
-let cachedToolkitPreviews: ToolkitPreview[] | null = null
-let cachedToolkitLogosLoaded = false
-
-function ToolkitPreviewIcon({
-  toolkit,
-  onInvalid,
-}: {
-  toolkit: ToolkitPreview
-  onInvalid: (slug: string) => void
-}) {
-  const [loaded, setLoaded] = useState(false)
-
-  if (!loaded) {
-    return (
-      <img
-        src={toolkit.logo}
-        alt=""
-        className="hidden"
-        onLoad={(event) => {
-          const img = event.currentTarget
-          if (img.naturalWidth > 1 && img.naturalHeight > 1) {
-            setLoaded(true)
-          } else {
-            onInvalid(toolkit.slug)
-          }
-        }}
-        onError={() => onInvalid(toolkit.slug)}
-      />
-    )
-  }
-
-  return (
-    <div
-      title={`${toolkit.name}: ${toolkit.description}`}
-      aria-label={toolkit.name}
-      className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-muted/60"
-    >
-      <img
-        src={toolkit.logo}
-        alt=""
-        className="size-5 shrink-0 object-contain"
-        onError={() => onInvalid(toolkit.slug)}
-      />
-    </div>
-  )
+function initials(name: string) {
+  return name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
 }
 
 export function HomeView({
-  tree,
-  runs,
   bgTaskSummaries,
   onOpenEmail,
   onOpenMeetings,
   onOpenAgents,
   onOpenAgent,
-  onOpenNote,
-  onOpenRun,
-  onTakeMeetingNotes,
   onOpenChat,
 }: HomeViewProps) {
-  const [events, setEvents] = useState<CalEvent[]>([])
-  const [emails, setEmails] = useState<EmailThread[]>([])
-  const [toolkitPreviews, setToolkitPreviews] = useState<ToolkitPreview[]>(cachedToolkitPreviews ?? [])
-  const [toolkitLogosLoaded, setToolkitLogosLoaded] = useState(cachedToolkitLogosLoaded)
-  const [connectionsSettingsOpen, setConnectionsSettingsOpen] = useState(false)
-
-  const loadEvents = useCallback(async () => {
-    try {
-      const exists = await window.ipc.invoke('workspace:exists', { path: 'calendar_sync' })
-      if (!exists.exists) { setEvents([]); return }
-      const entries = await window.ipc.invoke('workspace:readdir', {
-        path: 'calendar_sync',
-        opts: { recursive: false, includeHidden: false, includeStats: false },
-      })
-      const jsonEntries = entries.filter((e) => e.kind === 'file' && e.name.endsWith('.json'))
-      const settled = await Promise.allSettled(
-        jsonEntries.map(async (entry): Promise<CalEvent | null> => {
-          const result = await window.ipc.invoke('workspace:readFile', { path: entry.path, encoding: 'utf8' })
-          return normalizeCalEvent(JSON.parse(result.data) as RawCalEvent, entry.path)
-        }),
-      )
-      const out: CalEvent[] = []
-      for (const r of settled) if (r.status === 'fulfilled' && r.value) out.push(r.value)
-      out.sort((a, b) => a.start.getTime() - b.start.getTime())
-      setEvents(out)
-    } catch (err) {
-      console.error('Home: failed to load events', err)
-    }
-  }, [])
-
-  const loadEmails = useCallback(async () => {
-    try {
-      const result = await window.ipc.invoke('gmail:getImportant', { limit: 25 })
-      setEmails(
-        result.threads
-          .filter((t) => t.unread === true)
-          .slice(0, 3)
-          .map((t) => ({ threadId: t.threadId, subject: t.subject ?? '(No subject)', from: t.from ?? '' })),
-      )
-    } catch (err) {
-      console.error('Home: failed to load emails', err)
-    }
-  }, [])
-
-  const loadConnectorLogos = useCallback(async () => {
-    if (cachedToolkitLogosLoaded) return
-    try {
-      const configured = await window.ipc.invoke('composio:is-configured', null)
-      if (!configured.configured) return
-      const toolkits = await window.ipc.invoke('composio:list-toolkits', {})
-      const previews = toolkits.items
-        .filter((toolkit) => Boolean(toolkit.meta.logo))
-        .slice(0, TOOLKIT_PREVIEW_LIMIT)
-        .map((toolkit) => ({
-          slug: toolkit.slug,
-          logo: toolkit.meta.logo,
-          name: toolkit.name,
-          description: toolkit.meta.description,
-        }))
-      cachedToolkitPreviews = previews
-      setToolkitPreviews(previews)
-    } catch {
-      cachedToolkitPreviews = []
-    } finally {
-      cachedToolkitLogosLoaded = true
-      setToolkitLogosLoaded(true)
-    }
-  }, [])
-
-  const removeToolkitPreview = useCallback((slug: string) => {
-    setToolkitPreviews((prev) => {
-      const next = prev.filter((toolkit) => toolkit.slug !== slug)
-      cachedToolkitPreviews = next
-      return next
-    })
-  }, [])
-
-  useEffect(() => { void loadEvents(); void loadEmails(); void loadConnectorLogos() }, [loadEvents, loadEmails, loadConnectorLogos])
-
-  // Upcoming (not-yet-ended) events, soonest first.
-  const upcoming = useMemo(() => {
-    const now = Date.now()
-    return events.filter((e) => {
-      const end = e.end ?? (e.isAllDay ? new Date(e.start.getTime() + 864e5) : e.start)
-      return end.getTime() > now
-    })
-  }, [events])
-
-  const nextEvent = upcoming[0]
-
-  const todaysEvents = useMemo(() => {
-    const now = new Date()
-    return upcoming.filter((e) =>
-      e.start.getFullYear() === now.getFullYear() &&
-      e.start.getMonth() === now.getMonth() &&
-      e.start.getDate() === now.getDate(),
-    )
-  }, [upcoming])
-
-  const activeAgents = useMemo(() => bgTaskSummaries.filter((t) => t.active), [bgTaskSummaries])
-  const recentAgent = useMemo(() => {
-    const t = (s?: string) => (s ? new Date(s).getTime() || 0 : 0)
-    return [...bgTaskSummaries].sort((a, b) =>
-      Math.max(t(b.lastRunAt), t(b.lastAttemptAt)) - Math.max(t(a.lastRunAt), t(a.lastAttemptAt)),
-    )[0]
+  const [prompt, setPrompt] = useState('')
+  const [isSettled, setIsSettled] = useState(false)
+  const activeAgents = useMemo(() => {
+    const liveAgents = bgTaskSummaries.filter((task) => task.active).slice(0, 3)
+    return liveAgents.length ? liveAgents : fallbackAgents
   }, [bgTaskSummaries])
 
-  const recentNotes = useMemo<TreeNode[]>(() => {
-    const out: TreeNode[] = []
-    const walk = (nodes: TreeNode[]) => {
-      for (const n of nodes) {
-        if (n.path === 'knowledge/Meetings' || n.path === 'knowledge/Workspace') continue
-        if (n.kind === 'file') out.push(n)
-        else if (n.children?.length) walk(n.children)
-      }
-    }
-    walk(tree)
-    return out
-      .filter((n) => n.stat?.mtimeMs)
-      .sort((a, b) => (b.stat?.mtimeMs ?? 0) - (a.stat?.mtimeMs ?? 0))
-      .slice(0, 2)
-  }, [tree])
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setIsSettled(true), 220)
+    return () => window.clearTimeout(timeout)
+  }, [])
 
-  const recentActivity = useMemo(() => {
-    const items: Array<{ key: string; icon: 'note' | 'chat'; label: string; kind: string; when: number; open: () => void }> = []
-    for (const n of recentNotes) {
-      items.push({ key: `n:${n.path}`, icon: 'note', label: noteLabel(n), kind: 'note', when: n.stat?.mtimeMs ?? 0, open: () => onOpenNote(n.path) })
-    }
-    for (const r of runs.slice(0, 4)) {
-      items.push({ key: `r:${r.id}`, icon: 'chat', label: r.title || '(Untitled chat)', kind: 'chat', when: new Date(r.createdAt).getTime() || 0, open: () => onOpenRun(r.id) })
-    }
-    return items.sort((a, b) => b.when - a.when).slice(0, 4)
-  }, [recentNotes, runs, onOpenNote, onOpenRun])
+  const openRecruiterChat = () => {
+    setPrompt('')
+    onOpenChat?.()
+  }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-muted/30">
-      <div className="flex-1 overflow-y-auto px-9 py-7">
-        <div className="mx-auto flex max-w-[760px] flex-col gap-[18px]">
-
-          {/* Greeting */}
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-[28px] font-semibold tracking-tight">{greeting()}</h1>
-            <span className="text-sm text-muted-foreground">{todayLabel()}</span>
+    <PageTransition className="recruiter-scroll h-full overflow-auto bg-black text-white">
+      <div className="flex min-h-full w-full flex-col gap-4 px-6 py-5 lg:px-7">
+        <header className="flex items-start justify-between gap-6">
+          <div>
+            <h1 className="text-[27px] font-medium tracking-[-0.04em] text-white">
+              {greeting()}, Miles <span className="text-[24px]">{'\uD83D\uDC4B'}</span>
+            </h1>
+            <p className="mt-2 text-sm text-zinc-400">AI agentic recruiting, running for you.</p>
           </div>
-
-          {/* Up-next hero */}
-          {nextEvent && (
-            <div className="flex items-center gap-[18px] rounded-xl bg-foreground p-[18px] text-background">
-              <div className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-background/10">
-                <Mic className="size-[22px]" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 text-[11px] uppercase tracking-wide text-background/55">
-                  Up next · {nextEvent.isAllDay ? 'today' : relativeFromNow(nextEvent.start)}
-                </div>
-                <div className="mb-0.5 truncate text-[17px] font-medium">{nextEvent.summary}</div>
-                <div className="truncate text-[13px] text-background/70">
-                  {nextEvent.isAllDay ? 'All day' : `${timeOfDay(nextEvent.start)}${nextEvent.end ? ` – ${timeOfDay(nextEvent.end)}` : ''}`}
-                  {nextEvent.location ? ` · ${nextEvent.location}` : ''}
-                </div>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  onClick={onTakeMeetingNotes}
-                  className="rounded-md bg-background px-3.5 py-2 text-[13px] font-medium text-foreground"
-                >
-                  Take notes
-                </button>
-                {nextEvent.conferenceLink && (
-                  <button
-                    type="button"
-                    onClick={() => window.open(nextEvent.conferenceLink!, '_blank')}
-                    className="rounded-md border border-background/20 px-3 py-2 text-background"
-                    aria-label="Join meeting"
-                  >
-                    <Video className="size-[13px]" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Inbox + Background agents */}
-          <div className="grid grid-cols-2 gap-[18px]">
-            <div className={CARD}>
-              <div className="mb-3 flex items-center gap-2">
-                <Mail className="size-[15px]" />
-                <span className="text-sm font-medium">Inbox</span>
-                {emails.length > 0 && (
-                  <span className="rounded-lg bg-destructive px-1.5 py-px text-[10.5px] font-semibold uppercase tracking-wide text-white">
-                    {emails.length} new
-                  </span>
-                )}
-                <span className="flex-1" />
-                <button type="button" onClick={onOpenEmail} className="text-xs text-primary hover:underline">Open →</button>
-              </div>
-              {emails.length === 0 ? (
-                <div className="py-1 text-[12.5px] text-muted-foreground">No unread important email.</div>
-              ) : emails.map((e, i) => (
-                <button
-                  key={e.threadId}
-                  type="button"
-                  onClick={onOpenEmail}
-                  className={`flex w-full gap-2.5 py-[7px] text-left text-[12.5px] ${i ? 'border-t border-border' : ''}`}
-                >
-                  <span className="w-[92px] shrink-0 truncate text-muted-foreground">{formatFrom(e.from)}</span>
-                  <span className="flex-1 truncate">{e.subject}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className={CARD}>
-              <div className="mb-3 flex items-center gap-2">
-                <Bot className="size-[15px]" />
-                <span className="text-sm font-medium">Background agents</span>
-                <span className="flex-1" />
-                <span className="text-xs text-muted-foreground">{activeAgents.length} active</span>
-                <button type="button" onClick={onOpenAgents} className="text-xs text-primary hover:underline">Open →</button>
-              </div>
-              {recentAgent ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenAgent(recentAgent.slug)}
-                  className="flex w-full items-center gap-2.5 py-[7px] text-left text-[13px]"
-                >
-                  <span className={`size-2 shrink-0 rounded-full ${recentAgent.active ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                  <span className="flex-1 truncate font-medium">{recentAgent.name}</span>
-                  <span className="text-[11.5px] text-muted-foreground">{relativeAgo(recentAgent.lastRunAt) || '—'}</span>
-                </button>
-              ) : (
-                <div className="py-1 text-[12.5px] text-muted-foreground">No agents yet.</div>
-              )}
-              <button
-                type="button"
-                onClick={onOpenAgents}
-                className="mt-3.5 flex items-center gap-2 border-t border-border pt-3 text-[12.5px] text-primary"
-              >
-                <Plus className="size-3" />
-                Create an agent
-              </button>
-            </div>
-          </div>
-
-          {/* Today's schedule */}
-          <div className={CARD}>
-            <div className="mb-3.5 flex items-center gap-2">
-              <Calendar className="size-[14px]" />
-              <span className="text-sm font-medium">Today's schedule</span>
-              <span className="flex-1" />
-              <button type="button" onClick={onOpenMeetings} className="text-xs text-primary hover:underline">All meetings →</button>
-            </div>
-            {todaysEvents.length === 0 ? (
-              <div className="py-1 text-[13px] italic text-muted-foreground">No more events today.</div>
-            ) : todaysEvents.map((e, i) => (
-              <div key={e.id} className={`group flex items-center gap-3.5 py-2 text-[13px] ${i ? 'border-t border-border' : ''}`}>
-                <span className="w-[90px] shrink-0 font-mono text-[11.5px] text-muted-foreground">
-                  {e.isAllDay ? 'All day' : `${timeOfDay(e.start)}${e.end ? ` – ${timeOfDay(e.end)}` : ''}`}
-                </span>
-                <span className={`size-2 shrink-0 rounded-full ${i === 0 ? 'bg-emerald-500' : 'bg-border'}`} />
-                <span className="min-w-0 flex-1 truncate font-medium">{e.summary}</span>
-                <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                  <button
-                    type="button"
-                    onClick={() => triggerMeetingCapture(e, false)}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11.5px] text-foreground transition-colors hover:bg-accent"
-                  >
-                    <Mic className="size-3" />
-                    Take notes
-                  </button>
-                  {e.conferenceLink && (
-                    <button
-                      type="button"
-                      onClick={() => triggerMeetingCapture(e, true)}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11.5px] text-foreground transition-colors hover:bg-accent"
-                    >
-                      <Video className="size-3" />
-                      Join &amp; take notes
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Recent activity */}
-          {recentActivity.length > 0 && (
-            <div className={CARD}>
-              <div className="mb-3 flex items-center gap-2">
-                <Clock className="size-[14px]" />
-                <span className="text-sm font-medium">Recent activity</span>
-              </div>
-              {recentActivity.map((a, i) => (
-                <button
-                  key={a.key}
-                  type="button"
-                  onClick={a.open}
-                  className={`flex w-full items-center gap-3 py-2 text-left text-[13px] ${i ? 'border-t border-border' : ''}`}
-                >
-                  {a.icon === 'note' ? <FileText className="size-[13px] shrink-0 text-muted-foreground" /> : <MessageSquare className="size-[13px] shrink-0 text-muted-foreground" />}
-                  <span className="flex-1 truncate">{a.label}</span>
-                  <span className="w-[60px] text-right text-[11px] text-muted-foreground">{a.kind}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Tool connections */}
-          <div className={CARD}>
-            <div className="flex items-start gap-3">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
-                <Plug className="size-[14px]" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13.5px] leading-snug">
-                  <span className="font-medium">Connect your recruiting stack.</span>
-                  <span className="text-muted-foreground"> LinkedIn, email, ATS, and more — candidate context in one workspace.</span>
-                </div>
-                <div className="mt-3 flex min-h-5 flex-wrap items-center gap-1.5">
-                  {toolkitLogosLoaded && toolkitPreviews.map((toolkit) => (
-                    <ToolkitPreviewIcon
-                      key={toolkit.slug}
-                      toolkit={toolkit}
-                      onInvalid={removeToolkitPreview}
-                    />
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setConnectionsSettingsOpen(true)}
-                    className="ml-1 flex h-5 shrink-0 items-center gap-1 rounded-md px-1 text-[12px] font-medium text-primary hover:underline"
-                  >
-                    Connections
-                    <ArrowRight className="size-3" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <SettingsDialog
-            defaultTab="connections"
-            open={connectionsSettingsOpen}
-            onOpenChange={setConnectionsSettingsOpen}
-          />
-
-          {/* Open chat CTA */}
-          {onOpenChat && (
-            <button
-              type="button"
-              onClick={onOpenChat}
-              className="flex items-center gap-3.5 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent"
-            >
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
-                <MessageSquare className="size-[15px]" />
-              </div>
-              <div className="min-w-0 flex-1 text-[13.5px] leading-snug">
-                <span className="font-medium">Start a search</span>
-                <span className="text-muted-foreground"> — source candidates, draft outreach, or screen profiles for your open roles.</span>
-              </div>
-              <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-medium text-primary">
-                New chat
-                <ArrowRight className="size-3.5" />
-              </span>
+          <div className="flex items-center gap-3">
+            <label className="flex h-10 w-[318px] items-center gap-3 rounded-xl border border-white/10 bg-[#050608] px-4 text-zinc-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <Search className="h-4 w-4" />
+              <input
+                className="min-w-0 flex-1 bg-transparent text-xs text-zinc-200 outline-none placeholder:text-zinc-600"
+                placeholder="Search candidates, roles, or notes"
+              />
+              <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-zinc-400">Ctrl K</span>
+            </label>
+            <button className="relative grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-[#050608] text-zinc-300">
+              <Bell className="h-4 w-4" />
+              <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#49ff16] text-[10px] font-bold text-black">3</span>
             </button>
-          )}
+            <button className="flex h-10 items-center gap-3 rounded-xl border border-[#2e7b19]/80 bg-[#113f08] px-4 text-sm font-medium text-white shadow-[0_0_24px_rgba(68,255,22,0.18)]">
+              <Plus className="h-4 w-4 text-[#62ff28]" />
+              New
+              <ChevronDown className="h-4 w-4 text-[#62ff28]" />
+            </button>
+          </div>
+        </header>
 
-        </div>
+        {!isSettled ? (
+          <div className="grid flex-1 grid-cols-3 gap-4">
+            <PremiumSkeleton className="h-[172px] rounded-xl" />
+            <PremiumSkeleton className="h-[172px] rounded-xl" />
+            <PremiumSkeleton className="h-[172px] rounded-xl" />
+            <PremiumSkeleton className="col-span-2 h-[378px] rounded-xl" />
+            <PremiumSkeleton className="h-[378px] rounded-xl" />
+            <PremiumSkeleton className="h-[230px] rounded-xl" />
+            <PremiumSkeleton className="h-[230px] rounded-xl" />
+            <PremiumSkeleton className="h-[230px] rounded-xl" />
+          </div>
+        ) : (
+          <>
+        <ScrollReveal>
+        <section className="grid grid-cols-3 gap-4">
+          {[
+            { label: 'Open Roles', value: '12', sub: '2 vs last week', icon: Briefcase },
+            { label: 'Active Searches', value: '8', sub: '1 vs last week', icon: Users },
+            { label: 'Response Rate', value: '24.6%', sub: '6.2pp vs last 7 days', icon: Send },
+          ].map((metric) => (
+            <article
+              key={metric.label}
+              className="premium-lift group relative overflow-hidden rounded-xl border border-white/10 bg-[#080a0d] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)]"
+            >
+              <div className="absolute right-6 top-4 h-20 w-20 rounded-full bg-[#3cff0b]/10 blur-xl transition group-hover:bg-[#3cff0b]/20" />
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-zinc-400">{metric.label}</p>
+                  <p className="mt-2 text-3xl font-light tracking-[-0.06em]">{metric.value}</p>
+                  <p className="mt-2 flex items-center gap-1 text-xs text-zinc-400">
+                    <ArrowUp className="h-3 w-3 text-[#4dff18]" />
+                    <span className="text-[#4dff18]">{metric.sub.split(' ')[0]}</span>
+                    {metric.sub.replace(metric.sub.split(' ')[0], '')}
+                  </p>
+                </div>
+                <div className="grid h-16 w-16 place-items-center rounded-full border border-[#43ff15]/20 bg-[#42ff12]/10 text-[#52ff1f] shadow-[0_0_35px_rgba(66,255,18,0.24)]">
+                  <metric.icon className="h-8 w-8" />
+                </div>
+              </div>
+            </article>
+          ))}
+        </section>
+        </ScrollReveal>
+
+        <ScrollReveal delay={80}>
+        <section className="grid grid-cols-[1fr_372px] gap-4">
+          <article className="premium-lift relative overflow-hidden rounded-xl border border-white/10 bg-[#07090b] p-0">
+            <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_90%_5%,rgba(72,255,22,0.58),transparent_17%),radial-gradient(circle_at_82%_28%,rgba(62,255,14,0.15),transparent_34%)]" />
+            <div className="absolute right-[-2rem] top-[-2rem] h-48 w-80 rotate-[-18deg] rounded-full border border-[#4cff19]/20 bg-[#4cff19]/10 blur-sm" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),transparent_40%)]" />
+            <div className="relative">
+              <div className="px-7 pb-5 pt-6">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-medium tracking-[-0.03em]">AI Recruiter</h2>
+                  <span className="rounded-full border border-[#42ff13]/20 bg-[#42ff13]/10 px-3 py-1 text-xs text-[#5fff2a]">Command Center</span>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-white/10 bg-[#0d1014]/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_0_36px_rgba(77,255,24,0.05)]">
+                  <div className="relative min-h-[118px] px-6 pt-5">
+                    <div className="pointer-events-none absolute left-5 top-5 h-7 w-40 rounded-full bg-white/15 blur-2xl" />
+                    <textarea
+                      value={prompt}
+                      onChange={(event) => setPrompt(event.target.value)}
+                      onKeyDown={(event) => {
+                        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') openRecruiterChat()
+                      }}
+                      className="relative min-h-[72px] w-full resize-none bg-transparent text-xl font-medium leading-8 tracking-[-0.04em] text-white outline-none placeholder:text-zinc-500"
+                      placeholder="Example: Find cybersecurity analysts in Lagos"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 border-t border-white/10 px-5 py-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {['Job Title', 'Industry', 'Skills', 'Experience', 'Job Location'].map((chip) => (
+                        <button
+                          key={chip}
+                          onClick={openRecruiterChat}
+                          className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs text-zinc-300 transition hover:border-[#4dff18]/25 hover:bg-[#4dff18]/10 hover:text-white"
+                        >
+                          {chip} <span className="ml-1 text-[#4dff18]">âœ“</span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={openRecruiterChat}
+                        className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-zinc-300 transition hover:border-[#4dff18]/25 hover:text-[#4dff18]"
+                        aria-label="Improve prompt"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={openRecruiterChat}
+                        className="grid h-11 w-16 place-items-center rounded-full bg-[#4dff18] text-black shadow-[0_0_26px_rgba(77,255,24,0.42)] transition hover:scale-[1.03]"
+                        aria-label="Start recruiter search"
+                      >
+                        <ArrowUp className="h-5 w-5 rotate-90" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-white/10 px-7 pb-6 pt-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                    <Search className="h-4 w-4 text-[#4dff18]" />
+                    Smart Searches
+                  </div>
+                  <p className="hidden text-sm text-zinc-500 lg:block">Suggested searches based on high-performing recruiter workflows</p>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  {[
+                    ['Software Engineer', 'Find TypeScript and Node.js engineers at Series A companies', FileText],
+                    ['Data Analyst', 'Find SQL, Python, and dashboarding talent with 3+ years', Briefcase],
+                    ['Cloud Engineer', 'Find AWS-certified engineers skilled in Terraform', Users],
+                  ].map(([title, description, Icon]) => (
+                    <button
+                      key={title as string}
+                      onClick={openRecruiterChat}
+                      className="group rounded-xl border border-white/10 bg-[#101318]/82 p-4 text-left transition hover:border-[#4dff18]/28 hover:bg-[#142013]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-[#4dff18]" />
+                          <p className="text-sm font-semibold text-zinc-100">{title as string}</p>
+                        </div>
+                        <ArrowUp className="h-4 w-4 rotate-90 text-zinc-500 transition group-hover:text-[#4dff18]" />
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-zinc-500">{description as string}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article className="premium-lift rounded-xl border border-white/10 bg-[#07090b] p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium tracking-[-0.03em]">Top Matches</h2>
+              <button className="text-xs text-zinc-400 hover:text-[#4dff18]">View all</button>
+            </div>
+            <div className="mt-5 space-y-4">
+              {topMatches.length === 0 ? (
+                <PremiumEmptyState
+                  className="min-h-[250px]"
+                  icon={<Users className="h-6 w-6" />}
+                  title="No matches yet"
+                  description="Ask the AI Recruiter to source candidates and the strongest evidence-backed matches will appear here."
+                />
+              ) : topMatches.map((candidate) => (
+                <div key={candidate.name} className="flex items-center gap-4">
+                  <div className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-gradient-to-br from-zinc-700 to-zinc-950 text-sm font-semibold">
+                    {initials(candidate.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">{candidate.name}</p>
+                    <p className="truncate text-xs text-zinc-400">{candidate.role}</p>
+                    <p className="truncate text-xs text-zinc-500">{candidate.meta}</p>
+                  </div>
+                  <div className="grid h-11 w-11 place-items-center rounded-full border border-[#4dff18] text-xs text-[#4dff18] shadow-[0_0_20px_rgba(77,255,24,0.12)]">
+                    {candidate.score}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        </section>
+        </ScrollReveal>
+
+        <ScrollReveal delay={140}>
+        <section className="grid grid-cols-[1.03fr_0.88fr_1.55fr] gap-4">
+          <article className="premium-lift rounded-xl border border-white/10 bg-[#07090b] p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium tracking-[-0.03em]">Pipeline Overview</h2>
+              <button onClick={onOpenAgents} className="text-xs text-zinc-500 hover:text-[#4dff18]">View pipeline</button>
+            </div>
+            <div className="mt-8 grid grid-cols-4 gap-5">
+              {pipeline.map((stage) => (
+                <div key={stage.label} className="space-y-4">
+                  <p className="text-xs text-zinc-300">{stage.label}</p>
+                  <p className="text-2xl font-light tracking-[-0.05em]">{stage.value}</p>
+                  <stage.icon className={`h-5 w-5 ${stage.tone}`} />
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="premium-lift rounded-xl border border-white/10 bg-[#07090b] p-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium tracking-[-0.03em]">Active Agents</h2>
+              <button onClick={onOpenAgents} className="text-xs text-zinc-500 hover:text-[#4dff18]">View all</button>
+            </div>
+            <div className="mt-4 divide-y divide-white/8">
+              {activeAgents.map((agent, index) => (
+                <button
+                  key={agent.slug}
+                  onClick={() => onOpenAgent(agent.slug)}
+                  className="flex w-full items-center gap-3 py-3 text-left"
+                >
+                  <span className={`grid h-9 w-9 place-items-center rounded-full ${index === 0 ? 'bg-cyan-500/20 text-cyan-300' : index === 1 ? 'bg-lime-500/20 text-lime-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                    <Bot className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-white">{agent.name}</span>
+                    <span className="block truncate text-xs text-zinc-500">{agent.lastAttemptAt || agent.lastRunAt || 'Monitoring recruiter workflow'}</span>
+                  </span>
+                  <span className="flex items-center gap-1 text-xs text-[#4dff18]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#4dff18]" />
+                    Running
+                  </span>
+                </button>
+              ))}
+            </div>
+          </article>
+
+          <div className="grid grid-cols-2 gap-4">
+            <article className="premium-lift rounded-xl border border-white/10 bg-[#07090b] p-5">
+              <div className="flex items-center gap-6 border-b border-white/8 pb-3 text-sm">
+                <span className="text-white">Agenda</span>
+                <span className="text-zinc-500">Inbox</span>
+              </div>
+              <div className="mt-4 space-y-4">
+                {[
+                  ['10:00 AM', 'Design Team Standup', '30m'],
+                  ['11:30 AM', 'Interview: Teni Ogunleye', '60m'],
+                  ['02:00 PM', 'Interview: David Adeyemi', '45m'],
+                ].map((event) => (
+                  <div key={event[1]} className="flex items-center gap-3">
+                    <Calendar className="h-4 w-4 text-zinc-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] text-zinc-500">{event[0]}</p>
+                      <p className="truncate text-xs text-zinc-300">{event[1]}</p>
+                    </div>
+                    <span className="text-[11px] text-zinc-500">{event[2]}</span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={onOpenMeetings} className="mt-6 text-sm text-[#4dff18]">View full agenda -&gt;</button>
+            </article>
+
+            <article className="premium-lift rounded-xl border border-white/10 bg-[#07090b] p-5">
+              <div className="flex items-center gap-2 border-b border-white/8 pb-3">
+                <h2 className="text-lg font-medium tracking-[-0.03em]">Inbox</h2>
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-[#4dff18] text-[11px] font-bold text-black">2</span>
+              </div>
+              <div className="mt-5 space-y-6">
+                <div className="flex gap-3">
+                  <span className="grid h-7 w-7 place-items-center rounded bg-[#0a66c2] text-xs font-bold">in</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-zinc-200">LinkedIn</p>
+                    <p className="truncate text-xs text-zinc-500">New reply from Michael O.</p>
+                  </div>
+                  <span className="text-[11px] text-zinc-500">2m</span>
+                </div>
+                <div className="flex gap-3">
+                  <span className="grid h-7 w-7 place-items-center rounded bg-white/10 text-[#ff4c4c]">
+                    <Mail className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-zinc-200">Gmail</p>
+                    <p className="truncate text-xs text-zinc-500">Re: Senior Product Designer role</p>
+                  </div>
+                  <span className="text-[11px] text-zinc-500">15m</span>
+                </div>
+              </div>
+              <button onClick={onOpenEmail} className="mt-8 text-sm text-[#4dff18]">Go to inbox -&gt;</button>
+            </article>
+          </div>
+        </section>
+        </ScrollReveal>
+          </>
+        )}
       </div>
-    </div>
+    </PageTransition>
   )
-}
-
-function formatFrom(from: string): string {
-  const m = /^\s*"?([^"<]+?)"?\s*<.+>\s*$/.exec(from)
-  return (m ? m[1] : from).trim()
 }
