@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Calendar, ChevronDown, Clock, LayoutGrid, List, Loader2, MapPin, Mic, Square, UserRound, UsersRound, Video, X } from 'lucide-react'
+import { Calendar, ChevronDown, Clock, ExternalLink, MapPin, Mic, UserRound, UsersRound, Video, X } from 'lucide-react'
 
 import { MeetingsCalendar } from '@/components/meetings/meetings-calendar'
 import { MeetingsDayDetail } from '@/components/meetings/meetings-day-detail'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SettingsDialog } from '@/components/settings-dialog'
+import { PageTransition, PremiumEmptyState, PremiumListSkeleton } from '@/components/premium-states'
 import {
   attendeeLabel,
   buildDayWindow,
-  CALENDAR_DIR,
   eventsForDay,
   formatEventDetailTime,
-  formatEventTimeRange,
   formatEventTimeRangeCompact,
   isCalendarPath,
   isEventNow,
@@ -195,7 +194,7 @@ function UpcomingEvents() {
           const raw = JSON.parse(result.data) as RawCalendarEvent
           const ev = normalizeEvent(raw, entry.path)
           if (!ev) return null
-          // Event must overlap the [now, windowEnd) range — i.e. not already ended,
+          // Event must overlap the [now, windowEnd) range â€” i.e. not already ended,
           // and not start after the window closes.
           const effectiveEnd = ev.end ?? (ev.isAllDay ? addDays(ev.start, 1) : ev.start)
           if (effectiveEnd <= now) return null
@@ -336,7 +335,7 @@ function UpcomingDayCard({ day, isToday }: { day: DayGroup; isToday: boolean }) 
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="text-[22px] font-bold leading-none text-foreground">{dayNum}</span>
           <span className="truncate text-[13px] text-muted-foreground">
-            {month} · {weekday}
+            {month} Â· {weekday}
           </span>
           {isToday ? (
             <span className="shrink-0 rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-background">
@@ -375,7 +374,7 @@ function UpcomingEventItem({ event, isLast }: { event: MeetingEvent; isLast: boo
   const isNow = isEventNow(event)
   const platform = meetingPlatformLabel(event.conferenceLink)
   const subtitle = platform ?? event.location
-  const titleAndLocation = event.location ? `${event.summary} · ${event.location}` : event.summary
+  const titleAndLocation = event.location ? `${event.summary} Â· ${event.location}` : event.summary
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -649,7 +648,7 @@ function formatMeetingName(name: string): string {
 }
 
 function formatDateLabel(label: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(label)) return label || '—'
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(label)) return label || 'â€”'
   const date = new Date(`${label}T00:00:00`)
   if (Number.isNaN(date.getTime())) return label
   return date.toLocaleDateString(undefined, {
@@ -847,7 +846,7 @@ export function MeetingsView({ onOpenNote, onTakeMeetingNotes, meetingState, mee
                     </td>
                     <td className="px-4 py-3 align-top text-sm text-muted-foreground">{note.dateLabel}</td>
                     <td className="px-4 py-3 align-top text-sm text-muted-foreground">
-                      {note.mtimeMs > 0 ? (formatRelativeTime(new Date(note.mtimeMs).toISOString()) || '—') : '—'}
+                      {note.mtimeMs > 0 ? (formatRelativeTime(new Date(note.mtimeMs).toISOString()) || 'â€”') : 'â€”'}
                     </td>
                   </tr>
                 ))}
