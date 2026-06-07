@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, X, Check, ListFilter, Fi
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Command, CommandInput, CommandList, CommandItem, CommandEmpty, CommandGroup } from '@/components/ui/command'
+import { PageTransition, PremiumEmptyState } from '@/components/premium-states'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -464,7 +465,7 @@ export function BasesView({ tree, onSelectNote, config, onConfigChange, isDefaul
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <PageTransition className="flex-1 flex flex-col overflow-hidden">
       {/* Toolbar */}
       <div className="shrink-0 border-b border-border px-4 py-2 flex items-center gap-3">
         <Popover>
@@ -691,8 +692,15 @@ export function BasesView({ tree, onSelectNote, config, onConfigChange, isDefaul
             ))}
             {pageNotes.length === 0 && (
               <tr>
-                <td colSpan={visibleColumns.length} className="px-4 py-8 text-center text-muted-foreground">
-                  No notes found
+                <td colSpan={visibleColumns.length} className="px-4 py-10">
+                  <PremiumEmptyState
+                    icon={<Search className="size-6" />}
+                    title="No notes found"
+                    description={filters.length > 0 || searchQuery
+                      ? 'Try clearing filters or broadening your search to bring matching evidence back into view.'
+                      : 'Add notes to Knowledge and this base will become a sortable, filterable recruiting table.'}
+                    className="min-h-[240px]"
+                  />
                 </td>
               </tr>
             )}
@@ -764,7 +772,7 @@ export function BasesView({ tree, onSelectNote, config, onConfigChange, isDefaul
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageTransition>
   )
 }
 

@@ -51,9 +51,9 @@ import {
   type FileMention,
 } from '@/components/ai-elements/prompt-input';
 
-import { Shimmer } from '@/components/ai-elements/shimmer';
+import { ThinkingIndicator } from '@/components/ai-elements/thinking-indicator';
 import { useSmoothedText } from './hooks/useSmoothedText';
-import { Tool, ToolContent, ToolGroupComponent, ToolHeader, ToolTabbedContent } from '@/components/ai-elements/tool';
+import { Tool, ToolContent, ToolGroupComponent, ToolHeader, ToolStatusRow, ToolTabbedContent } from '@/components/ai-elements/tool';
 import { WebSearchResult } from '@/components/ai-elements/web-search-result';
 import { AppActionCard } from '@/components/ai-elements/app-action-card';
 import { ComposioConnectCard } from '@/components/ai-elements/composio-connect-card';
@@ -5868,6 +5868,8 @@ function App() {
                                     const permRequest = tabState.allPermissionRequests.get(item.id)
                                     if (permRequest) {
                                       const response = tabState.permissionResponses.get(item.id) || null
+                                      const toolTitle = getToolDisplayName(item)
+                                      const showStatusRow = response === 'approve'
                                       return (
                                         <React.Fragment key={item.id}>
                                           <PermissionRequest
@@ -5898,7 +5900,12 @@ function App() {
                                             isProcessing={isActive && isProcessing}
                                             response={response}
                                           />
-                                          {rendered}
+                                          {showStatusRow ? (
+                                            <ToolStatusRow
+                                              title={toolTitle}
+                                              state={toToolState(item.status)}
+                                            />
+                                          ) : !response ? null : rendered}
                                         </React.Fragment>
                                       )
                                     }
@@ -5927,13 +5934,7 @@ function App() {
                                 )}
 
                                 {isActive && isProcessing && !tabState.currentAssistantMessage && (
-                                  <ChatAssistantRow>
-                                    <Message from="assistant">
-                                      <MessageContent>
-                                        <Shimmer duration={1}>Thinking...</Shimmer>
-                                      </MessageContent>
-                                    </Message>
-                                  </ChatAssistantRow>
+                                  <ThinkingIndicator />
                                 )}
                               </>
                             )}

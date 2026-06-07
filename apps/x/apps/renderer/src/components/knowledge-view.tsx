@@ -23,6 +23,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
+import { PageTransition, PremiumEmptyState, ScrollReveal } from '@/components/premium-states'
 import { VoiceNoteButton } from '@/components/sidebar-content'
 import { formatRelativeTime } from '@/lib/relative-time'
 import { toast } from '@/lib/toast'
@@ -181,7 +182,7 @@ export function KnowledgeView({
   const currentFolder = folderPath ? findNode(tree, folderPath) : null
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <PageTransition className="flex h-full flex-col overflow-hidden">
       <div className="shrink-0 flex items-start justify-between gap-4 border-b border-border px-8 py-6">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">Notes</h1>
@@ -226,7 +227,7 @@ export function KnowledgeView({
               ) : (
                 <div className="overflow-hidden rounded-xl border border-border">
                   {folders.map((node, i) => (
-                    <div key={node.path} className={cn(i > 0 && 'border-t border-border/60')}>
+                    <ScrollReveal key={node.path} delay={Math.min(i * 35, 210)} className={cn(i > 0 && 'border-t border-border/60')}>
                       <FolderCard
                         node={node}
                         actions={actions}
@@ -236,7 +237,7 @@ export function KnowledgeView({
                         onOpenFolder={openFolder}
                         onOpenNote={onOpenNote}
                       />
-                    </div>
+                    </ScrollReveal>
                   ))}
                 </div>
               )}
@@ -246,7 +247,7 @@ export function KnowledgeView({
                   <SectionHeader label={`Loose notes · ${looseNotes.length}`} />
                   <div className="overflow-hidden rounded-xl border border-border">
                     {looseNotes.map((node, i) => (
-                      <div key={node.path} className={cn(i > 0 && 'border-t border-border/60')}>
+                      <ScrollReveal key={node.path} delay={Math.min(i * 35, 210)} className={cn(i > 0 && 'border-t border-border/60')}>
                         <ItemRow
                           node={node}
                           actions={actions}
@@ -256,7 +257,7 @@ export function KnowledgeView({
                           onOpenFolder={openFolder}
                           onOpenNote={onOpenNote}
                         />
-                      </div>
+                      </ScrollReveal>
                     ))}
                   </div>
                 </div>
@@ -272,7 +273,7 @@ export function KnowledgeView({
           />
         </div>
       </div>
-    </div>
+    </PageTransition>
   )
 }
 
@@ -370,9 +371,12 @@ function SectionHeader({ label, aside }: { label: string; aside?: string }) {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
-      {text}
-    </div>
+    <PremiumEmptyState
+      icon={<FileText className="size-6" />}
+      title={text}
+      description="Add a note or folder when you are ready to grow this knowledge area."
+      className="min-h-[220px]"
+    />
   )
 }
 
@@ -423,7 +427,7 @@ function FolderCard({
           onOpenFolder(node.path)
         }
       }}
-      className="group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50"
+      className="premium-lift group flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50"
     >
       <FolderAvatar name={node.name} className="mt-0.5" />
       <div className="min-w-0 flex-1">
@@ -558,7 +562,7 @@ function FolderDetail({
       ) : (
         <div className="overflow-hidden rounded-xl border border-border">
           {items.map((node, i) => (
-            <div key={node.path} className={cn(i > 0 && 'border-t border-border/60')}>
+            <ScrollReveal key={node.path} delay={Math.min(i * 35, 210)} className={cn(i > 0 && 'border-t border-border/60')}>
               <ItemRow
                 node={node}
                 actions={actions}
@@ -568,7 +572,7 @@ function FolderDetail({
                 onOpenFolder={onOpenFolder}
                 onOpenNote={onOpenNote}
               />
-            </div>
+            </ScrollReveal>
           ))}
         </div>
       )}
@@ -614,7 +618,7 @@ function ItemRow({
           handleOpen()
         }
       }}
-      className="group flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/50"
+      className="premium-lift group flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/50"
     >
       {isDir ? (
         <FolderAvatar name={node.name} />

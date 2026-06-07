@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { ExternalLink, MessageSquare, SearchIcon, SquarePen, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { PageTransition, PremiumEmptyState, ScrollReveal } from '@/components/premium-states'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -65,7 +66,7 @@ export function ChatHistoryView({
   }, [pendingDeleteId, onDeleteRun])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <PageTransition className="flex h-full flex-col overflow-hidden">
       <div className="shrink-0 flex items-center justify-between gap-3 border-b border-border px-8 py-6">
         <h1 className="text-2xl font-bold tracking-tight">Chat history</h1>
         <div className="flex items-center gap-2">
@@ -96,58 +97,72 @@ export function ChatHistoryView({
           </div>
 
           {sortedRuns.length === 0 ? (
-            <div className="px-6 py-8 text-sm text-muted-foreground">No chats yet.</div>
+            <div className="flex min-h-[360px] items-center justify-center p-8">
+              <PremiumEmptyState
+                icon={<MessageSquare className="size-6" />}
+                title="No chats yet"
+                description="Start a new chat when you want to investigate candidates, roles, or evidence with the agent."
+                action={onNewChat ? (
+                  <Button size="sm" variant="outline" onClick={onNewChat}>
+                    <SquarePen className="size-4" />
+                    New chat
+                  </Button>
+                ) : undefined}
+              />
+            </div>
           ) : (
-            sortedRuns.map((run) => {
+            sortedRuns.map((run, index) => {
               const isActive = currentRunId === run.id
               const isProcessing = processingRunIds?.has(run.id)
               return (
-                <ContextMenu key={run.id}>
-                  <ContextMenuTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        if (e.metaKey && onOpenInNewTab) {
-                          onOpenInNewTab(run.id)
-                        } else {
-                          onSelectRun(run.id)
-                        }
-                      }}
-                      className={[
-                        'flex w-full items-center border-b border-border/60 px-6 py-1.5 text-left text-sm transition-colors hover:bg-accent',
-                        isActive ? 'bg-accent/60' : '',
-                      ].join(' ')}
-                    >
-                      <div className="flex flex-1 items-center gap-2 min-w-0">
-                        <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 truncate">{run.title || '(Untitled chat)'}</span>
-                      </div>
-                      <div className="w-32 shrink-0 text-xs text-muted-foreground tabular-nums">
-                        {formatRelativeTime(run.createdAt)}
-                      </div>
-                    </button>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent className="w-48">
-                    {onOpenInNewTab && (
-                      <>
-                        <ContextMenuItem onClick={() => onOpenInNewTab(run.id)}>
-                          <ExternalLink className="mr-2 size-4" />
-                          Open in new tab
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                      </>
-                    )}
-                    {!isProcessing && (
-                      <ContextMenuItem
-                        variant="destructive"
-                        onClick={() => setPendingDeleteId(run.id)}
+                <ScrollReveal key={run.id} delay={Math.min(index * 18, 180)}>
+                  <ContextMenu>
+                    <ContextMenuTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          if (e.metaKey && onOpenInNewTab) {
+                            onOpenInNewTab(run.id)
+                          } else {
+                            onSelectRun(run.id)
+                          }
+                        }}
+                        className={[
+                          'premium-lift flex w-full items-center border-b border-border/60 px-6 py-1.5 text-left text-sm transition-colors hover:bg-accent',
+                          isActive ? 'bg-accent/60' : '',
+                        ].join(' ')}
                       >
-                        <Trash2 className="mr-2 size-4" />
-                        Delete
-                      </ContextMenuItem>
-                    )}
-                  </ContextMenuContent>
-                </ContextMenu>
+                        <div className="flex flex-1 items-center gap-2 min-w-0">
+                          <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
+                          <span className="min-w-0 truncate">{run.title || '(Untitled chat)'}</span>
+                        </div>
+                        <div className="w-32 shrink-0 text-xs text-muted-foreground tabular-nums">
+                          {formatRelativeTime(run.createdAt)}
+                        </div>
+                      </button>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-48">
+                      {onOpenInNewTab && (
+                        <>
+                          <ContextMenuItem onClick={() => onOpenInNewTab(run.id)}>
+                            <ExternalLink className="mr-2 size-4" />
+                            Open in new tab
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                        </>
+                      )}
+                      {!isProcessing && (
+                        <ContextMenuItem
+                          variant="destructive"
+                          onClick={() => setPendingDeleteId(run.id)}
+                        >
+                          <Trash2 className="mr-2 size-4" />
+                          Delete
+                        </ContextMenuItem>
+                      )}
+                    </ContextMenuContent>
+                  </ContextMenu>
+                </ScrollReveal>
               )
             })
           )}
@@ -172,6 +187,6 @@ export function ChatHistoryView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageTransition>
   )
 }

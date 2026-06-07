@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { PageTransition, PremiumEmptyState, ScrollReveal } from '@/components/premium-states'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -299,7 +300,7 @@ export function WorkspaceView({ tree, initialPath, actions, onNavigate, onOpenNo
   }, [newName, onCreateWorkspace, resetAddDialog])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <PageTransition className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-6 py-4">
         <div className="flex min-w-0 items-center gap-1 text-sm">
           <button
@@ -404,23 +405,23 @@ export function WorkspaceView({ tree, initialPath, actions, onNavigate, onOpenNo
         onDrop={handleDrop}
       >
         {items.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-muted-foreground">
-            <FolderIcon className="size-10 opacity-50" />
-            <div className="text-sm">
-              {isRoot
-                ? 'No workspaces yet. Create one to get started.'
-                : 'This folder is empty. Drag files in or use New note / New folder.'}
-            </div>
-            {isRoot && (
+          <PremiumEmptyState
+            icon={<FolderIcon className="size-6" />}
+            title={isRoot ? 'No workspaces yet' : 'This folder is empty'}
+            description={isRoot
+              ? 'Create a workspace to group recruiting research, candidate evidence, and role notes.'
+              : 'Drag files in here or use Add to seed this workspace.'}
+            action={isRoot ? (
               <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
                 <Plus className="size-4" />
                 Add workspace
               </Button>
-            )}
-          </div>
+            ) : undefined}
+            className="h-full"
+          />
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
-            {items.map((item) => {
+            {items.map((item, index) => {
               const childCount = item.kind === 'dir' ? countChildren(item) : 0
               const Icon = item.kind === 'dir' ? FolderIcon : FileIcon
               const isRenaming = renameTarget === item.path
@@ -428,7 +429,7 @@ export function WorkspaceView({ tree, initialPath, actions, onNavigate, onOpenNo
                 <button
                   type="button"
                   onClick={() => handleItemClick(item)}
-                  className="group flex w-full flex-col items-start gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-foreground/20 hover:bg-accent"
+                  className="premium-lift group flex w-full flex-col items-start gap-2 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-foreground/20 hover:bg-accent"
                 >
                   <Icon className="size-6 text-muted-foreground group-hover:text-foreground" />
                   <div className="min-w-0 w-full">
@@ -461,50 +462,52 @@ export function WorkspaceView({ tree, initialPath, actions, onNavigate, onOpenNo
               )
               const isDir = item.kind === 'dir'
               return (
-                <ContextMenu key={item.path}>
-                  <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
-                  <ContextMenuContent className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
-                    {isDir && (
-                      <>
-                        <ContextMenuItem onClick={() => actions.createNote(item.path)}>
-                          <FilePlus className="mr-2 size-4" />
-                          New Note
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => void actions.createFolder(item.path)}>
-                          <FolderPlus className="mr-2 size-4" />
-                          New Folder
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                      </>
-                    )}
-                    {!isDir && actions.onOpenInNewTab && (
-                      <>
-                        <ContextMenuItem onClick={() => actions.onOpenInNewTab!(item.path)}>
-                          <ExternalLink className="mr-2 size-4" />
-                          Open in new tab
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                      </>
-                    )}
-                    <ContextMenuItem onClick={() => { actions.copyPath(item.path); toast('Path copied', 'success') }}>
-                      <Copy className="mr-2 size-4" />
-                      Copy Path
-                    </ContextMenuItem>
-                    <ContextMenuItem onClick={() => actions.revealInFileManager(item.path, isDir)}>
-                      <FolderOpen className="mr-2 size-4" />
-                      Open in {fileManagerName}
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem onClick={() => beginRename(item)}>
-                      <Pencil className="mr-2 size-4" />
-                      Rename
-                    </ContextMenuItem>
-                    <ContextMenuItem variant="destructive" onClick={() => void handleDelete(item)}>
-                      <Trash2 className="mr-2 size-4" />
-                      Delete
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
+                <ScrollReveal key={item.path} delay={Math.min(index * 35, 210)}>
+                  <ContextMenu>
+                    <ContextMenuTrigger asChild>{card}</ContextMenuTrigger>
+                    <ContextMenuContent className="w-48" onCloseAutoFocus={(e) => e.preventDefault()}>
+                      {isDir && (
+                        <>
+                          <ContextMenuItem onClick={() => actions.createNote(item.path)}>
+                            <FilePlus className="mr-2 size-4" />
+                            New Note
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => void actions.createFolder(item.path)}>
+                            <FolderPlus className="mr-2 size-4" />
+                            New Folder
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                        </>
+                      )}
+                      {!isDir && actions.onOpenInNewTab && (
+                        <>
+                          <ContextMenuItem onClick={() => actions.onOpenInNewTab!(item.path)}>
+                            <ExternalLink className="mr-2 size-4" />
+                            Open in new tab
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                        </>
+                      )}
+                      <ContextMenuItem onClick={() => { actions.copyPath(item.path); toast('Path copied', 'success') }}>
+                        <Copy className="mr-2 size-4" />
+                        Copy Path
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => actions.revealInFileManager(item.path, isDir)}>
+                        <FolderOpen className="mr-2 size-4" />
+                        Open in {fileManagerName}
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => beginRename(item)}>
+                        <Pencil className="mr-2 size-4" />
+                        Rename
+                      </ContextMenuItem>
+                      <ContextMenuItem variant="destructive" onClick={() => void handleDelete(item)}>
+                        <Trash2 className="mr-2 size-4" />
+                        Delete
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                </ScrollReveal>
               )
             })}
           </div>
@@ -571,6 +574,6 @@ export function WorkspaceView({ tree, initialPath, actions, onNavigate, onOpenNo
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageTransition>
   )
 }

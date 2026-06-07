@@ -3,6 +3,7 @@ import { Radio, Loader2, Square, AlertCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { PageTransition, PremiumEmptyState, PremiumListSkeleton } from '@/components/premium-states'
 import { stripKnowledgePrefix, wikiLabel } from '@/lib/wiki-links'
 import { toast } from '@/lib/toast'
 import { formatRelativeTime } from '@/lib/relative-time'
@@ -188,7 +189,7 @@ export function LiveNotesView({ onOpenNote, onAddNewLiveNote }: LiveNotesViewPro
   }, [])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <PageTransition className="flex h-full flex-col overflow-hidden">
       <div className="shrink-0 border-b border-border px-6 py-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -205,27 +206,30 @@ export function LiveNotesView({ onOpenNote, onAddNewLiveNote }: LiveNotesViewPro
       </div>
       <div className="flex-1 overflow-auto p-6">
         {loading ? (
-          <div className="flex h-full items-center justify-center">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          <div className="mx-auto w-full max-w-5xl">
+            <PremiumListSkeleton rows={5} />
           </div>
         ) : error ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-            <div className="rounded-full bg-muted p-3">
-              <Radio className="size-6 text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground">{error}</p>
-          </div>
+          <PremiumEmptyState
+            icon={<Radio className="size-6" />}
+            title="Live notes could not load"
+            description={error}
+            className="h-full"
+          />
         ) : notes.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-            <div className="rounded-full bg-muted p-3">
-              <Radio className="size-6 text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              No live notes yet.
-            </p>
-          </div>
+          <PremiumEmptyState
+            icon={<Radio className="size-6" />}
+            title="No live notes yet"
+            description="Create one when you want an agent to keep a recruiting note fresh over time."
+            action={(
+              <Button type="button" size="sm" variant="outline" onClick={onAddNewLiveNote}>
+                New live note
+              </Button>
+            )}
+            className="h-full"
+          />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+          <div className="premium-scroll-reveal is-visible overflow-hidden rounded-xl border border-border/60 bg-card">
             <table className="w-full table-fixed border-collapse">
               <colgroup>
                 <col className="w-[50%]" />
@@ -339,6 +343,6 @@ export function LiveNotesView({ onOpenNote, onAddNewLiveNote }: LiveNotesViewPro
           </div>
         )}
       </div>
-    </div>
+    </PageTransition>
   )
 }

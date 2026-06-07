@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowRight, Lightbulb, Loader2 } from 'lucide-react'
 import { SuggestedTopicBlockSchema, type SuggestedTopicBlock } from '@x/shared/dist/blocks.js'
+import { PageTransition, PremiumEmptyState, PremiumGridSkeleton, ScrollReveal } from '@/components/premium-states'
 
 const SUGGESTED_TOPICS_PATH = 'suggested-topics.md'
 const LEGACY_SUGGESTED_TOPICS_PATHS = [
@@ -74,7 +75,7 @@ interface TopicCardProps {
 
 function TopicCard({ topic, onTrack, isRemoving }: TopicCardProps) {
   return (
-    <div className="group flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-5 transition-all hover:border-border hover:shadow-sm">
+    <div className="premium-lift group flex h-full flex-col gap-3 rounded-xl border border-border/60 bg-card p-5 transition-all hover:border-border hover:shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <h3 className="text-sm font-semibold leading-snug text-foreground">
           {topic.title}
@@ -199,27 +200,26 @@ export function SuggestedTopicsView({ onExploreTopic }: SuggestedTopicsViewProps
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
+      <PageTransition className="h-full overflow-y-auto p-6">
+        <PremiumGridSkeleton count={6} />
+      </PageTransition>
     )
   }
 
   if (error || topics.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-        <div className="rounded-full bg-muted p-3">
-          <Lightbulb className="size-6 text-muted-foreground" />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {error ?? 'No suggested roles or searches yet. Check back once your recruiting pipeline has more data.'}
-        </p>
-      </div>
+      <PageTransition className="flex h-full items-center justify-center p-8">
+        <PremiumEmptyState
+          icon={<Lightbulb className="size-6" />}
+          title="No suggested topics yet"
+          description={error ?? 'Suggested roles and searches will appear once your recruiting pipeline has more evidence to work with.'}
+        />
+      </PageTransition>
     )
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <PageTransition className="flex h-full flex-col overflow-hidden">
       <div className="shrink-0 border-b border-border px-6 py-5">
         <div className="flex items-center gap-2">
           <Lightbulb className="size-5 text-primary" />
@@ -232,15 +232,16 @@ export function SuggestedTopicsView({ onExploreTopic }: SuggestedTopicsViewProps
       <div className="flex-1 overflow-y-auto p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {topics.map((topic, i) => (
-            <TopicCard
-              key={`${topic.title}-${i}`}
-              topic={topic}
-              onTrack={() => { void handleTrack(topic, i) }}
-              isRemoving={removingIndex === i}
-            />
+            <ScrollReveal key={`${topic.title}-${i}`} delay={i * 45}>
+              <TopicCard
+                topic={topic}
+                onTrack={() => { void handleTrack(topic, i) }}
+                isRemoving={removingIndex === i}
+              />
+            </ScrollReveal>
           ))}
         </div>
       </div>
-    </div>
+    </PageTransition>
   )
 }

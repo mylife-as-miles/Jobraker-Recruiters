@@ -1,18 +1,42 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Calendar, ChevronDown, Clock, ExternalLink, Loader2, MapPin, Mic, Square, UserRound, UsersRound, Video, X } from 'lucide-react'
+import { Calendar, ChevronDown, Clock, LayoutGrid, List, Loader2, MapPin, Mic, Square, UserRound, UsersRound, Video, X } from 'lucide-react'
 
+import { MeetingsCalendar } from '@/components/meetings/meetings-calendar'
+import { MeetingsDayDetail } from '@/components/meetings/meetings-day-detail'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SettingsDialog } from '@/components/settings-dialog'
+import {
+  attendeeLabel,
+  buildDayWindow,
+  CALENDAR_DIR,
+  eventsForDay,
+  formatEventDetailTime,
+  formatEventTimeRange,
+  formatEventTimeRangeCompact,
+  isCalendarPath,
+  isEventNow,
+  loadMeetingEvents,
+  localDateKey,
+  meetingPlatformLabel,
+  normalizeMeetingEvent,
+  personLabel,
+  selectVisibleDays,
+  startOfMonth,
+  toCalendarGridEvents,
+  triggerMeetingCapture,
+  UPCOMING_MAX_DAYS,
+  type DayGroup,
+  type MeetingEvent,
+} from '@/lib/calendar/meeting-events'
 import { formatRelativeTime } from '@/lib/relative-time'
-import { extractConferenceLink } from '@/lib/calendar-event'
 import { cn } from '@/lib/utils'
 import type { MeetingTranscriptionState } from '@/hooks/useMeetingTranscription'
 
 const MEETINGS_ROOT = 'knowledge/Meetings'
-const CALENDAR_DIR = 'calendar_sync'
-const UPCOMING_MAX_DAYS = 4 // today + next 3
+
+type MeetingsViewMode = 'calendar' | 'list'
 
 type MeetingNoteRow = {
   path: string
@@ -32,250 +56,9 @@ function isMeetingPath(path: string | undefined): boolean {
   return typeof path === 'string' && (path === MEETINGS_ROOT || path.startsWith(`${MEETINGS_ROOT}/`))
 }
 
-function isCalendarPath(path: string | undefined): boolean {
-  return typeof path === 'string' && (path === CALENDAR_DIR || path.startsWith(`${CALENDAR_DIR}/`))
-}
-
-type RawCalendarEvent = {
-  id?: string
-  summary?: string
-  start?: { dateTime?: string; date?: string }
-  end?: { dateTime?: string; date?: string }
-  location?: string
-  description?: string
-  htmlLink?: string
-  status?: string
-  creator?: CalendarPerson
-  organizer?: CalendarPerson
-  attendees?: CalendarAttendee[]
-  conferenceData?: { entryPoints?: Array<{ entryPointType?: string; uri?: string }> }
-  hangoutLink?: string
-  conferenceLink?: string
-}
-
-type CalendarPerson = {
-  email?: string
-  displayName?: string
-  self?: boolean
-}
-
-type CalendarAttendee = CalendarPerson & {
-  responseStatus?: string
-  optional?: boolean
-}
-
 type DescriptionPart =
   | { type: 'text'; text: string }
   | { type: 'link'; text: string; href: string }
-
-type UpcomingEvent = {
-  id: string
-  summary: string
-  start: Date
-  end: Date | null
-  isAllDay: boolean
-  location: string | null
-  description: string | null
-  htmlLink: string | null
-  conferenceLink: string | null
-  creator: CalendarPerson | null
-  organizer: CalendarPerson | null
-  attendees: CalendarAttendee[]
-  source: string // workspace path to the calendar_sync JSON
-  rawStart: { dateTime?: string; date?: string } | undefined
-  rawEnd: { dateTime?: string; date?: string } | undefined
-  dateKey: string // YYYY-MM-DD (local)
-}
-
-type DayGroup = {
-  dateKey: string
-  date: Date // local start-of-day
-  events: UpcomingEvent[]
-}
-
-function startOfDay(d: Date): Date {
-  const out = new Date(d)
-  out.setHours(0, 0, 0, 0)
-  return out
-}
-
-function addDays(d: Date, n: number): Date {
-  const out = new Date(d)
-  out.setDate(out.getDate() + n)
-  return out
-}
-
-function localDateKey(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-// Parse an all-day calendar date string ("YYYY-MM-DD") into a local Date at midnight.
-function parseAllDayDate(s: string): Date | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
-  if (!m) return null
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
-}
-
-function normalizeEvent(raw: RawCalendarEvent, sourcePath: string): UpcomingEvent | null {
-  if (raw.status === 'cancelled') return null
-  const declined = raw.attendees?.find((a) => a.self)?.responseStatus === 'declined'
-  if (declined) return null
-
-  const allDayStart = raw.start?.date
-  const timedStart = raw.start?.dateTime
-  const isAllDay = !timedStart && Boolean(allDayStart)
-
-  let start: Date | null = null
-  let end: Date | null = null
-  if (timedStart) {
-    start = new Date(timedStart)
-    end = raw.end?.dateTime ? new Date(raw.end.dateTime) : null
-  } else if (allDayStart) {
-    start = parseAllDayDate(allDayStart)
-    // Google's all-day end is exclusive (next day at 00:00) — keep as-is.
-    end = raw.end?.date ? parseAllDayDate(raw.end.date) : null
-  }
-  if (!start || Number.isNaN(start.getTime())) return null
-
-  const conferenceLink = extractConferenceLink(raw as unknown as Record<string, unknown>) ?? null
-
-  return {
-    id: raw.id ?? sourcePath,
-    summary: raw.summary?.trim() || '(No title)',
-    start,
-    end,
-    isAllDay,
-    location: raw.location?.trim() || null,
-    description: raw.description?.trim() || null,
-    htmlLink: raw.htmlLink ?? null,
-    conferenceLink,
-    creator: raw.creator ?? null,
-    organizer: raw.organizer ?? null,
-    attendees: raw.attendees ?? [],
-    source: sourcePath,
-    rawStart: raw.start,
-    rawEnd: raw.end,
-    dateKey: localDateKey(start),
-  }
-}
-
-function triggerMeetingCapture(event: UpcomingEvent, openConference: boolean) {
-  window.__pendingCalendarEvent = {
-    summary: event.summary,
-    start: event.rawStart,
-    end: event.rawEnd,
-    location: event.location ?? undefined,
-    htmlLink: event.htmlLink ?? undefined,
-    conferenceLink: event.conferenceLink ?? undefined,
-    source: event.source,
-  }
-  if (openConference && event.conferenceLink) {
-    window.open(event.conferenceLink, '_blank')
-  }
-  window.dispatchEvent(new Event('calendar-block:join-meeting'))
-}
-
-// Always show today (anchor). For days within the window after today, include
-// only those that actually have events — skip empty days.
-function selectVisibleDays(allDays: DayGroup[]): DayGroup[] {
-  if (allDays.length === 0) return []
-  const out: DayGroup[] = [allDays[0]]
-  const cap = Math.min(allDays.length, UPCOMING_MAX_DAYS)
-  for (let i = 1; i < cap; i++) {
-    if (allDays[i].events.length > 0) out.push(allDays[i])
-  }
-  return out
-}
-
-function buildDayWindow(now: Date): DayGroup[] {
-  const today = startOfDay(now)
-  return Array.from({ length: UPCOMING_MAX_DAYS }, (_, i) => {
-    const date = addDays(today, i)
-    return { dateKey: localDateKey(date), date, events: [] }
-  })
-}
-
-function formatEventTimeRange(event: UpcomingEvent): string {
-  if (event.isAllDay) return 'All day'
-  const start = event.start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  if (!event.end) return start
-  // If start and end are on different days, show date+time on both ends.
-  const sameDay = localDateKey(event.start) === localDateKey(event.end)
-  if (!sameDay) {
-    const startLong = event.start.toLocaleString([], { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-    const endLong = event.end.toLocaleString([], { month: 'numeric', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-    return `${startLong} – ${endLong}`
-  }
-  const end = event.end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  return `${start} – ${end}`
-}
-
-// Compact range for the upcoming list: drops the leading meridiem when both
-// ends share it ("9:00 – 11:00 AM" instead of "9:00 AM – 11:00 AM").
-function formatEventTimeRangeCompact(event: UpcomingEvent): string {
-  if (event.isAllDay) return 'All day'
-  const startStr = event.start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  if (!event.end) return startStr
-  const sameDay = localDateKey(event.start) === localDateKey(event.end)
-  if (!sameDay) return formatEventTimeRange(event)
-  const endStr = event.end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  const meridiemRe = /\s*[AP]M$/i
-  const startMer = startStr.match(meridiemRe)?.[0]?.trim().toUpperCase()
-  const endMer = endStr.match(meridiemRe)?.[0]?.trim().toUpperCase()
-  if (startMer && endMer && startMer === endMer) {
-    return `${startStr.replace(meridiemRe, '')} – ${endStr}`
-  }
-  return `${startStr} – ${endStr}`
-}
-
-// Whether a timed event is happening right now.
-function isEventNow(event: UpcomingEvent): boolean {
-  if (event.isAllDay) return false
-  const now = Date.now()
-  const start = event.start.getTime()
-  const end = event.end ? event.end.getTime() : start + 30 * 60 * 1000
-  return start <= now && now < end
-}
-
-// Human label for the conferencing provider behind an event's join link.
-function meetingPlatformLabel(link: string | null): string | null {
-  if (!link) return null
-  if (/zoom\.us|zoomgov\.com/i.test(link)) return 'Zoom'
-  if (/teams\.(?:microsoft|live)\.com/i.test(link)) return 'Teams'
-  if (/meet\.google\.com/i.test(link)) return 'Meet'
-  return 'Video call'
-}
-
-function formatEventDetailTime(event: UpcomingEvent): string {
-  if (!event.isAllDay) {
-    const date = event.start.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
-    return `${date}, ${formatEventTimeRange(event)}`
-  }
-
-  const start = event.start.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
-  if (!event.end) return `${start}, all day`
-
-  const exclusiveEnd = addDays(event.end, -1)
-  if (localDateKey(exclusiveEnd) === localDateKey(event.start)) return `${start}, all day`
-
-  const end = exclusiveEnd.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
-  return `${start} – ${end}, all day`
-}
-
-function personLabel(person: CalendarPerson | null | undefined): string | null {
-  if (!person) return null
-  return person.displayName?.trim() || person.email?.trim() || null
-}
-
-function attendeeLabel(attendee: CalendarAttendee): string | null {
-  const label = personLabel(attendee)
-  if (!label) return null
-  if (attendee.self) return `${label} (you)`
-  return label
-}
 
 function normalizeDescriptionParts(parts: DescriptionPart[]): DescriptionPart[] {
   const normalized: DescriptionPart[] = []

@@ -24,8 +24,8 @@ import {
   MessageContent,
   MessageResponse,
 } from '@/components/ai-elements/message'
-import { Shimmer } from '@/components/ai-elements/shimmer'
-import { Tool, ToolContent, ToolGroupComponent, ToolHeader, ToolTabbedContent } from '@/components/ai-elements/tool'
+import { ThinkingIndicator } from '@/components/ai-elements/thinking-indicator'
+import { Tool, ToolContent, ToolGroupComponent, ToolHeader, ToolStatusRow, ToolTabbedContent } from '@/components/ai-elements/tool'
 import { WebSearchResult } from '@/components/ai-elements/web-search-result'
 import { ComposioConnectCard } from '@/components/ai-elements/composio-connect-card'
 import { PermissionRequest } from '@/components/ai-elements/permission-request'
@@ -646,10 +646,13 @@ export function ChatSidebar({
                                   const permRequest = tabState.allPermissionRequests.get(item.id)
                                   if (permRequest) {
                                     const response = tabState.permissionResponses.get(item.id) || null
+                                    const toolTitle = getToolDisplayName(item)
+                                    const showStatusRow = response === 'approve'
                                     return (
                                       <React.Fragment key={item.id}>
                                         <PermissionRequest
                                           toolCall={permRequest.toolCall}
+                                          permission={permRequest.permission}
                                           onApprove={() => onPermissionResponse(permRequest.toolCall.toolCallId, permRequest.subflow, 'approve')}
                                           onApproveSession={() => onPermissionResponse(permRequest.toolCall.toolCallId, permRequest.subflow, 'approve', 'session')}
                                           onApproveAlways={() => onPermissionResponse(permRequest.toolCall.toolCallId, permRequest.subflow, 'approve', 'always')}
@@ -657,7 +660,12 @@ export function ChatSidebar({
                                           isProcessing={isActive && isProcessing}
                                           response={response}
                                         />
-                                        {rendered}
+                                        {showStatusRow ? (
+                                          <ToolStatusRow
+                                            title={toolTitle}
+                                            state={toToolState(item.status)}
+                                          />
+                                        ) : !response ? null : rendered}
                                       </React.Fragment>
                                     )
                                   }
@@ -685,13 +693,7 @@ export function ChatSidebar({
                               )}
 
                               {isActive && isProcessing && !tabState.currentAssistantMessage && (
-                                <ChatAssistantRow>
-                                  <Message from="assistant">
-                                    <MessageContent>
-                                      <Shimmer duration={1}>Thinking...</Shimmer>
-                                    </MessageContent>
-                                  </Message>
-                                </ChatAssistantRow>
+                                <ThinkingIndicator />
                               )}
                             </>
                             )}

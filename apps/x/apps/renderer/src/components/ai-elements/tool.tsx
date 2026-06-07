@@ -7,16 +7,15 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
-import {
-  ChevronDownIcon,
-  CircleCheck,
-  LoaderIcon,
-  XCircleIcon,
-} from "lucide-react";
 import { type ComponentProps, type ReactNode, isValidElement, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import type { ToolCall, ToolGroup as ToolGroupType } from "@/lib/chat-conversation";
-import { getToolActionsSummary, getToolDisplayName, getToolGroupSummary, toToolState } from "@/lib/chat-conversation";
+import {
+  getToolActionsSummary,
+  getToolDisplayName,
+  getToolGroupSummary,
+  toToolState,
+} from "@/lib/chat-conversation";
+import { AgentWorkRow, getAgentWorkLeadIcon } from "./agent-work-row";
 
 const formatToolValue = (value: unknown) => {
   if (typeof value === "string") return value;
@@ -37,7 +36,7 @@ const ToolCode = ({
 }) => (
   <pre
     className={cn(
-      "whitespace-pre-wrap text-xs font-mono break-all",
+      "whitespace-pre-wrap break-all font-mono text-xs",
       className
     )}
   >
@@ -49,10 +48,7 @@ export type ToolProps = ComponentProps<typeof Collapsible>;
 
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
-    className={cn(
-      "not-prose mb-4 w-full rounded-[28px] border bg-[var(--card-surface)] transition-colors duration-150 ease-out hover:border-foreground/30",
-      className
-    )}
+    className={cn("not-prose mb-2 w-full", className)}
     {...props}
   />
 );
@@ -62,17 +58,7 @@ export type ToolHeaderProps = {
   type: ToolUIPart["type"];
   state: ToolUIPart["state"];
   className?: string;
-  /** Hide the leading status icon (used for child rows inside a tool group). */
   hideLeadIcon?: boolean;
-};
-
-// Lead icon shown to the left of the tool label: spinner while running, a
-// green check when done, a red cross on error. Shared by ToolHeader (single
-// tools) and the tool-call group.
-const getLeadIcon = (state: ToolUIPart["state"]): ReactNode => {
-  if (state === "output-available") return <CircleCheck className="size-4 shrink-0 text-green-600" />;
-  if (state === "output-error") return <XCircleIcon className="size-4 shrink-0 text-red-600" />;
-  return <LoaderIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />;
 };
 
 export const ToolHeader = ({
@@ -83,28 +69,20 @@ export const ToolHeader = ({
   hideLeadIcon,
   ...props
 }: ToolHeaderProps) => {
-  const displayTitle = title ?? type.split("-").slice(1).join("-")
+  const displayTitle = title ?? type.split("-").slice(1).join("-");
 
   return (
-    <CollapsibleTrigger
-      className={cn(
-        "group flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-2.5",
-        className
-      )}
-      {...props}
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        {!hideLeadIcon && getLeadIcon(state)}
-        <span
-          className="min-w-0 flex-1 truncate text-left font-medium text-sm"
-          title={displayTitle}
-        >
-          {displayTitle}
-        </span>
-      </div>
-      <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+    <CollapsibleTrigger asChild {...props}>
+      <AgentWorkRow
+        icon={!hideLeadIcon ? getAgentWorkLeadIcon(state) : undefined}
+        expandable
+        title={displayTitle}
+        className={className}
+      >
+        {displayTitle}
+      </AgentWorkRow>
     </CollapsibleTrigger>
-  )
+  );
 };
 
 export type ToolContentProps = ComponentProps<typeof CollapsibleContent>;
@@ -112,14 +90,12 @@ export type ToolContentProps = ComponentProps<typeof CollapsibleContent>;
 export const ToolContent = ({ className, ...props }: ToolContentProps) => (
   <CollapsibleContent
     className={cn(
-      "overflow-hidden text-popover-foreground outline-none data-[state=open]:animate-[collapsible-down_0.09s_ease-out] data-[state=closed]:animate-[collapsible-up_0.08s_ease-in]",
+      "overflow-hidden outline-none data-[state=open]:animate-[collapsible-down_0.09s_ease-out] data-[state=closed]:animate-[collapsible-up_0.08s_ease-in]",
       className
     )}
     {...props}
   />
 );
-
-/* ── Tabbed content (Parameters / Result) ────────────────────────── */
 
 export type ToolTabbedContentProps = {
   input: ToolUIPart["input"];
@@ -149,15 +125,14 @@ export const ToolTabbedContent = ({
   }
 
   return (
-    <div className="border-t">
-      {/* Tabs */}
-      <div className="flex">
+    <div className="mt-1 rounded-lg border border-border/40 bg-background/40">
+      <div className="flex border-b border-border/40">
         <button
           type="button"
           className={cn(
-            "px-4 py-2 text-xs font-medium transition-colors border-b-2",
+            "border-b-2 px-3 py-1.5 text-[11px] font-medium transition-colors",
             activeTab === "parameters"
-              ? "border-foreground text-foreground"
+              ? "border-brand text-foreground"
               : "border-transparent text-muted-foreground hover:text-foreground"
           )}
           onClick={() => setActiveTab("parameters")}
@@ -167,9 +142,9 @@ export const ToolTabbedContent = ({
         <button
           type="button"
           className={cn(
-            "px-4 py-2 text-xs font-medium transition-colors border-b-2",
+            "border-b-2 px-3 py-1.5 text-[11px] font-medium transition-colors",
             activeTab === "result"
-              ? "border-foreground text-foreground"
+              ? "border-brand text-foreground"
               : "border-transparent text-muted-foreground hover:text-foreground"
           )}
           onClick={() => setActiveTab("result")}
@@ -177,25 +152,21 @@ export const ToolTabbedContent = ({
           Result
         </button>
       </div>
-
-      {/* Tab content */}
-      <div className="p-3">
+      <div className="p-2.5">
         {activeTab === "parameters" && (
-          <div className="rounded-md border bg-muted/50 p-3 max-h-64 overflow-auto">
+          <div className="max-h-56 overflow-auto rounded-md border border-border/30 bg-muted/30 p-2">
             <ToolCode code={formatToolValue(input ?? {})} />
           </div>
         )}
         {activeTab === "result" && (
           <div
             className={cn(
-              "rounded-md border p-3 max-h-64 overflow-auto",
-              errorText ? "bg-destructive/10" : "bg-muted/50"
+              "max-h-56 overflow-auto rounded-md border p-2",
+              errorText ? "border-destructive/30 bg-destructive/10" : "border-border/30 bg-muted/30"
             )}
           >
             {hasOutput ? (
-              <div className={cn(errorText && "text-destructive")}>
-                {OutputNode}
-              </div>
+              <div className={cn(errorText && "text-destructive")}>{OutputNode}</div>
             ) : (
               <span className="text-xs text-muted-foreground">(pending...)</span>
             )}
@@ -207,96 +178,97 @@ export const ToolTabbedContent = ({
 };
 
 export type ToolGroupProps = {
-  group: ToolGroupType
-  isToolOpen: (toolId: string) => boolean
-  onToolOpenChange: (toolId: string, open: boolean) => void
-}
+  group: ToolGroupType;
+  isToolOpen: (toolId: string) => boolean;
+  onToolOpenChange: (toolId: string, open: boolean) => void;
+};
 
 const getGroupState = (tools: ToolCall[]): ToolUIPart["state"] => {
-  if (tools.some(t => t.status === 'error')) return 'output-error'
-  if (tools.some(t => t.status === 'running')) return 'input-available'
-  if (tools.some(t => t.status === 'pending')) return 'input-streaming'
-  return 'output-available'
-}
+  if (tools.some((t) => t.status === "error")) return "output-error";
+  if (tools.some((t) => t.status === "running")) return "input-available";
+  if (tools.some((t) => t.status === "pending")) return "input-streaming";
+  return "output-available";
+};
 
 export const ToolGroupComponent = ({ group, isToolOpen, onToolOpenChange }: ToolGroupProps) => {
-  const [open, setOpen] = useState(false)
-  const state = getGroupState(group.items)
-  const isCompleted = state === 'output-available' || state === 'output-error'
-  const runningTool = group.items.find(t => t.status === 'running' || t.status === 'pending')
-  const currentTool = runningTool ?? group.items[group.items.length - 1]
-  const toolCount = group.items.length
-  const ranLabel = `Ran ${toolCount} tool${toolCount !== 1 ? 's' : ''}`
-  const actions = isCompleted ? getToolActionsSummary(group.items) : ''
-  // Plain string used as the AnimatePresence key + tooltip; the rendered node
-  // shows the action summary in a lighter gray than the "Ran N tools" prefix.
+  const [open, setOpen] = useState(false);
+  const state = getGroupState(group.items);
+  const isCompleted = state === "output-available" || state === "output-error";
+  const runningTool = group.items.find((t) => t.status === "running" || t.status === "pending");
+  const currentTool = runningTool ?? group.items[group.items.length - 1];
+  const toolCount = group.items.length;
+  const ranLabel = `Ran ${toolCount} tool${toolCount !== 1 ? "s" : ""}`;
+  const actions = isCompleted ? getToolActionsSummary(group.items) : "";
   const summaryText = isCompleted
     ? `${ranLabel} · ${actions}`
-    : currentTool ? getToolDisplayName(currentTool) : getToolGroupSummary(group.items)
-  const summaryNode: ReactNode = isCompleted
-    ? <>{ranLabel} <span className="font-normal text-muted-foreground">{`· ${actions}`}</span></>
-    : summaryText
-
-  const leadIcon = getLeadIcon(state)
+    : currentTool
+      ? getToolDisplayName(currentTool)
+      : getToolGroupSummary(group.items);
+  const summaryNode: ReactNode = isCompleted ? (
+    <>
+      <span className="font-medium text-foreground/90">{ranLabel}</span>
+      <span className="font-normal text-muted-foreground">{` · ${actions}`}</span>
+    </>
+  ) : (
+    summaryText
+  );
 
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="not-prose mb-4 w-full rounded-[28px] border bg-[var(--card-surface)] transition-colors duration-150 ease-out hover:border-foreground/30"
-    >
-      <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-2.5">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {leadIcon}
-          <div className="relative min-w-0 flex-1 overflow-hidden" style={{ height: '1.25rem' }}>
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span
-                key={summaryText}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="absolute inset-0 truncate text-left font-medium text-sm leading-5"
-                title={summaryText}
-              >
-                {summaryNode}
-              </motion.span>
-            </AnimatePresence>
-          </div>
-        </div>
-        <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+    <Collapsible open={open} onOpenChange={setOpen} className="not-prose mb-2 w-full">
+      <CollapsibleTrigger asChild>
+        <AgentWorkRow
+          icon={getAgentWorkLeadIcon(state)}
+          expandable
+          title={summaryText}
+        >
+          <span className="block truncate">{summaryNode}</span>
+        </AgentWorkRow>
       </CollapsibleTrigger>
-      <CollapsibleContent className="overflow-hidden data-[state=open]:animate-[collapsible-down_0.09s_ease-out] data-[state=closed]:animate-[collapsible-up_0.08s_ease-in]">
-        <div className="flex flex-col gap-2 p-2">
-          {group.items.map((tool) => {
-            const toolState = toToolState(tool.status)
-            const isOpen = isToolOpen(tool.id)
-            return (
-              <Tool
-                key={tool.id}
-                open={isOpen}
-                onOpenChange={(o) => onToolOpenChange(tool.id, o)}
-                className="mb-0 rounded-[20px] border-border/60 bg-transparent hover:border-border/60"
-              >
-                <ToolHeader
-                  title={getToolDisplayName(tool)}
-                  type={`tool-${tool.name}`}
-                  state={toolState}
-                  className="text-muted-foreground"
-                  hideLeadIcon
+      <CollapsibleContent className="mt-1 space-y-1 overflow-hidden pl-1 data-[state=open]:animate-[collapsible-down_0.09s_ease-out] data-[state=closed]:animate-[collapsible-up_0.08s_ease-in]">
+        {group.items.map((tool) => {
+          const toolState = toToolState(tool.status);
+          const isToolExpanded = isToolOpen(tool.id);
+          return (
+            <Tool
+              key={tool.id}
+              open={isToolExpanded}
+              onOpenChange={(o) => onToolOpenChange(tool.id, o)}
+              className="mb-0"
+            >
+              <ToolHeader
+                title={getToolDisplayName(tool)}
+                type={`tool-${tool.name}`}
+                state={toolState}
+                hideLeadIcon
+              />
+              <ToolContent>
+                <ToolTabbedContent
+                  input={tool.input as ToolUIPart["input"]}
+                  output={tool.result as ToolUIPart["output"]}
+                  errorText={tool.status === "error" ? "Tool error" : undefined}
                 />
-                <ToolContent>
-                  <ToolTabbedContent
-                    input={tool.input as ToolUIPart["input"]}
-                    output={tool.result as ToolUIPart["output"]}
-                    errorText={tool.status === 'error' ? 'Tool error' : undefined}
-                  />
-                </ToolContent>
-              </Tool>
-            )
-          })}
-        </div>
+              </ToolContent>
+            </Tool>
+          );
+        })}
       </CollapsibleContent>
     </Collapsible>
-  )
+  );
+};
+
+/** Compact status-only row (no expand) for permission-adjacent tool feedback. */
+export function ToolStatusRow({
+  title,
+  state,
+  className,
+}: {
+  title: string;
+  state: ToolUIPart["state"];
+  className?: string;
+}) {
+  return (
+    <AgentWorkRow icon={getAgentWorkLeadIcon(state)} className={className} title={title}>
+      {title}
+    </AgentWorkRow>
+  );
 }

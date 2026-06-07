@@ -73,6 +73,168 @@
   color: #888;
 }
 
+/* Premium page motion + loading states */
+.premium-page-enter {
+  animation: premium-page-enter 260ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.premium-scroll-reveal {
+  opacity: 0;
+  transform: translateY(14px) scale(0.992);
+  transition:
+    opacity 420ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 420ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+  will-change: opacity, transform;
+}
+
+.premium-scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.premium-skeleton,
+.premium-skeleton-card,
+.premium-skeleton-row {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(100deg, transparent 0%, color-mix(in oklab, var(--foreground) 5.5%, transparent) 42%, color-mix(in oklab, var(--foreground) 12%, transparent) 50%, color-mix(in oklab, var(--foreground) 5.5%, transparent) 58%, transparent 100%),
+    color-mix(in oklab, var(--foreground) 5.5%, transparent);
+  background-size: 220% 100%, 100% 100%;
+  animation: premium-shimmer 1.15s linear infinite;
+}
+
+.premium-skeleton {
+  border-radius: 999px;
+}
+
+.premium-skeleton-panel {
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--border) 68%, transparent);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 18% 0%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 34%),
+    color-mix(in oklab, var(--card) 94%, transparent);
+  box-shadow: 0 18px 60px color-mix(in oklab, var(--foreground) 4.5%, transparent);
+}
+
+.premium-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background-color: transparent;
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+}
+
+.premium-skeleton-row:last-child {
+  border-bottom: 0;
+}
+
+.premium-skeleton-card {
+  min-height: 172px;
+  border: 1px solid color-mix(in oklab, var(--border) 62%, transparent);
+  border-radius: 20px;
+  padding: 18px;
+  background-color: color-mix(in oklab, var(--card) 94%, transparent);
+  box-shadow: 0 18px 50px color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+
+.premium-empty-state {
+  position: relative;
+  display: flex;
+  min-height: 240px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px solid color-mix(in oklab, var(--border) 62%, transparent);
+  border-radius: 24px;
+  padding: 42px 28px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--primary) 12%, transparent), transparent 38%),
+    linear-gradient(180deg, color-mix(in oklab, var(--card) 90%, transparent), color-mix(in oklab, var(--background) 72%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--foreground) 4.5%, transparent), 0 24px 70px color-mix(in oklab, var(--foreground) 4.5%, transparent);
+}
+
+.premium-empty-state__orb {
+  display: flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in oklab, var(--primary) 18%, transparent);
+  border-radius: 18px;
+  color: var(--primary);
+  background:
+    radial-gradient(circle at 35% 25%, color-mix(in oklab, var(--primary) 28%, transparent), transparent 44%),
+    color-mix(in oklab, var(--primary) 8%, transparent);
+  box-shadow: 0 14px 40px color-mix(in oklab, var(--primary) 16%, transparent);
+}
+
+.premium-lift {
+  transition:
+    transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.premium-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 45px color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+
+.premium-lift:active {
+  transform: translateY(0) scale(0.99);
+}
+
+@keyframes premium-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.996);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes premium-shimmer {
+  from {
+    background-position: 180% 0, 0 0;
+  }
+  to {
+    background-position: -40% 0, 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-page-enter,
+  .premium-skeleton,
+  .premium-skeleton-card,
+  .premium-skeleton-row {
+    animation: none;
+  }
+
+  .premium-scroll-reveal,
+  .premium-scroll-reveal.is-visible,
+  .premium-lift,
+  .premium-lift:hover,
+  .premium-lift:active {
+    transform: none;
+    transition: none;
+  }
+
+  .premium-scroll-reveal {
+    opacity: 1;
+  }
+}
+
 /* Onboarding dot grid background */
 .onboarding-dot-grid {
   background-image: radial-gradient(circle, oklch(0.5 0 0 / 0.08) 1px, transparent 1px);
@@ -1625,6 +1787,11 @@
 .recruiter-kanban-col[data-over="true"] {
   background: color-mix(in oklab, var(--brand) 7%, transparent);
   border-color: color-mix(in oklab, var(--brand) 35%, transparent);
+}
+
+/* Chat agent work timeline rows (Jobraker-style tool / thinking UI) */
+.chat-conversation-content .not-prose.mb-2 {
+  max-width: 100%;
 }
 
 .jobraker-recruiter-quick-actions button {

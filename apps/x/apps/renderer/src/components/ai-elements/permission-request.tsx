@@ -78,17 +78,17 @@ export const PermissionRequest = ({
   return (
     <div
       className={cn(
-        "not-prose mb-4 w-full rounded-md border",
+        "not-prose mb-2 w-full rounded-lg border text-[13px]",
         isResponded
           ? isApproved
-            ? "border-green-500/60 bg-green-200/80 dark:border-green-500/40 dark:bg-green-900/40"
-            : "border-[#fa2525]/70 bg-[#fa2525]/30 dark:border-[#fa2525]/60 dark:bg-[#fa2525]/30"
-          : "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20",
+            ? "border-brand/35 bg-brand/[0.08]"
+            : "border-red-500/40 bg-red-500/[0.08]"
+          : "border-amber-500/40 bg-amber-500/[0.06]",
         className
       )}
       {...props}
     >
-      <div className="p-4 space-y-4">
+      <div className="space-y-3 p-3">
         <div className="flex items-start gap-3">
           {!isResponded && (
             <AlertTriangleIcon className="size-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
@@ -99,11 +99,12 @@ export const PermissionRequest = ({
               onClick={isResponded ? () => setExpanded((v) => !v) : undefined}
             >
               <div className="flex-1">
-                <h3 className="font-semibold text-sm text-foreground">
+                <h3 className="text-sm font-semibold text-foreground">
                   {isResponded ? (isApproved ? "Permission Granted" : "Permission Denied") : "Permission Required"}
                 </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {isResponded ? "Requested:" : "The agent wants to execute:"} <span className="font-mono font-medium">{toolCall.toolName}</span>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {isResponded ? "Requested:" : "The agent wants to execute:"}{" "}
+                  <span className="font-mono font-medium text-brand/90">{toolCall.toolName}</span>
                   {agentDisplay && (
                     <Badge
                       variant="secondary"

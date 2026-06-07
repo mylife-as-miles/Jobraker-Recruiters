@@ -1,7 +1,8 @@
 import type * as React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Search, X } from 'lucide-react'
+import { Network, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { PageTransition, PremiumEmptyState } from '@/components/premium-states'
 
 export type GraphNode = {
   id: string
@@ -455,16 +456,24 @@ export function GraphView({ nodes, edges, error, onSelectNode }: GraphViewProps)
   }, [searchQuery, nodes, edgeList])
 
   return (
-    <div ref={containerRef} className="graph-view relative h-full w-full">
+    <PageTransition ref={containerRef} className="graph-view relative h-full w-full">
 {error ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center text-sm text-destructive">
-          {error}
+        <div className="absolute inset-0 z-10 flex items-center justify-center p-8">
+          <PremiumEmptyState
+            icon={<Network className="size-6" />}
+            title="Graph could not load"
+            description={error}
+          />
         </div>
       ) : null}
 
       {!error && nodes.length === 0 ? (
-        <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-          No notes found.
+        <div className="absolute inset-0 flex items-center justify-center p-8">
+          <PremiumEmptyState
+            icon={<Network className="size-6" />}
+            title="No graph connections yet"
+            description="Add notes and links in Knowledge to turn this into an evidence map."
+          />
         </div>
       ) : null}
 
@@ -673,6 +682,6 @@ export function GraphView({ nodes, edges, error, onSelectNode }: GraphViewProps)
           </div>
         </div>
       </div>
-    </div>
+    </PageTransition>
   )
 }
