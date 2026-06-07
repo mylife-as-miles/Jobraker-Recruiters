@@ -53,6 +53,8 @@ const ipc = {
 
 contextBridge.exposeInMainWorld('ipc', ipc);
 
+contextBridge.exposeInMainWorld('electronPlatform', process.platform);
+
 contextBridge.exposeInMainWorld('electronUtils', {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   getZoomFactor: () => webFrame.getZoomFactor(),

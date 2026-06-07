@@ -37,6 +37,7 @@ declare global {
       getPathForFile: (file: File) => string;
       getZoomFactor: () => number;
     };
+    electronPlatform?: NodeJS.Platform;
   }
 }
 
