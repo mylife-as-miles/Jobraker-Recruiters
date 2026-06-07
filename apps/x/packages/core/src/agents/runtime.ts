@@ -597,28 +597,86 @@ export class StreamStepMessageBuilder {
     }
 }
 
-function formatLlmStreamError(rawError: unknown): string {
-    let name: string | undefined;
-    let responseBody: string | undefined;
-    if (rawError && typeof rawError === "object") {
-        const err = rawError as Record<string, unknown>;
-        const nested = (err.error && typeof err.error === "object") ? err.error as Record<string, unknown> : null;
-        const nameValue = err.name ?? nested?.name;
-        const responseBodyValue = err.responseBody ?? nested?.responseBody;
-        if (nameValue !== undefined) {
-            name = String(nameValue);
+function formatUnknownError(rawError: unknown, depth = 0): string {
+    if (rawError == null) return "Unknown error";
+    if (typeof rawError === "string") return rawError;
+    if (rawError instanceof Error) {
+        const parts: string[] = [];
+        if (rawError.message?.trim()) parts.push(rawError.message.trim());
+        else if (rawError.name) parts.push(rawError.name);
+        if (rawError.cause != null && depth < 3) {
+            const cause = formatUnknownError(rawError.cause, depth + 1);
+            if (cause && !parts.includes(cause)) parts.push(cause);
         }
-        if (responseBodyValue !== undefined) {
-            responseBody = String(responseBodyValue);
-        }
-    } else if (typeof rawError === "string") {
-        responseBody = rawError;
+        return parts.join(": ") || rawError.name || "Error";
     }
+    if (typeof rawError !== "object") return String(rawError);
+
+    const err = rawError as Record<string, unknown>;
+    const nested = (err.error && typeof err.error === "object")
+        ? err.error as Record<string, unknown>
+        : null;
+    const source = nested ?? err;
 
     const lines: string[] = [];
-    if (name) lines.push(`name: ${name}`);
-    if (responseBody) lines.push(`responseBody: ${responseBody}`);
-    return lines.length ? lines.join("\n") : "Model stream error";
+    const message = source.message ?? err.message;
+    const name = source.name ?? err.name;
+    const responseBody = source.responseBody ?? err.responseBody;
+    const statusCode = source.statusCode ?? source.status ?? err.statusCode ?? err.status;
+    const lastError = source.lastError ?? err.lastError;
+    const errors = source.errors ?? err.errors;
+
+    if (typeof message === "string" && message.trim() && message.trim() !== String(name)) {
+        lines.push(message.trim());
+    } else if (name !== undefined) {
+        lines.push(String(name));
+    }
+
+    if (statusCode !== undefined) {
+        lines.push(`status: ${String(statusCode)}`);
+    }
+
+    if (responseBody !== undefined) {
+        const body = typeof responseBody === "string"
+            ? responseBody
+            : JSON.stringify(responseBody);
+        lines.push(`responseBody: ${body.slice(0, 1200)}`);
+    }
+
+    if (lastError != null && depth < 3) {
+        const detail = formatUnknownError(lastError, depth + 1);
+        if (detail && !lines.some((line) => line.includes(detail))) {
+            lines.push(`lastError: ${detail}`);
+        }
+    }
+
+    if (Array.isArray(errors) && errors.length > 0 && depth < 3) {
+        const summarized = errors
+            .slice(0, 3)
+            .map((entry) => formatUnknownError(entry, depth + 1))
+            .filter(Boolean)
+            .join(" | ");
+        if (summarized) lines.push(`errors: ${summarized}`);
+    }
+
+    if (source.cause != null && depth < 3) {
+        const cause = formatUnknownError(source.cause, depth + 1);
+        if (cause && !lines.some((line) => line.includes(cause))) {
+            lines.push(`cause: ${cause}`);
+        }
+    }
+
+    if (lines.length > 0) return lines.join("\n");
+
+    try {
+        return JSON.stringify(source).slice(0, 1200);
+    } catch {
+        return "Model stream error";
+    }
+}
+
+function formatLlmStreamError(rawError: unknown): string {
+    return formatUnknownError(rawError);
 }
 
 export async function loadAgent(id: string): Promise<z.infer<typeof Agent>> {

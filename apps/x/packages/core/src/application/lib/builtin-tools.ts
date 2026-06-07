@@ -48,11 +48,9 @@ import { createProvider } from "../../models/models.js";
 import { getDefaultModelAndProvider, resolveProviderConfig } from "../../models/defaults.js";
 import { captureLlmUsage } from "../../analytics/usage.js";
 import { getCurrentUseCase, withUseCase } from "../../analytics/use_case.js";
-import { isSignedIn } from "../../account/account.js";
-import { getAccessToken } from "../../auth/tokens.js";
-import { API_URL } from "../../config/env.js";
 import type { IBrowserControlService } from "../browser-control/service.js";
 import type { INotificationService } from "../notification/service.js";
+import { elasticRetrieve } from "../../elastic/retrieval.js";
 // Parser libraries are loaded dynamically inside parseFile.execute()
 // to avoid pulling pdfjs-dist's DOM polyfills into the main bundle.
 // Import paths are computed so esbuild cannot statically resolve them.
@@ -1109,123 +1107,233 @@ export const BuiltinTools: z.infer<typeof BuiltinToolsSchema> = {
     },
 
     // ============================================================================
-    // Web Search (Exa Search API)
+    // Elastic Retrieval
+    // ============================================================================
+
+    'elastic-retrieval': {
+        description: 'Search the Elastic-backed workspace, knowledge base, saved bases, graph, and candidate evidence using semantic retrieval, filters, and ranked matching. Prefer this for recruiter search, candidate shortlisting, evidence-backed matching, or broad knowledge graph retrieval when Elastic is configured.',
+        inputSchema: z.object({
+            query: z.string().describe('Natural-language search or matching query. Include role requirements, candidate criteria, or evidence needed.'),
+            target: z.enum(["workspaces", "knowledge", "bases", "graph", "candidates", "all"]).optional().describe('Which Elastic index family to search. Use candidates for sourcing/screening, graph for entity relationships, knowledge for notes, bases for saved filtered views.'),
+            limit: z.number().optional().describe('Maximum number of results to return. Defaults to 10; capped at 50.'),
+            filters: z.record(z.string(), z.unknown()).optional().describe('Structured filters for Elastic MCP, such as role, location, skills, stage, company, source, status, or date bounds.'),
+        }),
+        execute: async (input: {
+            query: string;
+            target?: "workspaces" | "knowledge" | "bases" | "graph" | "candidates" | "all";
+            limit?: number;
+            filters?: Record<string, unknown>;
+        }) => {
+            return elasticRetrieve(input.query, {
+                target: input.target || "all",
+                limit: input.limit,
+                filters: input.filters,
+            });
+        },
+    },
+
+    // ============================================================================
+    // Web Search (Firecrawl v2 Search API)
     // ============================================================================
 
     'web-search': {
-        description: 'Search the web for articles, blog posts, papers, companies, people, news, or explore a topic in depth. Returns rich results with full text, highlights, and metadata.',
+        description: 'Search the web for articles, blog posts, papers, companies, people, or news. Returns titles, URLs, descriptions, and — by default — the full page content as markdown for each result. Powered by Firecrawl. Use this to discover sources for a query; once you have a specific URL, use `web-scrape` for its full content.',
         inputSchema: z.object({
-            query: z.string().describe('The search query'),
+            query: z.string().describe('The search query (max 500 characters)'),
             numResults: z.number().optional().describe('Number of results to return (default: 5, max: 20)'),
-            category: z.enum(['general', 'company', 'research paper', 'news', 'tweet', 'personal site', 'financial report', 'people']).optional().describe('Search category. Defaults to "general" which searches the entire web. Only use a specific category when the query is clearly about that type (e.g. "research paper" for academic papers, "company" for company info). For everyday queries like weather, restaurants, prices, how-to, etc., use "general" or omit entirely.'),
+            scrape: z.boolean().optional().describe('Whether to also scrape full page markdown for each result. Defaults to true. Set false for a faster, links-only (title/url/description) result.'),
+            tbs: z.enum(['qdr:h', 'qdr:d', 'qdr:w', 'qdr:m', 'qdr:y']).optional().describe('Time filter: qdr:h (past hour), qdr:d (past day), qdr:w (past week), qdr:m (past month), qdr:y (past year). Omit for all time.'),
+            sources: z.array(z.enum(['web', 'news', 'images'])).optional().describe('Result types to search. Defaults to ["web"]. Use "news" for current events, "images" for image results.'),
         }),
         isAvailable: async () => {
-            if (await isSignedIn()) return true;
             try {
-                const exaConfigPath = path.join(WorkDir, 'config', 'exa-search.json');
-                const raw = await fs.readFile(exaConfigPath, 'utf8');
+                const cfgPath = path.join(WorkDir, 'config', 'firecrawl.json');
+                const raw = await fs.readFile(cfgPath, 'utf8');
                 const config = JSON.parse(raw);
                 return !!config.apiKey;
             } catch {
                 return false;
             }
         },
-        execute: async ({ query, numResults, category }: { query: string; numResults?: number; category?: string }) => {
+        execute: async ({ query, numResults, scrape, tbs, sources }: { query: string; numResults?: number; scrape?: boolean; tbs?: string; sources?: string[] }) => {
+            const cfgPath = path.join(WorkDir, 'config', 'firecrawl.json');
+            let apiKey: string;
+            try {
+                const raw = await fs.readFile(cfgPath, 'utf8');
+                apiKey = JSON.parse(raw).apiKey;
+            } catch {
+                return {
+                    success: false,
+                    error: `Firecrawl API key not configured. Create ${cfgPath} with { "apiKey": "fc-..." }`,
+                };
+            }
+            if (!apiKey) {
+                return {
+                    success: false,
+                    error: `Firecrawl API key is empty. Set "apiKey" in ${cfgPath}`,
+                };
+            }
+
             try {
                 const resultCount = Math.min(Math.max(numResults || 5, 1), 20);
 
                 const reqBody: Record<string, unknown> = {
                     query,
-                    numResults: resultCount,
-                    type: 'auto',
-                    contents: {
-                        text: { maxCharacters: 1000 },
-                        highlights: true,
-                    },
+                    limit: resultCount,
                 };
-                if (category && category !== 'general') {
-                    reqBody.category = category;
+                if (sources && sources.length) reqBody.sources = sources;
+                if (tbs) reqBody.tbs = tbs;
+                if (scrape !== false) {
+                    reqBody.scrapeOptions = {
+                        formats: ['markdown'],
+                        onlyMainContent: true,
+                    };
                 }
 
-                let response: Response;
-
-                if (await isSignedIn()) {
-                    // Use proxy
-                    const accessToken = await getAccessToken();
-                    response = await fetch(`${API_URL}/v1/search/exa`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${accessToken}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(reqBody),
-                    });
-                } else {
-                    // Read API key from config
-                    const exaConfigPath = path.join(WorkDir, 'config', 'exa-search.json');
-
-                    let apiKey: string;
-                    try {
-                        const raw = await fs.readFile(exaConfigPath, 'utf8');
-                        const config = JSON.parse(raw);
-                        apiKey = config.apiKey;
-                    } catch {
-                        return {
-                            success: false,
-                            error: `Exa Search API key not configured. Create ${exaConfigPath} with { "apiKey": "<your-key>" }`,
-                        };
-                    }
-
-                    if (!apiKey) {
-                        return {
-                            success: false,
-                            error: `Exa Search API key is empty. Set "apiKey" in ${exaConfigPath}`,
-                        };
-                    }
-
-                    response = await fetch('https://api.exa.ai/search', {
-                        method: 'POST',
-                        headers: {
-                            'x-api-key': apiKey,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(reqBody),
-                    });
-                }
+                const response = await fetch('https://api.firecrawl.dev/v2/search', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(reqBody),
+                });
 
                 if (!response.ok) {
                     const text = await response.text();
                     return {
                         success: false,
-                        error: `Exa Search API error (${response.status}): ${text}`,
+                        error: `Firecrawl Search API error (${response.status}): ${text}`,
                     };
                 }
 
                 const data = await response.json() as {
-                    results?: Array<{
-                        title?: string;
-                        url?: string;
-                        publishedDate?: string;
-                        author?: string;
-                        highlights?: string[];
-                        text?: string;
-                    }>;
+                    success?: boolean;
+                    data?: {
+                        web?: Array<{ url?: string; title?: string; description?: string; markdown?: string }>;
+                        news?: Array<{ url?: string; title?: string; description?: string; snippet?: string; markdown?: string }>;
+                        images?: Array<{ url?: string; title?: string; imageUrl?: string }>;
+                    };
                 };
 
-                const results = (data.results || []).map((r) => ({
+                const web = data.data?.web || [];
+                const news = data.data?.news || [];
+                const images = data.data?.images || [];
+
+                const results = [...web, ...news].map((r) => ({
                     title: r.title || '',
                     url: r.url || '',
-                    publishedDate: r.publishedDate || '',
-                    author: r.author || '',
-                    highlights: r.highlights || [],
-                    text: r.text || '',
+                    description: r.description || (r as { snippet?: string }).snippet || '',
+                    markdown: (r as { markdown?: string }).markdown || '',
                 }));
 
                 return {
                     success: true,
                     query,
                     results,
+                    images: images.map((i) => ({
+                        title: i.title || '',
+                        url: i.url || '',
+                        imageUrl: (i as { imageUrl?: string }).imageUrl || '',
+                    })),
                     count: results.length,
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                };
+            }
+        },
+    },
+
+    // ============================================================================
+    // Web Scrape (Firecrawl v2 Scrape API)
+    // ============================================================================
+
+    'web-scrape': {
+        description: 'Scrape a single URL and return its content as clean markdown. Use this when you already have a specific URL (e.g. a candidate profile, company page, or job posting) and want its full content. Powered by Firecrawl.',
+        inputSchema: z.object({
+            url: z.string().describe('The full URL to scrape (including https://)'),
+            formats: z.array(z.enum(['markdown', 'html', 'links', 'summary'])).optional().describe('Output formats to return. Defaults to ["markdown"].'),
+            onlyMainContent: z.boolean().optional().describe('Strip navigation, footers, and other boilerplate. Defaults to true.'),
+            waitFor: z.number().optional().describe('Milliseconds to wait for JS-heavy pages to render before scraping.'),
+        }),
+        isAvailable: async () => {
+            try {
+                const cfgPath = path.join(WorkDir, 'config', 'firecrawl.json');
+                const raw = await fs.readFile(cfgPath, 'utf8');
+                const config = JSON.parse(raw);
+                return !!config.apiKey;
+            } catch {
+                return false;
+            }
+        },
+        execute: async ({ url, formats, onlyMainContent, waitFor }: { url: string; formats?: string[]; onlyMainContent?: boolean; waitFor?: number }) => {
+            const cfgPath = path.join(WorkDir, 'config', 'firecrawl.json');
+            let apiKey: string;
+            try {
+                const raw = await fs.readFile(cfgPath, 'utf8');
+                apiKey = JSON.parse(raw).apiKey;
+            } catch {
+                return {
+                    success: false,
+                    error: `Firecrawl API key not configured. Create ${cfgPath} with { "apiKey": "fc-..." }`,
+                };
+            }
+            if (!apiKey) {
+                return {
+                    success: false,
+                    error: `Firecrawl API key is empty. Set "apiKey" in ${cfgPath}`,
+                };
+            }
+
+            try {
+                const reqBody: Record<string, unknown> = {
+                    url,
+                    formats: formats && formats.length ? formats : ['markdown'],
+                    onlyMainContent: onlyMainContent !== false,
+                };
+                if (typeof waitFor === 'number') reqBody.waitFor = waitFor;
+
+                const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(reqBody),
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    return {
+                        success: false,
+                        error: `Firecrawl Scrape API error (${response.status}): ${text}`,
+                    };
+                }
+
+                const data = await response.json() as {
+                    success?: boolean;
+                    data?: {
+                        markdown?: string;
+                        html?: string;
+                        links?: string[];
+                        summary?: string;
+                        metadata?: { title?: string; description?: string; sourceURL?: string; statusCode?: number };
+                    };
+                };
+
+                const doc = data.data || {};
+                return {
+                    success: true,
+                    url,
+                    title: doc.metadata?.title || '',
+                    markdown: doc.markdown || '',
+                    html: doc.html,
+                    links: doc.links,
+                    summary: doc.summary,
+                    metadata: doc.metadata,
                 };
             } catch (error) {
                 return {

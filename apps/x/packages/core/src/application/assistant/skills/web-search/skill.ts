@@ -1,52 +1,65 @@
 export const skill = String.raw`
-# Web Search Skill
+# Web Search & Scrape Skill (Firecrawl)
 
-You have access to two search tools for finding information on the internet. Choose the right one based on the user's intent.
+You have two builtin tools for getting information off the internet, both powered by Firecrawl. Choose based on whether you already have a URL.
 
 ## Tools
 
-### web-search (Brave Search)
-Quick, general-purpose web search. Returns titles, URLs, and short descriptions.
+### web-search
+Search the web and get clean, structured content back. Returns titles, URLs, descriptions, and (by default) the full page content as markdown for each result — so a single search usually gives you everything you need without a follow-up scrape.
+
+**Parameters:**
+- \`query\` (required) — the search query (max 500 characters)
+- \`numResults\` — how many results to return (default 5, max 20)
+- \`scrape\` — whether to also pull full-page markdown for each result. Defaults to \`true\`. Set \`false\` for a faster, links-only (title/url/description) result when you only need to find a page.
+- \`tbs\` — time filter: \`qdr:h\` (past hour), \`qdr:d\` (past day), \`qdr:w\` (past week), \`qdr:m\` (past month), \`qdr:y\` (past year). Omit for all time.
+- \`sources\` — array of result types: \`web\` (default), \`news\` (current events), \`images\`.
 
 **Best for:**
-- Quick lookups for things that change ("current price of Bitcoin", "weather in SF")
-- Current events and breaking news
-- Finding a specific website or page
-- Simple questions with direct answers
-- Checking a fact or date
+- Discovering pages for a query ("find candidates with seed-stage experience at fintech startups")
+- Current events and news (use \`sources: ["news"]\` and a tight \`tbs\`)
+- Researching a company, person, or topic when you don't yet have a URL
+- Quick factual lookups (set \`scrape: false\` for speed)
 
-### research-search (Exa Search)
-Deep, research-oriented search. Returns full article text, highlights, and metadata (author, published date).
+### web-scrape
+Scrape a single, known URL and return its content as clean markdown. Use this when you already have the exact page you want.
+
+**Parameters:**
+- \`url\` (required) — the full URL (including \`https://\`)
+- \`formats\` — output formats: \`markdown\` (default), \`html\`, \`links\`, \`summary\`
+- \`onlyMainContent\` — strip nav/footer/boilerplate. Defaults to \`true\`.
+- \`waitFor\` — milliseconds to wait for JS-heavy pages to render before scraping.
 
 **Best for:**
-- Exploring a topic in depth ("what are the latest advances in CRISPR")
-- Finding articles, blog posts, papers, and quality sources
-- Discovering companies, people, or organizations
-- Research where you need rich context, not just links
-- When the user says "research", "find articles about", "look into", "deep dive"
-
-**Category filter:** Use the category parameter when the user's intent clearly maps to one: company, research paper, news, tweet, personal site, financial report, people.
-
-## How Many Searches to Do
-
-**CRITICAL: Always start with exactly ONE search call.** Pick the single best tool (\`web-search\` or \`research-search\`) and make one request. Wait for the result before deciding if more searches are needed.
-
-**NEVER call multiple search tools simultaneously.** No parallel web-search + research-search. No firing off two web-searches at once. Always sequential: one search at a time.
-
-Only make a follow-up search if:
-- The first search returned truly uninformative or irrelevant results
-- The query has clearly distinct sub-topics that the first search couldn't cover (e.g., "compare X and Y" after getting results for X only)
-- The user explicitly asks you to dig deeper
-
-One good search is almost always enough. Default to one and stop.
+- Reading a specific candidate profile, company page, or job posting you already have the link to
+- Extracting the full text of an article a previous search surfaced
+- Following a link the user pasted
 
 ## Choosing Between the Two
 
-If both tools are attached, prefer:
-- \`web-search\` when the user wants a quick answer or specific link
-- \`research-search\` when the user wants to learn, explore, or gather sources
+- **No URL yet → \`web-search\`.** It finds pages AND returns their content in one call.
+- **Already have a URL → \`web-scrape\`.** Don't search for a page you can already point to.
 
-If only one is attached, use whichever is available.
+## How Many Searches to Do
+
+**Start with exactly ONE \`web-search\` call.** Because results already include full markdown, one good search is almost always enough. Wait for the result before deciding if more is needed.
+
+Only make a follow-up call if:
+- The first search returned irrelevant or empty results (try a refined query)
+- The task has clearly distinct sub-topics the first query couldn't cover
+- The user explicitly asks you to dig deeper
+
+For deep extraction of one specific result, follow up with a single \`web-scrape\` on that URL rather than re-searching.
+
+## Setup
+
+Both tools require a Firecrawl API key in \`config/firecrawl.json\`:
+
+\`\`\`json
+{ "apiKey": "fc-..." }
+\`\`\`
+
+Get a key at firecrawl.dev. If the key is missing, the tools return a clear error telling the user where to add it.
 `;
 
 export default skill;

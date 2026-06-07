@@ -396,16 +396,12 @@ function ChatInputInner({
     }
   }, [workDir, codingAgent, persistCodingAgent])
 
-  // Check search tool availability (exa or signed-in via gateway)
+  // Check search tool availability (Firecrawl API key in config/firecrawl.json)
   useEffect(() => {
     const checkSearch = async () => {
-      if (isJobrakerRecruiterConnected) {
-        setSearchAvailable(true)
-        return
-      }
       let available = false
       try {
-        const raw = await window.ipc.invoke('workspace:readFile', { path: 'config/exa-search.json' })
+        const raw = await window.ipc.invoke('workspace:readFile', { path: 'config/firecrawl.json' })
         const config = JSON.parse(raw.data)
         if (config.apiKey) available = true
       } catch { /* not configured */ }

@@ -39,11 +39,12 @@ async function getClient(serverName: string): Promise<Client> {
                 env: config.env,
             });
         } else {
+            const requestInit = config.headers ? { headers: config.headers } : undefined;
             try {
-                transport = new StreamableHTTPClientTransport(new URL(config.url));
+                transport = new StreamableHTTPClientTransport(new URL(config.url), { requestInit });
             } catch {
                 // if that fails, try sse transport
-                transport = new SSEClientTransport(new URL(config.url));
+                transport = new SSEClientTransport(new URL(config.url), { requestInit });
             }
         }
 

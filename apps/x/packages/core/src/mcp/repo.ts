@@ -3,9 +3,7 @@ import { McpServerConfig, McpServerDefinition } from "@x/shared/dist/mcp.js";
 import fs from "fs/promises";
 import path from "path";
 import z from "zod";
-
-const DEFAULT_MCP_SERVERS = {
-};
+import { getDefaultMcpServers } from "../elastic/connector.js";
 
 export interface IMcpConfigRepo {
     ensureConfig(): Promise<void>;
@@ -21,13 +19,19 @@ export class FSMcpConfigRepo implements IMcpConfigRepo {
         try {
             await fs.access(this.configPath);
         } catch {
-            await fs.writeFile(this.configPath, JSON.stringify({ mcpServers: DEFAULT_MCP_SERVERS }, null, 2));
+            await fs.writeFile(this.configPath, JSON.stringify({ mcpServers: getDefaultMcpServers() }, null, 2));
         }
     }
 
     async getConfig(): Promise<z.infer<typeof McpServerConfig>> {
         const config = await fs.readFile(this.configPath, "utf8");
-        return McpServerConfig.parse(JSON.parse(config));
+        const parsed = McpServerConfig.parse(JSON.parse(config));
+        return {
+            mcpServers: {
+                ...getDefaultMcpServers(),
+                ...parsed.mcpServers,
+            },
+        };
     }
 
     async upsert(serverName: string, config: z.infer<typeof McpServerDefinition>): Promise<void> {

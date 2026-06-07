@@ -79,9 +79,9 @@ Add a Deepgram API key in `~/.jobraker-recruiter/config/deepgram.json`
 
 Add an ElevenLabs API key in `~/.jobraker-recruiter/config/elevenlabs.json`
 
-### Web search (optional)
+### Web search & scrape (optional)
 
-Add an Exa API key in `~/.jobraker-recruiter/config/exa-search.json`
+Add a Firecrawl API key in `~/.jobraker-recruiter/config/firecrawl.json`. This powers the copilot's `web-search` (find pages + full page markdown) and `web-scrape` (read a known URL) tools. Get a key at [firecrawl.dev](https://www.firecrawl.dev/).
 
 ### External tools (optional)
 

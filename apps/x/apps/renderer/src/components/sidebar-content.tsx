@@ -1,25 +1,30 @@
 "use client"
 
 import * as React from "react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   Bot,
   ChevronRight,
-  FileText,
+  ChevronDown,
   FilePlus,
-  Folder,
   Globe,
   AlertTriangle,
-  Home,
   Mic,
   SquarePen,
   Plug,
   LoaderIcon,
-  Mail,
-  MessageSquare,
   Settings,
   Square,
   Video,
+  TrendingUp,
+  LayoutDashboard,
+  Briefcase,
+  Users,
+  Send,
+  Workflow,
+  BarChart3,
+  Calendar,
+  MessageSquare,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -62,6 +67,19 @@ import { useBilling } from "@/hooks/useBilling"
 import { toast } from "@/lib/toast"
 import { ServiceEvent } from "@x/shared/src/service-events.js"
 import z from "zod"
+import { ROLES } from "@/components/recruiter/data"
+
+// Profile shown in the sidebar account card. Edit these to change the
+// displayed recruiter identity (avatar initials are derived from the name).
+const PROFILE_NAME = "Miles Okafor"
+const PROFILE_ROLE = "Senior Recruiter"
+const PROFILE_INITIALS = PROFILE_NAME
+  .split(/\s+/)
+  .map((part) => part[0])
+  .filter(Boolean)
+  .slice(0, 2)
+  .join("")
+  .toUpperCase()
 
 interface TreeNode {
   path: string
@@ -99,21 +117,6 @@ function displayNoteName(node: TreeNode): string {
 function formatBillingPlanName(plan: string | null | undefined) {
   if (!plan) return 'No plan'
   return `${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan`
-}
-
-function formatAgo(ms: number): string {
-  const diffMs = Math.max(0, Date.now() - ms)
-  const min = Math.floor(diffMs / 60000)
-  if (min < 1) return 'just now'
-  if (min < 60) return `${min}m ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  const day = Math.floor(hr / 24)
-  if (day < 7) return `${day}d ago`
-  const wk = Math.floor(day / 7)
-  if (wk < 4) return `${wk}w ago`
-  const mo = Math.max(1, Math.floor(day / 30))
-  return `${mo}mo ago`
 }
 
 type TaskSummary = {
@@ -174,11 +177,16 @@ type SidebarContentPanelProps = {
   onOpenRun?: (runId: string) => void
   onOpenEmail?: (threadId?: string) => void
   onOpenHome?: () => void
+  onOpenRoles?: () => void
+  onOpenCandidates?: () => void
+  onOpenPipeline?: () => void
+  onOpenAnalytics?: () => void
+  onOpenChat?: () => void
   onNewChat?: () => void
   onToggleBrowser?: () => void
   onVoiceNoteCreated?: (path: string) => void
   /** Which primary destination is currently active, for nav highlighting. */
-  activeNav?: 'home' | 'email' | 'meetings' | 'knowledge' | 'agents' | 'workspaces' | null
+  activeNav?: 'home' | 'chat' | 'roles' | 'candidates' | 'pipeline' | 'analytics' | 'email' | 'meetings' | 'knowledge' | 'agents' | 'workspaces' | null
   /** Live meeting recording state, so the recording row can show its indicator/stop. */
   meetingRecordingState?: 'idle' | 'connecting' | 'recording' | 'stopping'
   recordingMeetingSource?: string | null
@@ -323,23 +331,23 @@ function SyncStatusBar() {
           <LoaderIcon className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       )}
-      <SidebarFooter className="border-t border-sidebar-border px-2 py-2">
+      <SidebarFooter className="jobraker-sidebar-footer border-t border-border/40 px-2 py-2">
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
             <button
               type="button"
               className={cn(
-                "flex w-full items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-sidebar-accent",
+                "flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-xs transition-colors hover:bg-foreground/5",
                 hasServiceErrors && !isSyncing ? "text-red-600 dark:text-red-400" : "text-muted-foreground",
               )}
             >
               <span className="flex items-center gap-2 min-w-0">
                 {isSyncing ? (
-                  <LoaderIcon className="h-3 w-3 shrink-0 animate-spin" />
+                  <LoaderIcon className="h-3 w-3 shrink-0 animate-spin text-brand" />
                 ) : hasServiceErrors ? (
                   <AlertTriangle className="h-3 w-3 shrink-0" />
                 ) : (
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/60" />
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
                 )}
                 <span className="truncate">{statusLabel}</span>
               </span>
@@ -422,6 +430,11 @@ export function SidebarContentPanel({
   onOpenRun,
   onOpenEmail,
   onOpenHome,
+  onOpenRoles,
+  onOpenCandidates,
+  onOpenPipeline,
+  onOpenAnalytics,
+  onOpenChat,
   onNewChat,
   onToggleBrowser,
   onVoiceNoteCreated,
@@ -437,13 +450,11 @@ export function SidebarContentPanel({
   const [openConnectionsAfterClose, setOpenConnectionsAfterClose] = useState(false)
   const connectorsButtonRef = useRef<HTMLButtonElement | null>(null)
   const [isJobrakerRecruiterConnected, setIsJobrakerRecruiterConnected] = useState(false)
-  const [loggingIn, setLoggingIn] = useState(false)
   const [appUrl, setAppUrl] = useState<string | null>(null)
   const { billing } = useBilling(isJobrakerRecruiterConnected)
 
-  // Nav previews: unread important emails + next upcoming meetings (top 2 each).
+  // Nav previews: unread important email count + next upcoming meeting.
   const [unreadEmailCount, setUnreadEmailCount] = useState(0)
-  const [emailThreads, setEmailThreads] = useState<SidebarEmailThread[]>([])
   const [meetings, setMeetings] = useState<UpcomingMeeting[]>([])
   const [quickAccessExpanded, setQuickAccessExpanded] = useState(true)
 
@@ -455,12 +466,6 @@ export function SidebarContentPanel({
         if (cancelled) return
         const unread = result.threads.filter((t) => t.unread === true)
         setUnreadEmailCount(unread.length)
-        setEmailThreads(unread.slice(0, 1).map((t) => ({
-          threadId: t.threadId,
-          subject: t.subject ?? '(No subject)',
-          from: t.from ?? '',
-          date: t.date ?? '',
-        })))
       } catch { /* ignore */ }
     }
     void loadEmail()
@@ -578,71 +583,10 @@ export function SidebarContentPanel({
     return items.sort((a, b) => b.recency - a.recency).slice(0, 5)
   }, [recentNotes, bgTaskSummaries, recentRuns, onSelectFile, onOpenAgent, onOpenRun])
 
-  // Workspace count for the Workspaces sublabel — top-level dir children of
-  // knowledge/Workspace (matches WorkspaceView's root listing).
-  const workspaceCount = React.useMemo(() => {
-    const find = (nodes: TreeNode[]): TreeNode | null => {
-      for (const n of nodes) {
-        if (n.path === 'knowledge/Workspace') return n
-        if (n.kind === 'dir' && n.children?.length) {
-          const found = find(n.children)
-          if (found) return found
-        }
-      }
-      return null
-    }
-    const node = find(tree)
-    return node?.children?.filter((c) => c.kind === 'dir').length ?? 0
-  }, [tree])
-
-  // "Updated 4m ago" sublabel under Knowledge, based on the most recently
-  // modified note. Recomputed in an effect (not during render) and ticked so
-  // the relative time stays fresh.
-  const latestNoteMtime = recentNotes[0]?.stat?.mtimeMs ?? null
-  const [knowledgeUpdatedLabel, setKnowledgeUpdatedLabel] = useState<string | null>(null)
-  useEffect(() => {
-    if (!latestNoteMtime) { setKnowledgeUpdatedLabel(null); return }
-    const update = () => setKnowledgeUpdatedLabel(`Updated ${formatAgo(latestNoteMtime)}`)
-    update()
-    const tick = setInterval(update, 60 * 1000)
-    return () => clearInterval(tick)
-  }, [latestNoteMtime])
-
-  // "2 active · Last run 3m ago" sublabel under Background agents, overridden by
-  // "N failed · Needs review" when any task's last run errored.
-  const [bgAgentsLabel, setBgAgentsLabel] = useState<string | null>(null)
-  useEffect(() => {
-    const update = () => {
-      const failed = bgTaskSummaries.filter((t) => t.lastRunError).length
-      if (failed > 0) {
-        setBgAgentsLabel(`${failed} failed · Needs review`)
-        return
-      }
-      const active = bgTaskSummaries.filter((t) => t.active).length
-      const lastRunMs = bgTaskSummaries.reduce((max, t) => {
-        const ms = t.lastRunAt ? new Date(t.lastRunAt).getTime() : 0
-        return Number.isFinite(ms) && ms > max ? ms : max
-      }, 0)
-      const parts: string[] = [active > 0 ? `${active} active` : 'No active agents']
-      if (lastRunMs > 0) parts.push(`Last run ${formatAgo(lastRunMs)}`)
-      setBgAgentsLabel(parts.join(' · '))
-    }
-    update()
-    const tick = setInterval(update, 60 * 1000)
-    return () => clearInterval(tick)
-  }, [bgTaskSummaries])
-
-  const handleJobrakerRecruiterLogin = useCallback(async () => {
-    try {
-      setLoggingIn(true)
-      const result = await window.ipc.invoke('oauth:connect', { provider: 'jobraker-recruiter' })
-      if (!result.success) {
-        setLoggingIn(false)
-      }
-    } catch {
-      setLoggingIn(false)
-    }
-  }, [])
+  const openRolesCount = React.useMemo(
+    () => ROLES.filter((r) => r.status === 'Open' || r.status === 'Interviewing').length,
+    [],
+  )
 
   useEffect(() => {
     let mounted = true
@@ -679,7 +623,6 @@ export function SidebarContentPanel({
     refreshOauthError()
     const cleanup = window.ipc.on('oauth:didConnect', () => {
       refreshOauthError()
-      setLoggingIn(false)
     })
 
     return () => {
@@ -688,8 +631,8 @@ export function SidebarContentPanel({
     }
   }, [])
 
-  // Single preview shown as a sublabel on the Email / Meetings nav buttons.
-  const previewEmail = emailThreads[0]
+  // Upcoming meeting used for the hover take-notes / join actions on the
+  // Meetings nav button.
   const previewMeeting = meetings[0]
   // Drive the recording indicator off the global recording state — there is only
   // one active recording, so it must show even for ad-hoc recordings or meetings
@@ -702,26 +645,41 @@ export function SidebarContentPanel({
   const recordingMeeting = previewMeeting != null && recordingMeetingSource === previewMeeting.source
     ? previewMeeting
     : null
-  const meetingSublabel = meetingIsRecording
-    ? (recordingMeeting?.summary ?? 'Recording…')
-    : (previewMeeting ? `${previewMeeting.summary} · ${formatMeetingTime(previewMeeting)}` : null)
 
   return (
     <Sidebar className="jobraker-recruiter-sidebar border-r-0" {...props}>
-      <SidebarHeader className="titlebar-drag-region">
+      <SidebarHeader className="titlebar-drag-region pb-3">
         {/* Top spacer to clear the traffic lights + fixed toggle row */}
         <div className="h-8" />
         {/* Brand mark */}
-        <div className="titlebar-no-drag flex items-center gap-2 px-3 pb-1">
+        <div className="titlebar-no-drag flex items-center gap-2.5 px-4 pb-1">
           <img
             src="/logo-only.png"
-            alt="Jobraker"
-            className="size-6 rounded-md object-cover brand-glow"
+            alt="Jobraker Recruiter"
+            className="size-7 shrink-0 rounded-lg object-cover brand-glow"
           />
-          <span className="text-sm font-semibold tracking-tight">Jobraker</span>
+          <span className="text-[17px] font-bold tracking-tight">
+            Jobraker <span className="text-brand">Recruiter</span>
+          </span>
+        </div>
+        {/* Profile card */}
+        <div className="titlebar-no-drag px-3 pt-1">
+          <SettingsDialog>
+            <button type="button" className="jobraker-sidebar-profile group w-full">
+              <span className="jobraker-sidebar-avatar">
+                {PROFILE_INITIALS}
+                <span className="jobraker-sidebar-avatar-dot" />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col text-left leading-tight">
+                <span className="truncate text-sm font-semibold text-foreground">{PROFILE_NAME}</span>
+                <span className="truncate text-[11px] text-muted-foreground">{PROFILE_ROLE}</span>
+              </span>
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground" />
+            </button>
+          </SettingsDialog>
         </div>
         {/* Quick actions */}
-        <div className="titlebar-no-drag flex items-center gap-1.5 px-3 pb-2">
+        <div className="jobraker-recruiter-quick-actions titlebar-no-drag flex items-center gap-1.5 px-3">
           {onNewChat && (
             <ActionButton icon={SquarePen} label="New chat" onClick={onNewChat} />
           )}
@@ -732,57 +690,73 @@ export function SidebarContentPanel({
           )}
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-2 py-4">
         {/* Primary navigation */}
         <SidebarGroup className="flex flex-col">
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton isActive={activeNav === 'home'} onClick={onOpenHome}>
-                  <Home className="size-4 shrink-0" />
-                  <span className="flex-1 truncate">Home</span>
+                  <LayoutDashboard className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Dashboard</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeNav === 'chat'} onClick={onOpenChat ?? onNewChat}>
+                  <MessageSquare className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Chat</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={activeNav === 'email'}
-                  onClick={() => onOpenEmail?.()}
-                  className={previewEmail ? 'h-auto py-1.5' : undefined}
+                  isActive={activeNav === 'roles'}
+                  onClick={onOpenRoles}
                 >
-                  <Mail className="size-4 shrink-0" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">Email</span>
-                    {previewEmail && (
-                      <span className="truncate text-[11px] text-muted-foreground">
-                        {formatEmailFrom(previewEmail.from)} · {previewEmail.subject}
-                      </span>
-                    )}
-                  </div>
-                  {unreadEmailCount > 0 && (
-                    <span className="shrink-0 self-center rounded-full bg-sidebar-accent px-1.5 text-[10px] font-medium text-sidebar-accent-foreground tabular-nums">
-                      {unreadEmailCount}
+                  <Briefcase className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Roles</span>
+                  {openRolesCount > 0 && (
+                    <span className="shrink-0 self-center rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground tabular-nums">
+                      {openRolesCount}
                     </span>
                   )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
+                  isActive={activeNav === 'candidates'}
+                  onClick={onOpenCandidates}
+                >
+                  <Users className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Candidates</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activeNav === 'email'}
+                  onClick={() => onOpenEmail?.()}
+                >
+                  <Send className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Outreach</span>
+                  {unreadEmailCount > 0 && (
+                    <span className="shrink-0 self-center rounded-full bg-brand/80 px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground tabular-nums">
+                      {unreadEmailCount}
+                    </span>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeNav === 'pipeline'} onClick={onOpenPipeline}>
+                  <Workflow className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Pipeline</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
                   isActive={activeNav === 'meetings'}
                   onClick={onOpenMeetings}
-                  className={meetingSublabel ? 'h-auto py-1.5' : undefined}
                 >
-                  <Mic className={cn('size-4 shrink-0', meetingIsRecording && 'text-red-500')} />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">Meetings</span>
-                    {meetingSublabel && (
-                      <span className={cn(
-                        'truncate text-[11px]',
-                        meetingIsRecording ? 'text-red-500' : 'text-muted-foreground',
-                      )}>
-                        {meetingSublabel}
-                      </span>
-                    )}
-                  </div>
+                  <Calendar className={cn('size-5 shrink-0', meetingIsRecording && 'text-red-500')} />
+                  <span className="flex-1 truncate">Meetings</span>
                 </SidebarMenuButton>
                 {meetingIsRecording ? (
                   <div className="absolute inset-y-0 right-1 flex items-center gap-1.5">
@@ -804,7 +778,13 @@ export function SidebarContentPanel({
                         </button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
-                        {meetingRecordingState === 'connecting' ? 'Starting…' : meetingRecordingState === 'stopping' ? 'Stopping…' : 'Stop recording'}
+                        {meetingRecordingState === 'connecting'
+                          ? 'Starting…'
+                          : meetingRecordingState === 'stopping'
+                            ? 'Stopping…'
+                            : recordingMeeting
+                              ? `Stop recording — ${recordingMeeting.summary}`
+                              : 'Stop recording'}
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -845,93 +825,70 @@ export function SidebarContentPanel({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={activeNav === 'knowledge'}
-                  onClick={() => knowledgeActions.openKnowledgeView()}
-                  className={knowledgeUpdatedLabel ? 'h-auto py-1.5' : undefined}
-                >
-                  <FileText className="size-4 shrink-0" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">Knowledge</span>
-                    {knowledgeUpdatedLabel && (
-                      <span className="truncate text-[11px] text-muted-foreground">{knowledgeUpdatedLabel}</span>
-                    )}
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-
-            <div className="mx-3 my-2 border-t border-sidebar-border" />
-
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
                   isActive={activeNav === 'agents'}
                   onClick={onOpenBgTasks}
-                  className={bgAgentsLabel ? 'h-auto py-1.5' : undefined}
                 >
-                  <Bot className="size-4 shrink-0 text-muted-foreground" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-muted-foreground">Background agents</span>
-                    {bgAgentsLabel && (
-                      <span className={cn(
-                        'truncate text-[11px]',
-                        bgTaskSummaries.some((t) => t.lastRunError) ? 'text-destructive' : 'text-muted-foreground',
-                      )}>
-                        {bgAgentsLabel}
-                      </span>
-                    )}
-                  </div>
+                  <Bot className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">AI Agents</span>
+                  <span className="jobraker-sidebar-badge-new shrink-0 self-center">New</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={activeNav === 'workspaces'}
-                  onClick={() => knowledgeActions.openWorkspaceAt()}
-                  className="h-auto py-1.5"
-                >
-                  <Folder className="size-4 shrink-0 text-muted-foreground" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-muted-foreground">Workspaces</span>
-                    <span className="truncate text-[11px] text-muted-foreground">
-                      {workspaceCount === 0 ? 'No workspaces' : `${workspaceCount} workspace${workspaceCount === 1 ? '' : 's'}`}
-                    </span>
-                  </div>
+                <SidebarMenuButton isActive={activeNav === 'analytics'} onClick={onOpenAnalytics}>
+                  <BarChart3 className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Analytics</span>
                 </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={() => setConnectionsSettingsOpen(true)}>
+                  <Plug className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Integrations</span>
+                  {hasOauthError && (
+                    <AlertTriangle className="size-3.5 shrink-0 self-center text-amber-500/90" />
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SettingsDialog>
+                  <SidebarMenuButton>
+                    <Settings className="size-5 shrink-0" />
+                    <span className="flex-1 truncate">Settings</span>
+                  </SidebarMenuButton>
+                </SettingsDialog>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="mx-3 border-t border-sidebar-border" />
+        <div className="jobraker-sidebar-divider" />
 
-        {/* Recents */}
+        {/* Favorites */}
         <SidebarGroup className="flex flex-col">
           <SidebarGroupContent>
             <button
               type="button"
               onClick={() => setQuickAccessExpanded((v) => !v)}
-              className="flex w-full items-center gap-1.5 px-3 py-1 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground"
+              className="jobraker-sidebar-section-label mb-2 flex w-full items-center gap-1.5 px-3 py-0 text-left"
             >
               <ChevronRight className={cn('size-3 transition-transform', quickAccessExpanded && 'rotate-90')} />
-              <span className="flex-1 text-left">Recents</span>
+              <span className="flex-1">Favorites</span>
             </button>
             {quickAccessExpanded && (
               quickAccessItems.length === 0 ? (
                 <div className="px-4 pb-2 text-[11.5px] italic text-muted-foreground">
-                  Recent notes and agents show up here.
+                  Pin roles and notes to see them here.
                 </div>
               ) : (
                 <SidebarMenu>
-                  {quickAccessItems.map((item) => (
+                  {quickAccessItems.map((item, index) => (
                     <SidebarMenuItem key={item.key}>
-                      <SidebarMenuButton onClick={item.onClick}>
-                        {item.type === 'agent' ? (
-                          <Bot className="size-4 shrink-0 text-muted-foreground" />
-                        ) : item.type === 'chat' ? (
-                          <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <FileText className="size-4 shrink-0 text-muted-foreground" />
-                        )}
+                      <SidebarMenuButton onClick={item.onClick} className="jobraker-sidebar-favorite">
+                        <span
+                          className={cn(
+                            'jobraker-sidebar-favorite-dot',
+                            index === 0 && 'jobraker-sidebar-favorite-dot--active',
+                          )}
+                        />
                         <span className="flex-1 truncate">{item.label}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -942,117 +899,96 @@ export function SidebarContentPanel({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      {/* Billing / upgrade CTA or Log in CTA */}
+      {/* Billing / upgrade CTA */}
       {isJobrakerRecruiterConnected && billing ? (
-        <div className="px-3 py-2">
-          <div className="flex items-center justify-between rounded-lg border border-sidebar-border bg-sidebar-accent/20 px-3 py-2">
-            <div className="min-w-0">
-              <span className="text-xs font-medium capitalize text-sidebar-foreground">
-                {formatBillingPlanName(billing.subscriptionPlan)}
-              </span>
-              {billing.subscriptionStatus === 'trialing' && billing.trialExpiresAt && (() => {
-                const days = Math.max(0, Math.ceil((new Date(billing.trialExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-                return (
-                  <p className="text-[10px] text-sidebar-foreground/60">
-                    {days === 0 ? 'Trial expires today' : days === 1 ? '1 day left' : `${days} days left`}
-                  </p>
-                )
-              })()}
-            </div>
-            <button
-              onClick={() => appUrl && window.open(`${appUrl}?intent=upgrade`)}
-              className="shrink-0 rounded-md bg-sidebar-foreground/10 px-2.5 py-1 text-[11px] font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-foreground/20"
-            >
-              {!billing.subscriptionPlan || billing.subscriptionPlan === 'free' || billing.subscriptionPlan === 'starter' ? 'Upgrade' : 'Manage'}
-            </button>
-          </div>
-        </div>
-      ) : null}
-      {/* Sign in CTA */}
-      {!isJobrakerRecruiterConnected && (
-        <div className="px-3 py-2">
+        <div className="shrink-0 border-t border-border/40 bg-card/40 p-4">
           <button
-            onClick={handleJobrakerRecruiterLogin}
-            disabled={loggingIn}
-            className="flex w-full items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent/20 px-3 py-2.5 text-xs font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/40 disabled:opacity-50"
+            type="button"
+            onClick={() => appUrl && window.open(`${appUrl}?intent=upgrade`)}
+            className="jobraker-sidebar-plan-card group w-full p-4 text-left"
           >
-            {loggingIn ? 'Signing in…' : 'Sign in to Jobraker Recruiter'}
+            <div className="relative z-10 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-foreground transition-colors group-hover:text-brand">
+                  {formatBillingPlanName(billing.subscriptionPlan)}
+                </h3>
+                {billing.subscriptionStatus === 'trialing' && billing.trialExpiresAt && (() => {
+                  const days = Math.max(0, Math.ceil((new Date(billing.trialExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                  return (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {days === 0 ? 'Trial expires today' : days === 1 ? '1 day left' : `${days} days left`}
+                    </p>
+                  )
+                })()}
+                {!billing.subscriptionPlan || billing.subscriptionPlan === 'free' || billing.subscriptionPlan === 'starter' ? (
+                  <p className="mt-1 text-[10px] text-muted-foreground">Unlock advanced sourcing and automation</p>
+                ) : null}
+              </div>
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-brand/20 bg-brand/10 text-brand">
+                <TrendingUp className="size-4" />
+              </div>
+            </div>
+            <div className="relative z-10 mt-3 flex items-center gap-2 text-[10px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+              <span>{!billing.subscriptionPlan || billing.subscriptionPlan === 'free' || billing.subscriptionPlan === 'starter' ? 'Upgrade plan' : 'Manage billing'}</span>
+              <ChevronRight className="size-3" />
+            </div>
           </button>
         </div>
-      )}
-      {/* Bottom actions */}
-      <div className="border-t border-sidebar-border px-2 py-2">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <button
-              ref={connectorsButtonRef}
-              onClick={() => setConnectionsSettingsOpen(true)}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-            >
-              <Plug className="size-4" />
-              <span>Connect Accounts</span>
-            </button>
-            {hasOauthError && (
-              <AlertDialog
-                open={showOauthAlert}
-                onOpenChange={setShowOauthAlert}
+      ) : null}
+      {/* Bottom actions — reconnect prompt (Settings & Integrations live in nav) */}
+      {hasOauthError && (
+        <div className="jobraker-sidebar-footer px-2 py-2">
+          <AlertDialog open={showOauthAlert} onOpenChange={setShowOauthAlert}>
+            <AlertDialogTrigger asChild>
+              <button
+                ref={connectorsButtonRef}
+                type="button"
+                className="flex w-full items-center gap-2 px-2 py-1.5 text-xs text-amber-500/90"
+                aria-label="OAuth connection issues"
               >
-                <AlertDialogTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex items-center"
-                    aria-label="OAuth connection issues"
-                  >
-                    <AlertTriangle className="size-3 text-amber-500/90 animate-pulse" />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent
-                  onCloseAutoFocus={(event) => {
-                    event.preventDefault()
-                    if (openConnectionsAfterClose) {
-                      setOpenConnectionsAfterClose(false)
-                      setConnectionsSettingsOpen(true)
-                    }
-                    connectorsButtonRef.current?.focus()
+                <AlertTriangle className="size-4 animate-pulse" />
+                <span>Reconnect accounts</span>
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent
+              onCloseAutoFocus={(event) => {
+                event.preventDefault()
+                if (openConnectionsAfterClose) {
+                  setOpenConnectionsAfterClose(false)
+                  setConnectionsSettingsOpen(true)
+                }
+                connectorsButtonRef.current?.focus()
+              }}
+            >
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reconnect your accounts</AlertDialogTitle>
+                <AlertDialogDescription>
+                  One or more connected accounts need attention. Open Connected accounts
+                  to review the status and reconnect if needed.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel
+                  onClick={() => {
+                    setOpenConnectionsAfterClose(false)
+                    setShowOauthAlert(false)
                   }}
                 >
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Reconnect your accounts</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      One or more connected accounts need attention. Open Connected accounts
-                      to review the status and reconnect if needed.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel
-                      onClick={() => {
-                        setOpenConnectionsAfterClose(false)
-                        setShowOauthAlert(false)
-                      }}
-                    >
-                      Dismiss
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => {
-                        setOpenConnectionsAfterClose(true)
-                        setShowOauthAlert(false)
-                      }}
-                    >
-                      View connected accounts
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-          <SettingsDialog>
-            <button className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors">
-              <Settings className="size-4" />
-              <span>Settings</span>
-            </button>
-          </SettingsDialog>
+                  Dismiss
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    setOpenConnectionsAfterClose(true)
+                    setShowOauthAlert(false)
+                  }}
+                >
+                  View connected accounts
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
-      </div>
+      )}
       <SettingsDialog
         defaultTab="connections"
         open={connectionsSettingsOpen}
@@ -1286,8 +1222,8 @@ path: ${currentRelativePath}
 
   if (!hasDeepgramKey) return null
 
-  const actionClass = "flex h-9 flex-1 items-center justify-center rounded-md border border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-  const iconClass = "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded p-1.5 transition-colors"
+  const actionClass = "flex h-9 flex-1 items-center justify-center rounded-xl border border-border/60 bg-foreground/5 text-foreground/60 transition-all hover:border-brand/30 hover:bg-brand/10 hover:text-brand"
+  const iconClass = "rounded-xl p-1.5 text-foreground/60 transition-all hover:border-brand/30 hover:bg-brand/10 hover:text-brand"
 
   return (
     <Tooltip>
@@ -1320,7 +1256,7 @@ function ActionButton({ icon: Icon, label, onClick }: { icon: typeof Mic; label:
           type="button"
           onClick={onClick}
           aria-label={label}
-          className="flex h-9 flex-1 items-center justify-center rounded-md border border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+          className="flex h-9 flex-1 items-center justify-center rounded-xl border border-border/60 bg-foreground/5 text-foreground/60 transition-all hover:border-brand/30 hover:bg-brand/10 hover:text-brand"
         >
           <Icon className="size-4" />
         </button>
@@ -1395,21 +1331,6 @@ function normalizeUpcomingMeeting(raw: RawCalendarEvent, sourcePath: string): Up
   }
 }
 
-function isSameLocalDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-
-function formatMeetingTime(event: UpcomingMeeting): string {
-  if (event.isAllDay) return 'All day'
-  const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const time = event.start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  if (isSameLocalDay(event.start, now)) return time
-  if (isSameLocalDay(event.start, tomorrow)) return `Tmrw ${time}`
-  return event.start.toLocaleDateString([], { month: 'numeric', day: 'numeric' })
-}
-
 function triggerMeetingCapture(event: UpcomingMeeting, openConference: boolean) {
   window.__pendingCalendarEvent = {
     summary: event.summary,
@@ -1424,17 +1345,4 @@ function triggerMeetingCapture(event: UpcomingMeeting, openConference: boolean) 
     window.open(event.conferenceLink, '_blank')
   }
   window.dispatchEvent(new Event('calendar-block:join-meeting'))
-}
-
-type SidebarEmailThread = {
-  threadId: string
-  subject: string
-  from: string
-  date: string
-}
-
-function formatEmailFrom(from: string): string {
-  const match = /^\s*"?([^"<]+?)"?\s*<.+>\s*$/.exec(from)
-  if (match) return match[1].trim()
-  return from
 }

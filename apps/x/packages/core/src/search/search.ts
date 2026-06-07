@@ -4,6 +4,7 @@ import fsp from 'fs/promises';
 import readline from 'readline';
 import { execFile } from 'child_process';
 import { WorkDir } from '../config/config.js';
+import { elasticRetrieve } from '../elastic/retrieval.js';
 
 interface SearchResult {
   type: 'knowledge' | 'chat';
@@ -29,6 +30,10 @@ export async function search(query: string, limit = 20, types?: SearchType[]): P
 
   const searchKnowledgeEnabled = !types || types.includes('knowledge');
   const searchChatsEnabled = !types || types.includes('chat');
+  const elasticResults = await searchElastic(trimmed, limit, types);
+  if (elasticResults.length > 0) {
+    return { results: elasticResults.slice(0, limit) };
+  }
 
   const [knowledgeResults, chatResults] = await Promise.all([
     searchKnowledgeEnabled ? searchKnowledge(trimmed, limit) : Promise.resolve([]),
@@ -37,6 +42,28 @@ export async function search(query: string, limit = 20, types?: SearchType[]): P
 
   const results = [...knowledgeResults, ...chatResults].slice(0, limit);
   return { results };
+}
+
+async function searchElastic(query: string, limit: number, types?: SearchType[]): Promise<SearchResult[]> {
+  try {
+    const target = types?.length === 1 && types[0] === 'knowledge' ? 'knowledge' : 'all';
+    const result = await elasticRetrieve(query, { target, limit });
+    if (!result.success || result.results.length === 0) {
+      return [];
+    }
+    return result.results.map((item) => {
+      const source = item.source?.toLowerCase() || '';
+      const resultType: SearchType = source.includes('chat') || source.includes('run') ? 'chat' : 'knowledge';
+      return {
+        type: resultType,
+        title: item.title,
+        preview: item.preview,
+        path: item.path || item.title,
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 /**

@@ -270,7 +270,8 @@ ${runtimeContextPrompt}
 - \`analyzeAgent\` - Agent analysis
 - \`addMcpServer\`, \`listMcpServers\`, \`listMcpTools\`, \`executeMcpTool\` - MCP server management and execution
 - \`loadSkill\` - Skill loading
-${slackToolsLine}- \`web-search\` - Search the web. Returns rich results with full text, highlights, and metadata. The \`category\` parameter defaults to \`general\` (full web search) — only use a specific category like \`news\`, \`company\`, \`research paper\` etc. when the query is clearly about that type. For everyday queries (weather, restaurants, prices, how-to), use \`general\`.
+${slackToolsLine}- \`web-search\` - Search the web (powered by Firecrawl). Returns titles, URLs, descriptions, and the full page content as markdown for each result. Use \`tbs\` (e.g. \`qdr:w\`) to constrain by time and \`sources\` (\`news\` for current events) when relevant. Set \`scrape: false\` for a faster links-only result. Use this to discover sources for a query.
+- \`web-scrape\` - Scrape a single known URL (powered by Firecrawl) and return its content as clean markdown. Use this once you already have a specific URL (candidate profile, company page, job posting) and want its full content.
 - \`app-navigation\` - Control the app UI: open notes, switch views, filter/search the knowledge base, manage saved views. **Load the \`app-navigation\` skill before using this tool.**
 - \`browser-control\` - Control the embedded browser pane: open sites, inspect the live page, switch tabs, and interact with indexed page elements. **Load the \`browser-control\` skill before using this tool.**
 - \`save-to-memory\` - Save observations about the user to the agent memory system. Use this proactively during conversations.

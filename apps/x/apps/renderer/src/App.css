@@ -1300,37 +1300,402 @@
 }
 
 .jobraker-recruiter-sidebar [data-sidebar="sidebar"] {
-  background: var(--sidebar);
-  border-right: 1px solid var(--sidebar-border);
+  background: color-mix(in oklab, var(--card) 95%, transparent);
+  backdrop-filter: blur(24px);
+  border-right: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
 }
 
 .jobraker-recruiter-sidebar [data-sidebar="header"] {
+  position: relative;
+  gap: 0.75rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
+  background: transparent;
+  padding-bottom: 0.75rem;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="header"]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--brand) 50%, transparent),
+    transparent
+  );
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="content"] {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--border) 85%, transparent) transparent;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="content"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="content"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="content"]::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--border) 85%, transparent);
+  border-radius: 10px;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 20%, transparent);
+}
+
+.jobraker-sidebar-section-label {
+  margin-bottom: 0.5rem;
+  padding-inline: 0.75rem;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu"] {
+  gap: 0.25rem;
+  padding-inline: 0.25rem;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu-button"] {
+  position: relative;
+  overflow: hidden;
+  min-height: 2.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  padding-inline: 1rem;
+  font-weight: 500;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu-button"]:not([data-active="true"]) {
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu-button"]:not([data-active="true"]):hover {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  color: color-mix(in oklab, var(--foreground) 88%, transparent);
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu-button"][data-active="true"] {
+  border-color: color-mix(in oklab, var(--brand) 20%, transparent);
+  background: color-mix(in oklab, var(--brand) 10%, transparent) !important;
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu-button"][data-active="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 3px;
+  border-radius: 999px 0 0 999px;
+  background: var(--brand);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--brand) 55%, transparent);
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu-button"] svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu-button"][data-active="true"] svg {
+  color: var(--brand);
+}
+
+.jobraker-recruiter-sidebar .jobraker-sidebar-divider {
+  margin-block: 0.75rem;
+  margin-inline: 0.75rem;
+  border-top: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
+}
+
+.jobraker-sidebar-profile {
+  display: flex;
+  align-items: center;
   gap: 0.625rem;
-  border-bottom: 1px solid color-mix(in oklab, var(--sidebar-border) 76%, transparent);
-  background: var(--sidebar);
+  border-radius: 0.875rem;
+  border: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+  background: color-mix(in oklab, var(--card) 70%, transparent);
+  padding: 0.5rem 0.625rem;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.jobraker-recruiter-section-switcher {
-  border: 1px solid color-mix(in oklab, var(--sidebar-border) 78%, transparent);
-  background: color-mix(in oklab, var(--sidebar-accent) 58%, var(--sidebar) 42%);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--foreground) 9%, transparent);
+.jobraker-sidebar-profile:hover {
+  border-color: color-mix(in oklab, var(--brand) 35%, transparent);
+  background: color-mix(in oklab, var(--brand) 8%, transparent);
 }
 
-.jobraker-recruiter-section-switcher button {
-  letter-spacing: 0;
+.jobraker-sidebar-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--brand) 85%, white 5%),
+    color-mix(in oklab, var(--brand) 55%, black 25%)
+  );
+  color: #04140a;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.jobraker-recruiter-section-switcher button[class*="shadow-sm"] {
-  background: var(--jobraker-recruiter-raised);
-  box-shadow: var(--jobraker-recruiter-shadow-soft);
+.jobraker-sidebar-avatar-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--brand);
+  border: 2px solid var(--card);
+  box-shadow: 0 0 6px color-mix(in oklab, var(--brand) 60%, transparent);
+}
+
+.jobraker-sidebar-badge-new {
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--brand) 20%, transparent);
+  color: var(--brand);
+  padding: 0.0625rem 0.4375rem;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.jobraker-recruiter-sidebar [data-sidebar="menu-button"].jobraker-sidebar-favorite {
+  min-height: 2.125rem;
+  font-weight: 500;
+}
+
+.jobraker-sidebar-favorite-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1.5px solid color-mix(in oklab, var(--foreground) 35%, transparent);
+  background: transparent;
+}
+
+.jobraker-sidebar-favorite-dot--active {
+  border-color: var(--brand);
+  background: var(--brand);
+  box-shadow: 0 0 6px color-mix(in oklab, var(--brand) 55%, transparent);
+}
+
+/* ───────────────────────── Recruiter dashboards ───────────────────────── */
+
+.recruiter-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--brand) 35%, transparent) transparent;
+}
+.recruiter-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.recruiter-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.recruiter-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--border) 90%, transparent);
+  border-radius: 10px;
+}
+.recruiter-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--brand) 45%, transparent);
+}
+
+@keyframes recruiter-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.recruiter-shimmer {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--foreground) 4%, transparent) 25%,
+    color-mix(in oklab, var(--foreground) 10%, transparent) 37%,
+    color-mix(in oklab, var(--foreground) 4%, transparent) 63%
+  );
+  background-size: 200% 100%;
+  animation: recruiter-shimmer 1.4s ease-in-out infinite;
+}
+
+.recruiter-card {
+  position: relative;
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--foreground) 3%, transparent),
+      color-mix(in oklab, var(--foreground) 1%, transparent)
+    );
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.recruiter-card:hover {
+  border-color: color-mix(in oklab, var(--brand) 22%, transparent);
+}
+
+.recruiter-new-btn {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--brand) 30%, transparent),
+    0 8px 24px color-mix(in oklab, var(--brand) 22%, transparent);
+}
+
+.recruiter-search input:focus {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 12%, transparent);
+}
+
+.recruiter-kpi {
+  position: relative;
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+.recruiter-kpi:hover {
+  border-color: color-mix(in oklab, var(--brand) 28%, transparent);
+  transform: translateY(-2px);
+}
+.recruiter-kpi::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 80% at 100% 0%,
+    color-mix(in oklab, var(--brand) 9%, transparent),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.recruiter-kpi:hover::after {
+  opacity: 1;
+}
+
+.recruiter-row {
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.recruiter-row:hover {
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+.recruiter-row[data-selected="true"] {
+  background: color-mix(in oklab, var(--brand) 9%, transparent);
+}
+
+.recruiter-kanban-card {
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.recruiter-kanban-card:hover {
+  border-color: color-mix(in oklab, var(--brand) 35%, transparent);
+}
+.recruiter-kanban-card[data-dragging="true"] {
+  border-color: color-mix(in oklab, var(--brand) 55%, transparent);
+  box-shadow: 0 0 28px color-mix(in oklab, var(--brand) 28%, transparent);
+  transform: scale(1.02);
+}
+.recruiter-kanban-col[data-over="true"] {
+  background: color-mix(in oklab, var(--brand) 7%, transparent);
+  border-color: color-mix(in oklab, var(--brand) 35%, transparent);
 }
 
 .jobraker-recruiter-quick-actions button {
-  min-height: 2rem;
+  min-height: 2.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.jobraker-recruiter-quick-actions button:hover {
+  border-color: color-mix(in oklab, var(--brand) 30%, transparent);
+  background: color-mix(in oklab, var(--brand) 10%, transparent);
+  color: var(--brand);
 }
 
 .jobraker-recruiter-quick-actions button svg {
-  color: color-mix(in oklab, var(--jobraker-recruiter-command) 72%, var(--sidebar-foreground) 28%);
+  color: inherit;
+}
+
+.jobraker-sidebar-plan-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--card) 100%, transparent),
+    var(--background)
+  );
+  transition: border-color 0.3s ease;
+}
+
+.jobraker-sidebar-plan-card:hover {
+  border-color: color-mix(in oklab, var(--brand) 30%, transparent);
+}
+
+.jobraker-sidebar-plan-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--brand) 5%, transparent);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+
+.jobraker-sidebar-plan-card:hover::before {
+  opacity: 1;
+}
+
+.jobraker-recruiter-sidebar .jobraker-sidebar-footer {
+  border-top: 1px solid color-mix(in oklab, var(--border) 40%, transparent);
+  background: color-mix(in oklab, var(--card) 40%, transparent);
+}
+
+.jobraker-recruiter-sidebar .jobraker-sidebar-footer button {
+  border-radius: 0.75rem;
+  color: color-mix(in oklab, var(--foreground) 60%, transparent);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.jobraker-recruiter-sidebar .jobraker-sidebar-footer button:hover {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  color: var(--foreground);
 }
 
 .jobraker-recruiter-tabbar {

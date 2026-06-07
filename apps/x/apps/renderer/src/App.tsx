@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/markdown-editor';
 import { ChatSidebar } from './components/chat-sidebar';
 import { ChatHeader } from './components/chat-header';
+import { RecruiterScreens } from './components/recruiter';
 import { ChatAssistantRow } from './components/chat-assistant-row';
 import { ChatEmptyState } from './components/chat-empty-state';
 import { ChatInputWithMentions, type StagedAttachment } from './components/chat-input-with-mentions';
@@ -572,6 +573,9 @@ const collectDirPaths = (nodes: TreeNode[]): string[] =>
 const collectFilePaths = (nodes: TreeNode[]): string[] =>
   nodes.flatMap(n => n.kind === 'file' ? [n.path] : (n.children ? collectFilePaths(n.children) : []))
 
+/** Dedicated recruiter dashboard screens rendered as a full-pane overlay. */
+type RecruiterScreen = 'roles' | 'candidates' | 'pipeline' | 'analytics'
+
 /** A snapshot of which view the user is on */
 type ViewState =
   | { type: 'chat'; runId: string | null }
@@ -765,6 +769,9 @@ function App() {
   // Lives in ViewState so folder drill-down participates in back/forward history.
   const [knowledgeViewFolderPath, setKnowledgeViewFolderPath] = useState<string | null>(null)
   const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(false)
+  // Dedicated recruiter dashboards (Roles / Candidates / Pipeline / Analytics).
+  // Rendered as a full-pane overlay inside the main inset; null = inactive.
+  const [recruiterScreen, setRecruiterScreen] = useState<RecruiterScreen | null>(null)
   // Default landing view: Home in the middle with the chat docked on the right.
   const [isHomeOpen, setIsHomeOpen] = useState(true)
   const [emailInitialThreadId, setEmailInitialThreadId] = useState<string | null>(null)
@@ -2940,7 +2947,7 @@ function App() {
       setActiveFileTabId(existingTab.id)
       setIsGraphOpen(false)
       setIsSuggestedTopicsOpen(false)
-      setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+      setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
       setSelectedPath(path)
       return
     }
@@ -2968,14 +2975,14 @@ function App() {
       setSelectedPath(null)
       setIsGraphOpen(true)
       setIsSuggestedTopicsOpen(false)
-      setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+      setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
       return
     }
     if (isSuggestedTopicsTabPath(tab.path)) {
       setSelectedPath(null)
       setIsGraphOpen(false)
       setIsSuggestedTopicsOpen(true)
-      setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+      setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
       return
     }
     if (isLiveNotesTabPath(tab.path)) {
@@ -3114,7 +3121,7 @@ function App() {
         setSelectedPath(null)
         setIsGraphOpen(false)
         setIsSuggestedTopicsOpen(false)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
           return []
       }
       const idx = prev.findIndex(t => t.id === tabId)
@@ -3128,12 +3135,12 @@ function App() {
           setSelectedPath(null)
           setIsGraphOpen(true)
           setIsSuggestedTopicsOpen(false)
-          setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+          setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
         } else if (isSuggestedTopicsTabPath(newActiveTab.path)) {
           setSelectedPath(null)
           setIsGraphOpen(false)
           setIsSuggestedTopicsOpen(true)
-          setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+          setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
         } else if (isMeetingsTabPath(newActiveTab.path)) {
           setSelectedPath(null)
           setIsGraphOpen(false)
@@ -3226,7 +3233,7 @@ function App() {
         } else {
           setIsGraphOpen(false)
           setIsSuggestedTopicsOpen(false)
-          setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+          setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
               setSelectedPath(newActiveTab.path)
         }
       }
@@ -3240,6 +3247,25 @@ function App() {
     })
     fileHistoryHandlersRef.current.delete(tabId)
   }, [activeFileTabId, fileTabs, removeEditorCacheForPath])
+
+  const openChatView = useCallback(() => {
+    dismissBrowserOverlay()
+    setExpandedFrom(null)
+    setIsRightPaneMaximized(false)
+    setRecruiterScreen(null)
+    setSelectedBackgroundTask(null)
+    setSelectedPath(null)
+    setIsGraphOpen(false)
+    setIsSuggestedTopicsOpen(false)
+    setIsMeetingsOpen(false)
+    setIsLiveNotesOpen(false)
+    setIsBgTasksOpen(false)
+    setIsEmailOpen(false)
+    setIsWorkspaceOpen(false)
+    setIsKnowledgeViewOpen(false)
+    setIsChatHistoryOpen(false)
+    setIsHomeOpen(false)
+  }, [dismissBrowserOverlay])
 
   const handleNewChatTab = useCallback(() => {
     // Single-chat model: reset the one conversation in place instead of
@@ -3424,11 +3450,11 @@ function App() {
       if (expandedFrom.graph) {
         setIsGraphOpen(true)
         setIsSuggestedTopicsOpen(false)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
       } else if (expandedFrom.suggestedTopics) {
         setIsGraphOpen(false)
         setIsSuggestedTopicsOpen(true)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
       } else if (expandedFrom.meetings) {
         setIsGraphOpen(false)
         setIsSuggestedTopicsOpen(false)
@@ -3460,7 +3486,7 @@ function App() {
       } else if (expandedFrom.path) {
         setIsGraphOpen(false)
         setIsSuggestedTopicsOpen(false)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
         setSelectedPath(expandedFrom.path)
       } else {
         // expandedFrom was captured from a view this restorer doesn't track
@@ -3633,6 +3659,7 @@ function App() {
   }, [fileTabs])
 
   const openEmailView = useCallback((threadId?: string) => {
+    setRecruiterScreen(null)
     setSelectedPath(null)
     setIsGraphOpen(false)
     setIsBrowserOpen(false)
@@ -3656,6 +3683,7 @@ function App() {
   }, [ensureEmailFileTab])
 
   const openBgTasksView = useCallback(() => {
+    setRecruiterScreen(null)
     setSelectedPath(null)
     setIsGraphOpen(false)
     setIsBrowserOpen(false)
@@ -3669,6 +3697,7 @@ function App() {
   }, [ensureBgTasksFileTab])
 
   const openMeetingsView = useCallback(() => {
+    setRecruiterScreen(null)
     setSelectedPath(null)
     setIsGraphOpen(false)
     setIsBrowserOpen(false)
@@ -3687,7 +3716,28 @@ function App() {
     ensureMeetingsFileTab()
   }, [ensureMeetingsFileTab])
 
+  const openRecruiterScreen = useCallback((screen: RecruiterScreen) => {
+    setSelectedPath(null)
+    setIsGraphOpen(false)
+    setIsBrowserOpen(false)
+    setIsSuggestedTopicsOpen(false)
+    setIsMeetingsOpen(false)
+    setIsLiveNotesOpen(false)
+    setIsBgTasksOpen(false)
+    setIsEmailOpen(false)
+    setIsWorkspaceOpen(false)
+    setIsKnowledgeViewOpen(false)
+    setIsChatHistoryOpen(false)
+    setIsHomeOpen(false)
+    setSelectedBackgroundTask(null)
+    setExpandedFrom(null)
+    setIsRightPaneMaximized(false)
+    setRecruiterScreen(screen)
+  }, [])
+
   const applyViewState = useCallback(async (view: ViewState) => {
+    // Any standard navigation dismisses the recruiter dashboard overlay.
+    setRecruiterScreen(null)
     switch (view.type) {
       case 'file':
         setSelectedBackgroundTask(null)
@@ -3696,7 +3746,7 @@ function App() {
         // visible in the middle pane.
         setIsBrowserOpen(false)
         setIsSuggestedTopicsOpen(false)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
         setExpandedFrom(null)
         // Preserve split vs knowledge-max mode when navigating knowledge files.
         // Only exit chat-only maximize, because that would hide the selected file.
@@ -3711,7 +3761,7 @@ function App() {
         setSelectedPath(null)
         setIsBrowserOpen(false)
         setIsSuggestedTopicsOpen(false)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
         setExpandedFrom(null)
         setIsGraphOpen(true)
         ensureGraphFileTab()
@@ -3724,7 +3774,7 @@ function App() {
         setIsGraphOpen(false)
         setIsBrowserOpen(false)
         setIsSuggestedTopicsOpen(false)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
         setExpandedFrom(null)
         setIsRightPaneMaximized(false)
         setSelectedBackgroundTask(view.name)
@@ -3737,7 +3787,7 @@ function App() {
         setIsRightPaneMaximized(false)
         setSelectedBackgroundTask(null)
         setIsSuggestedTopicsOpen(true)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
         ensureSuggestedTopicsFileTab()
         return
       case 'meetings':
@@ -3875,7 +3925,7 @@ function App() {
         setIsRightPaneMaximized(false)
         setSelectedBackgroundTask(null)
         setIsSuggestedTopicsOpen(false)
-        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
+        setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
         if (view.runId) {
           const targetRunId = view.runId
           // Bind the loaded run to a chat tab so its title (derived from
@@ -5271,14 +5321,21 @@ function App() {
               knowledgeActions={knowledgeActions}
               bgTaskSummaries={bgTaskSummaries}
               activeNav={
-                isHomeOpen ? 'home'
+                recruiterScreen === 'roles' ? 'roles'
+                : recruiterScreen === 'candidates' ? 'candidates'
+                : recruiterScreen === 'pipeline' ? 'pipeline'
+                : recruiterScreen === 'analytics' ? 'analytics'
+                : isHomeOpen ? 'home'
+                : isFullScreenChat ? 'chat'
                 : isEmailOpen ? 'email'
                 : isMeetingsOpen ? 'meetings'
-                : (isKnowledgeViewOpen || isGraphOpen || (selectedPath != null && selectedPath.startsWith('knowledge/'))) ? 'knowledge'
                 : isBgTasksOpen ? 'agents'
-                : isWorkspaceOpen ? 'workspaces'
                 : null
               }
+              onOpenRoles={() => openRecruiterScreen('roles')}
+              onOpenCandidates={() => openRecruiterScreen('candidates')}
+              onOpenPipeline={() => openRecruiterScreen('pipeline')}
+              onOpenAnalytics={() => openRecruiterScreen('analytics')}
               onOpenMeetings={openMeetingsView}
               onOpenBgTasks={() => { setBgTaskInitialSlug(null); setBgTaskSlugVersion((v) => v + 1); openBgTasksView() }}
               onOpenAgent={(slug) => { setBgTaskInitialSlug(slug); setBgTaskSlugVersion((v) => v + 1); openBgTasksView() }}
@@ -5286,6 +5343,7 @@ function App() {
               onOpenRun={(rid) => void navigateToView({ type: 'chat', runId: rid })}
               onOpenEmail={(threadId) => openEmailView(threadId)}
               onOpenHome={() => void navigateToView({ type: 'home' })}
+              onOpenChat={openChatView}
               onNewChat={handleNewChatTab}
               onToggleBrowser={handleToggleBrowser}
               onVoiceNoteCreated={handleVoiceNoteCreated}
@@ -5295,7 +5353,7 @@ function App() {
             />
             <SidebarInset
               className={cn(
-                "overflow-hidden! min-h-0 min-w-0",
+                "relative overflow-hidden! min-h-0 min-w-0",
                 insetAnimateMaxWidth && "transition-[max-width] duration-200 ease-linear",
                 shouldCollapseLeftPane && "pointer-events-none select-none"
               )}
@@ -5943,6 +6001,18 @@ function App() {
                 </div>
               </div>
               </FileCardProvider>
+              )}
+              {recruiterScreen && (
+                <div className="absolute inset-0 z-40 flex flex-col overflow-hidden bg-background">
+                  <RecruiterScreens
+                    screen={recruiterScreen}
+                    onNavigate={(screen) => openRecruiterScreen(screen)}
+                    onAskCopilot={(prompt) => {
+                      setRecruiterScreen(null)
+                      submitFromPalette(prompt, null)
+                    }}
+                  />
+                </div>
               )}
             </SidebarInset>
 
