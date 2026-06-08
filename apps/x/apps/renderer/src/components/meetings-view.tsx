@@ -169,48 +169,7 @@ function UpcomingEvents() {
   const loadEvents = useCallback(async () => {
     setLoading(true)
     try {
-      const exists = await window.ipc.invoke('workspace:exists', { path: CALENDAR_DIR })
-      if (!exists.exists) {
-        setEvents([])
-        setError(null)
-        return
-      }
-      const entries = await window.ipc.invoke('workspace:readdir', {
-        path: CALENDAR_DIR,
-        opts: { recursive: false, includeHidden: false, includeStats: false },
-      })
-      const jsonEntries = entries.filter((e) => e.kind === 'file' && e.name.endsWith('.json'))
-
-      const now = new Date()
-      const todayStart = startOfDay(now)
-      const windowEnd = addDays(todayStart, UPCOMING_MAX_DAYS) // exclusive
-
-      const settled = await Promise.allSettled(
-        jsonEntries.map(async (entry): Promise<MeetingEvent | null> => {
-          const result = await window.ipc.invoke('workspace:readFile', {
-            path: entry.path,
-            encoding: 'utf8',
-          })
-          const raw = JSON.parse(result.data) as RawCalendarEvent
-          const ev = normalizeEvent(raw, entry.path)
-          if (!ev) return null
-          // Event must overlap the [now, windowEnd) range â€” i.e. not already ended,
-          // and not start after the window closes.
-          const effectiveEnd = ev.end ?? (ev.isAllDay ? addDays(ev.start, 1) : ev.start)
-          if (effectiveEnd <= now) return null
-          if (ev.start >= windowEnd) return null
-          return ev
-        }),
-      )
-
-      const collected: MeetingEvent[] = []
-      for (const r of settled) {
-        if (r.status === 'fulfilled' && r.value) collected.push(r.value)
-      }
-      collected.sort((a, b) => {
-        if (a.isAllDay !== b.isAllDay) return a.isAllDay ? -1 : 1
-        return a.start.getTime() - b.start.getTime()
-      })
+      const collected = await loadMeetingEvents({ upcomingDays: UPCOMING_MAX_DAYS })
       setEvents(collected)
       setError(null)
     } catch (err) {
@@ -260,7 +219,7 @@ function UpcomingEvents() {
   }, [])
 
   const visibleDays = useMemo(() => {
-    const window = buildDayWindow(new Date())
+    const window = buildDayWindow(new Date(), UPCOMING_MAX_DAYS)
     const byKey = new Map(window.map((d) => [d.dateKey, d]))
     for (const ev of events) {
       byKey.get(ev.dateKey)?.events.push(ev)
@@ -288,24 +247,31 @@ function UpcomingEvents() {
         </div>
 
         {calendarConnected === false && events.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-12 text-center">
-            <Calendar className="size-7 text-muted-foreground opacity-50" />
-            <p className="text-sm text-muted-foreground">Connect your calendar to see upcoming meetings here.</p>
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-            >
-              <Calendar className="size-4" />
-              Connect your calendar
-            </button>
-          </div>
+          <PremiumEmptyState
+            icon={<Calendar className="size-6" />}
+            title="Connect your calendar"
+            description="Upcoming meetings will appear here once Google Calendar is connected."
+            action={(
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <Calendar className="size-4" />
+                Connect your calendar
+              </button>
+            )}
+            className="min-h-[260px]"
+          />
         ) : loading && events.length === 0 ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-          </div>
+          <PremiumListSkeleton rows={3} />
         ) : error ? (
-          <div className="py-4 text-sm text-muted-foreground">{error}</div>
+          <PremiumEmptyState
+            icon={<Calendar className="size-6" />}
+            title="Upcoming meetings could not load"
+            description={error}
+            className="min-h-[220px]"
+          />
         ) : (
           <div className="flex flex-col gap-3">
             {visibleDays.map((day) => (
@@ -335,7 +301,7 @@ function UpcomingDayCard({ day, isToday }: { day: DayGroup; isToday: boolean }) 
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="text-[22px] font-bold leading-none text-foreground">{dayNum}</span>
           <span className="truncate text-[13px] text-muted-foreground">
-            {month} Â· {weekday}
+            {month} · {weekday}
           </span>
           {isToday ? (
             <span className="shrink-0 rounded-md bg-foreground px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-background">
@@ -374,7 +340,7 @@ function UpcomingEventItem({ event, isLast }: { event: MeetingEvent; isLast: boo
   const isNow = isEventNow(event)
   const platform = meetingPlatformLabel(event.conferenceLink)
   const subtitle = platform ?? event.location
-  const titleAndLocation = event.location ? `${event.summary} Â· ${event.location}` : event.summary
+  const titleAndLocation = event.location ? `${event.summary} · ${event.location}` : event.summary
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -643,12 +609,154 @@ function SplitJoinButton({ onJoinAndNotes, onNotesOnly }: {
   )
 }
 
+function MeetingsCalendarPanel() {
+  const [viewMonth, setViewMonth] = useState(() => startOfMonth(new Date()))
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date())
+  const [detailDate, setDetailDate] = useState<Date | null>(null)
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('month')
+  const [events, setEvents] = useState<MeetingEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshTick, setRefreshTick] = useState(0)
+  const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const check = async () => {
+      try {
+        const oauthState = await window.ipc.invoke('oauth:getState', null)
+        if (!cancelled) setCalendarConnected(oauthState.config?.google?.connected ?? false)
+      } catch {
+        if (!cancelled) setCalendarConnected(false)
+      }
+    }
+    void check()
+    const cleanupOAuthConnect = window.ipc.on('oauth:didConnect', () => { void check() })
+    return () => {
+      cancelled = true
+      cleanupOAuthConnect()
+    }
+  }, [])
+
+  const loadEvents = useCallback(async () => {
+    setLoading(true)
+    try {
+      const collected = await loadMeetingEvents({ month: viewMonth })
+      setEvents(collected)
+      setError(null)
+    } catch (err) {
+      console.error('Failed to load calendar events:', err)
+      setError('Could not load calendar events.')
+    } finally {
+      setLoading(false)
+    }
+  }, [viewMonth])
+
+  useEffect(() => {
+    void loadEvents()
+  }, [loadEvents, refreshTick])
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    const scheduleReload = () => {
+      if (timeout) clearTimeout(timeout)
+      timeout = setTimeout(() => {
+        timeout = null
+        setRefreshTick((t) => t + 1)
+      }, 250)
+    }
+    const cleanup = window.ipc.on('workspace:didChange', (event) => {
+      switch (event.type) {
+        case 'created':
+        case 'changed':
+        case 'deleted':
+          if (isCalendarPath(event.path)) scheduleReload()
+          break
+        case 'moved':
+          if (isCalendarPath(event.from) || isCalendarPath(event.to)) scheduleReload()
+          break
+        case 'bulkChanged':
+          if (!event.paths || event.paths.some(isCalendarPath)) scheduleReload()
+          break
+      }
+    })
+    const tick = setInterval(() => setRefreshTick((t) => t + 1), 60 * 1000)
+    return () => {
+      cleanup()
+      clearInterval(tick)
+      if (timeout) clearTimeout(timeout)
+    }
+  }, [])
+
+  const gridEvents = useMemo(() => toCalendarGridEvents(events), [events])
+  const detailEvents = useMemo(
+    () => (detailDate ? eventsForDay(events, detailDate) : []),
+    [detailDate, events],
+  )
+
+  const handleSelectDate = (date: Date) => {
+    setSelectedDate(date)
+    setDetailDate(date)
+  }
+
+  return (
+    <section className="px-6 py-5">
+      <div className="mx-auto w-full max-w-[960px]">
+        {calendarConnected === false && events.length === 0 && !loading ? (
+          <PremiumEmptyState
+            icon={<Calendar className="size-6" />}
+            title="Connect your calendar"
+            description="Calendar view lights up once Google Calendar is connected."
+            action={(
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3.5 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                <Calendar className="size-4" />
+                Connect your calendar
+              </button>
+            )}
+            className="min-h-[360px]"
+          />
+        ) : loading && events.length === 0 ? (
+          <PremiumListSkeleton rows={5} />
+        ) : error ? (
+          <PremiumEmptyState
+            icon={<Calendar className="size-6" />}
+            title="Meetings could not load"
+            description={error}
+            className="min-h-[320px]"
+          />
+        ) : (
+          <MeetingsCalendar
+            month={viewMonth}
+            selectedDate={selectedDate}
+            onMonthChange={setViewMonth}
+            onSelectDate={handleSelectDate}
+            events={gridEvents}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
+        )}
+      </div>
+      <MeetingsDayDetail
+        date={detailDate}
+        events={detailEvents}
+        onClose={() => setDetailDate(null)}
+      />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} defaultTab="connections" />
+    </section>
+  )
+}
+
 function formatMeetingName(name: string): string {
   return name.replace(/\.md$/i, '').replace(/_/g, ' ')
 }
 
 function formatDateLabel(label: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(label)) return label || 'â€”'
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(label)) return label || '—'
   const date = new Date(`${label}T00:00:00`)
   if (Number.isNaN(date.getTime())) return label
   return date.toLocaleDateString(undefined, {
@@ -658,21 +766,8 @@ function formatDateLabel(label: string): string {
   })
 }
 
-function getMeetingButtonLabel(state: MeetingTranscriptionState): string {
-  switch (state) {
-    case 'connecting':
-      return 'Starting...'
-    case 'recording':
-      return 'Stop recording'
-    case 'stopping':
-      return 'Stopping...'
-    case 'idle':
-    default:
-      return 'Take meeting notes'
-  }
-}
-
-export function MeetingsView({ onOpenNote, onTakeMeetingNotes, meetingState, meetingSummarizing = false }: MeetingsViewProps) {
+export function MeetingsView({ onOpenNote, onTakeMeetingNotes }: MeetingsViewProps) {
+  const [viewMode] = useState<MeetingsViewMode>('calendar')
   const [notes, setNotes] = useState<MeetingNoteRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -765,60 +860,39 @@ export function MeetingsView({ onOpenNote, onTakeMeetingNotes, meetingState, mee
     }
   }, [loadNotes])
 
-  const isBusy = meetingState === 'connecting' || meetingState === 'stopping' || meetingSummarizing
-  const isRecording = meetingState === 'recording'
-
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-border px-6 py-5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Mic className="size-5 text-primary" />
-            <h2 className="text-base font-semibold text-foreground">Meetings</h2>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant={isRecording ? 'destructive' : 'default'}
-            disabled={isBusy}
-            onClick={onTakeMeetingNotes}
-          >
-            {meetingSummarizing || meetingState === 'connecting' || meetingState === 'stopping' ? (
-              <Loader2 className="mr-2 size-4 animate-spin" />
-            ) : isRecording ? (
-              <Square className="mr-2 size-3.5" />
-            ) : (
-              <Mic className="mr-2 size-4" />
-            )}
-            {meetingSummarizing ? 'Generating notes...' : getMeetingButtonLabel(meetingState)}
-          </Button>
-	        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Upcoming events and meeting notes.
-        </p>
-      </div>
+    <PageTransition className="flex h-full flex-col overflow-hidden">
       <div className="flex-1 overflow-auto">
-        <MeetingEvents />
-        <div className="p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center px-8 py-10 text-center text-sm text-muted-foreground">
-            {error}
-          </div>
-        ) : notes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 px-8 py-10 text-center">
-            <div className="rounded-full bg-muted p-3">
-              <Mic className="size-6 text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              No meeting notes yet. Use <strong>Take meeting notes</strong> to start one.
-            </p>
-          </div>
+        {viewMode === 'calendar' ? (
+          <MeetingsCalendarPanel />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+          <>
+            <UpcomingEvents />
+            <div className="p-6">
+        {loading ? (
+          <PremiumListSkeleton rows={4} />
+        ) : error ? (
+          <PremiumEmptyState
+            icon={<Mic className="size-6" />}
+            title="Meeting notes could not load"
+            description={error}
+            className="min-h-[260px]"
+          />
+        ) : notes.length === 0 ? (
+          <PremiumEmptyState
+            icon={<Mic className="size-6" />}
+            title="No meeting notes yet"
+            description="Use Take meeting notes to capture a call and save the summary here."
+            action={(
+              <Button type="button" size="sm" variant="outline" onClick={onTakeMeetingNotes}>
+                <Mic className="size-4" />
+                Take meeting notes
+              </Button>
+            )}
+            className="min-h-[260px]"
+          />
+        ) : (
+          <div className="premium-scroll-reveal is-visible overflow-hidden rounded-xl border border-border/60 bg-card">
             <table className="w-full table-fixed border-collapse">
               <colgroup>
                 <col className="w-[56%]" />
@@ -846,7 +920,7 @@ export function MeetingsView({ onOpenNote, onTakeMeetingNotes, meetingState, mee
                     </td>
                     <td className="px-4 py-3 align-top text-sm text-muted-foreground">{note.dateLabel}</td>
                     <td className="px-4 py-3 align-top text-sm text-muted-foreground">
-                      {note.mtimeMs > 0 ? (formatRelativeTime(new Date(note.mtimeMs).toISOString()) || 'â€”') : 'â€”'}
+                      {note.mtimeMs > 0 ? (formatRelativeTime(new Date(note.mtimeMs).toISOString()) || '—') : '—'}
                     </td>
                   </tr>
                 ))}
@@ -854,8 +928,10 @@ export function MeetingsView({ onOpenNote, onTakeMeetingNotes, meetingState, mee
             </table>
           </div>
         )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
-    </div>
+    </PageTransition>
   )
 }
