@@ -11,9 +11,25 @@ export type RecruiterScreensProps = {
   screen: RecruiterScreenId
   onNavigate: (screen: RecruiterScreenId) => void
   onAskCopilot?: (prompt: string) => void
+  onOpenSearch?: () => void
+  onOpenChat?: (prompt?: string) => void
+  onTakeMeetingNotes?: () => void
+  onOpenAgents?: () => void
+  onOpenEmail?: (threadId?: string) => void
+  onOpenMeetings?: () => void
 }
 
-export function RecruiterScreens({ screen, onNavigate, onAskCopilot }: RecruiterScreensProps) {
+export function RecruiterScreens({
+  screen,
+  onNavigate,
+  onAskCopilot,
+  onOpenSearch,
+  onOpenChat,
+  onTakeMeetingNotes,
+  onOpenAgents,
+  onOpenEmail,
+  onOpenMeetings,
+}: RecruiterScreensProps) {
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -28,22 +44,50 @@ export function RecruiterScreens({ screen, onNavigate, onAskCopilot }: Recruiter
           <RolesPage
             onNavigatePipeline={() => onNavigate('pipeline')}
             onNavigateCandidates={() => onNavigate('candidates')}
+            onAskCopilot={onAskCopilot}
+            onOpenSearch={onOpenSearch}
+            onOpenChat={onOpenChat}
+            onTakeMeetingNotes={onTakeMeetingNotes}
+            onOpenAgents={onOpenAgents}
+            onOpenEmail={onOpenEmail}
+            onOpenMeetings={onOpenMeetings}
           />
         )}
         {screen === 'candidates' && (
           <CandidatesPage
             onAskCopilot={onAskCopilot}
             onNavigatePipeline={() => onNavigate('pipeline')}
+            onOpenSearch={onOpenSearch}
+            onOpenChat={onOpenChat}
+            onTakeMeetingNotes={onTakeMeetingNotes}
+            onOpenAgents={onOpenAgents}
+            onOpenEmail={onOpenEmail}
+            onOpenMeetings={onOpenMeetings}
           />
         )}
         {screen === 'pipeline' && (
           <PipelinePage
             onAskCopilot={onAskCopilot}
             onNavigateCandidates={() => onNavigate('candidates')}
+            onOpenSearch={onOpenSearch}
+            onOpenChat={onOpenChat}
+            onTakeMeetingNotes={onTakeMeetingNotes}
+            onOpenAgents={onOpenAgents}
+            onOpenEmail={onOpenEmail}
+            onOpenMeetings={onOpenMeetings}
           />
         )}
         {screen === 'analytics' && (
-          <AnalyticsPage onAskCopilot={onAskCopilot} />
+          <AnalyticsPage
+            onAskCopilot={onAskCopilot}
+            onNavigatePipeline={() => onNavigate('pipeline')}
+            onOpenSearch={onOpenSearch}
+            onOpenChat={onOpenChat}
+            onTakeMeetingNotes={onTakeMeetingNotes}
+            onOpenAgents={onOpenAgents}
+            onOpenEmail={onOpenEmail}
+            onOpenMeetings={onOpenMeetings}
+          />
         )}
       </motion.div>
     </AnimatePresence>
@@ -54,3 +98,4 @@ export { AnalyticsPage } from './analytics-page'
 export { CandidatesPage } from './candidates-page'
 export { PipelinePage } from './pipeline-page'
 export { RolesPage } from './roles-page'
+
