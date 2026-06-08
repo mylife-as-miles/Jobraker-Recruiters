@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { toast } from 'sonner'
 import {
   Bookmark,
   Briefcase,
@@ -52,29 +53,48 @@ const PAGE_SIZES = [5, 10, 25]
 type CandidatesPageProps = {
   onAskCopilot?: (prompt: string) => void
   onNavigatePipeline?: () => void
+  onOpenSearch?: () => void
+  onOpenChat?: (prompt?: string) => void
+  onTakeMeetingNotes?: () => void
+  onOpenAgents?: () => void
+  onOpenEmail?: (threadId?: string) => void
+  onOpenMeetings?: () => void
 }
 
-export function CandidatesPage({ onAskCopilot, onNavigatePipeline }: CandidatesPageProps) {
+export function CandidatesPage({
+  onAskCopilot,
+  onNavigatePipeline,
+  onOpenSearch,
+  onOpenChat,
+  onTakeMeetingNotes,
+  onOpenAgents,
+  onOpenEmail,
+  onOpenMeetings,
+}: CandidatesPageProps) {
   const loading = useFakeLoading(680)
   const [search, setSearch] = React.useState('')
   const [stageFilter, setStageFilter] = React.useState<CandidateStage | 'All'>('All')
   const [page, setPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(5)
   const [selectedId, setSelectedId] = React.useState<string | null>('c1')
+  const [candidatesList] = React.useState<Candidate[]>(() =>
+    loadRecruiterState('candidates', CANDIDATES)
+  )
   const [checked, setChecked] = React.useState<Set<string>>(() => new Set(['c1']))
   const [stages, setStages] = React.useState<Record<string, CandidateStage>>(() =>
     loadRecruiterState(
       'candidate-stages',
-      Object.fromEntries(CANDIDATES.map((c) => [c.id, c.stage])) as Record<string, CandidateStage>,
+      Object.fromEntries(candidatesList.map((c) => [c.id, c.stage])) as Record<string, CandidateStage>,
     ),
   )
   const [notes, setNotes] = React.useState<Record<string, string>>(() =>
     loadRecruiterState(
       'candidate-notes',
-      Object.fromEntries(CANDIDATES.filter((c) => c.note).map((c) => [c.id, c.note!])) as Record<string, string>,
+      Object.fromEntries(candidatesList.filter((c) => c.note).map((c) => [c.id, c.note!])) as Record<string, string>,
     ),
   )
   const [editingNote, setEditingNote] = React.useState(false)
+  const [activeMenuId, setActiveMenuId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     saveRecruiterState('candidate-stages', stages)
@@ -86,7 +106,7 @@ export function CandidatesPage({ onAskCopilot, onNavigatePipeline }: CandidatesP
 
   const candidates = React.useMemo(() => {
     const q = search.trim().toLowerCase()
-    return CANDIDATES.map((c) => ({ ...c, stage: stages[c.id] ?? c.stage }))
+    return candidatesList.map((c) => ({ ...c, stage: stages[c.id] ?? c.stage }))
       .filter((c) => {
         if (stageFilter !== 'All' && c.stage !== stageFilter) return false
         if (!q) return true
@@ -97,7 +117,7 @@ export function CandidatesPage({ onAskCopilot, onNavigatePipeline }: CandidatesP
           || c.skills.some((s) => s.toLowerCase().includes(q))
         )
       })
-  }, [search, stageFilter, stages])
+  }, [candidatesList, search, stageFilter, stages])
 
   const totalPages = Math.max(1, Math.ceil(candidates.length / pageSize))
   const pageItems = candidates.slice((page - 1) * pageSize, page * pageSize)
@@ -134,6 +154,10 @@ export function CandidatesPage({ onAskCopilot, onNavigatePipeline }: CandidatesP
           searchPlaceholder="Search candidates by name, role, skill…"
           searchValue={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
+          onOpenSearch={onOpenSearch}
+          onOpenChat={onOpenChat}
+          onTakeMeetingNotes={onTakeMeetingNotes}
+          onOpenAgents={onOpenAgents}
         />
 
         {/* KPIs */}
@@ -274,10 +298,61 @@ export function CandidatesPage({ onAskCopilot, onNavigatePipeline }: CandidatesP
                       </td>
                       <td className="hidden p-3 text-muted-foreground lg:table-cell">{c.source}</td>
                       <td className="hidden p-3 text-muted-foreground sm:table-cell">{c.lastActivity}</td>
-                      <td className="p-3">
-                        <button type="button" className="rounded-md p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground">
+                      <td className="relative p-3" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => setActiveMenuId(activeMenuId === c.id ? null : c.id)}
+                          className="rounded-md p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                        >
                           <MoreHorizontal className="size-4" />
                         </button>
+                        {activeMenuId === c.id && (
+                          <>
+                            <div className="fixed inset-0 z-30" onClick={() => setActiveMenuId(null)} />
+                            <div className="absolute right-2 mt-1 z-40 w-44 rounded-xl border border-zinc-800 bg-[#09090b] p-1.5 shadow-2xl backdrop-blur-md">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuId(null)
+                                  onOpenEmail?.()
+                                }}
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white"
+                              >
+                                Send Email
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuId(null)
+                                  onOpenMeetings?.()
+                                }}
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white"
+                              >
+                                Schedule Interview
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuId(null)
+                                  onAskCopilot?.(`Help me edit the candidate profile for ${c.name}.`)
+                                }}
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white"
+                              >
+                                Ask AI to Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuId(null)
+                                  toast.success(`Candidate ${c.name} removed from active list.`)
+                                }}
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-colors"
+                              >
+                                Remove Candidate
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -363,6 +438,8 @@ export function CandidatesPage({ onAskCopilot, onNavigatePipeline }: CandidatesP
               onStageChange={(stage) => updateStage(selected.id, stage)}
               onAskCopilot={onAskCopilot}
               onNavigatePipeline={onNavigatePipeline}
+              onOpenEmail={onOpenEmail}
+              onOpenMeetings={onOpenMeetings}
             />
           </motion.aside>
         )}
@@ -391,6 +468,8 @@ function CandidateDetailPanel({
   onStageChange: (stage: CandidateStage) => void
   onAskCopilot?: (prompt: string) => void
   onNavigatePipeline?: () => void
+  onOpenEmail?: (threadId?: string) => void
+  onOpenMeetings?: () => void
 }) {
   const [draft, setDraft] = React.useState(note)
   React.useEffect(() => setDraft(note), [note, candidate.id])
@@ -517,14 +596,20 @@ function CandidateDetailPanel({
           <button
             type="button"
             onClick={() => onAskCopilot?.(`Draft a personalized outreach email to ${candidate.name} for our ${candidate.title} opening.`)}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-brand/40"
           >
             <Mail className="size-3.5" />
             Draft outreach
           </button>
           <button
             type="button"
-            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              navigator.clipboard.writeText(`Name: ${candidate.name}\nEmail: ${candidate.email}\nRole: ${candidate.title}\nLocation: ${candidate.location}`);
+              toast.success(`CV Loaded: ${candidate.name}`, {
+                description: `Copied contact details for ${candidate.name} to clipboard.`,
+              });
+            }}
+            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-brand/40"
           >
             <FileText className="size-3.5" />
             View resume
