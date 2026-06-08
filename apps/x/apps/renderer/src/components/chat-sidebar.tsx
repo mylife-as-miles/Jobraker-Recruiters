@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Bug, MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { titlebarRightInsetPx } from '@/lib/titlebar-platform'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ChatAssistantRow } from '@/components/chat-assistant-row'
@@ -527,7 +528,7 @@ export function ChatSidebar({
             className="titlebar-drag-region flex h-10 shrink-0 items-stretch border-b border-border bg-sidebar"
             style={{
               paddingLeft: isMaximized && sidebarState === 'collapsed' ? collapsedLeftPaddingPx : undefined,
-              paddingRight: isMaximized ? 12 : undefined,
+              paddingRight: isMaximized ? titlebarRightInsetPx() : undefined,
               transition: isMaximized ? 'padding-left 200ms linear' : undefined,
             }}
           >
