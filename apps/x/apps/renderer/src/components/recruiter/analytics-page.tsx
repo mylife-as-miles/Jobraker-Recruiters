@@ -1,20 +1,26 @@
 import * as React from 'react'
+import { toast } from 'sonner'
 import {
+  Bell,
   Briefcase,
-  Send,
-  Clock,
-  Users,
+  CalendarDays,
+  Check,
   CheckCircle2,
+  ChevronDown,
+  Clock,
+  Info,
+  Plus,
+  Search,
+  Send,
   Sparkles,
   TrendingUp,
-  ArrowRight,
-  ChevronDown,
+  Users,
+  Zap,
 } from 'lucide-react'
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
   Cell,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -38,34 +44,45 @@ import {
 } from './data'
 import {
   AnimatedNumber,
-  DateRangePill,
   Delta,
-  EmptyState,
-  RecruiterHeader,
   Reveal,
-  SectionCard,
   Skeleton,
   SkeletonCard,
   useFakeLoading,
   RECRUITER_EASE,
 } from './shared'
+import { PageTransition } from '@/components/premium-states'
 
 const KPI_ICONS: Record<Kpi['icon'], React.ReactNode> = {
-  roles: <Briefcase className="size-4" />,
-  response: <Send className="size-4" />,
-  time: <Clock className="size-4" />,
-  interviews: <Users className="size-4" />,
-  offer: <CheckCircle2 className="size-4" />,
+  roles: <Briefcase className="size-5" />,
+  response: <Send className="size-5" />,
+  time: <Clock className="size-5" />,
+  interviews: <Users className="size-5" />,
+  offer: <CheckCircle2 className="size-5" />,
 }
 
 type AnalyticsPageProps = {
   onAskCopilot?: (prompt: string) => void
+  onNavigatePipeline?: () => void
+  onOpenSearch?: () => void
+  onOpenChat?: (prompt?: string) => void
+  onTakeMeetingNotes?: () => void
+  onOpenAgents?: () => void
+  onOpenEmail?: (threadId?: string) => void
+  onOpenMeetings?: () => void
 }
 
-export function AnalyticsPage({ onAskCopilot }: AnalyticsPageProps) {
+export function AnalyticsPage({
+  onAskCopilot,
+  onNavigatePipeline,
+  onOpenSearch,
+  onOpenChat,
+  onTakeMeetingNotes,
+  onOpenAgents,
+}: AnalyticsPageProps) {
   const loading = useFakeLoading(720)
-  const [search, setSearch] = React.useState('')
-  const trendMetric = 'Response Rate'
+  const [search] = React.useState('')
+  const [dropdownOpen, setDropdownOpen] = React.useState(false)
 
   const filteredTimeToFill = React.useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -75,361 +92,556 @@ export function AnalyticsPage({ onAskCopilot }: AnalyticsPageProps) {
 
   if (loading) {
     return (
-      <div className="recruiter-scroll flex h-full flex-col overflow-auto">
-        <div className="px-6 pt-6">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="mt-2 h-4 w-72" />
+      <PageTransition className="analytics-shot recruiter-scroll flex h-full min-h-0 flex-col overflow-auto p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="mt-2 h-4 w-80" />
+          </div>
+          <Skeleton className="h-11 w-full max-w-xl rounded-xl" />
         </div>
-        <div className="grid grid-cols-2 gap-3 px-6 py-4 lg:grid-cols-5">
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
-        <div className="grid gap-4 px-6 pb-8 lg:grid-cols-3">
-          <Skeleton className="h-72 rounded-2xl" />
-          <Skeleton className="h-72 rounded-2xl" />
-          <Skeleton className="h-72 rounded-2xl" />
+        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
+          <Skeleton className="h-64 rounded-xl xl:col-span-4" />
+          <Skeleton className="h-64 rounded-xl xl:col-span-4" />
+          <Skeleton className="h-64 rounded-xl xl:col-span-4" />
+          <Skeleton className="h-72 rounded-xl xl:col-span-4" />
+          <Skeleton className="h-72 rounded-xl xl:col-span-4" />
+          <Skeleton className="h-72 rounded-xl xl:col-span-4" />
         </div>
-      </div>
+      </PageTransition>
     )
   }
 
   return (
-    <div className="recruiter-scroll flex h-full flex-col overflow-auto bg-background">
-      <RecruiterHeader
-        title="Analytics"
-        subtitle="Data-driven insights to optimize your recruiting and drive better outcomes."
-        searchPlaceholder="Search candidates, roles, or notes"
-        searchValue={search}
-        onSearchChange={setSearch}
-        rightExtra={<DateRangePill label={DATE_RANGE_LABEL} />}
-      />
-
-      <div className="px-6 pb-8">
-        {/* KPI row */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          {ANALYTICS_KPIS.map((kpi, i) => (
-            <Reveal key={kpi.label} delay={i * 0.05}>
-              <div className="recruiter-kpi recruiter-card rounded-2xl border border-border/50 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-medium text-muted-foreground">{kpi.label}</p>
-                    <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{kpi.value}</p>
-                    <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Delta
-                        value={kpi.trend === 'up' ? 1 : -1}
-                        suffix=""
-                        invertColor={kpi.icon === 'time'}
-                        className="!text-[10px]"
-                      />
-                      <span>{kpi.deltaLabel}</span>
-                    </p>
-                  </div>
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-brand/20 bg-brand/10 text-brand">
-                    {KPI_ICONS[kpi.icon]}
-                  </span>
-                </div>
-              </div>
-            </Reveal>
-          ))}
+    <PageTransition className="analytics-shot recruiter-scroll flex h-full min-h-0 flex-col overflow-auto px-6 pb-8 pt-5 text-white">
+      <header className="analytics-topbar">
+        <div className="min-w-0">
+          <h1 className="text-[25px] font-semibold leading-none tracking-[-0.04em] text-white">Analytics</h1>
+          <p className="mt-3 text-[13px] text-white/55">
+            Data-driven insights to optimize your recruiting and drive better outcomes.
+          </p>
         </div>
 
-        {/* Charts row */}
-        <div className="mt-4 grid gap-4 lg:grid-cols-12">
-          <Reveal className="lg:col-span-4" delay={0.1}>
-            <SectionCard title="Hiring Funnel" hint="Conversion between stages">
-              <div className="space-y-2">
-                {HIRING_FUNNEL.map((stage, i) => {
-                  const widthPct = Math.max(18, (stage.value / HIRING_FUNNEL[0].value) * 100)
-                  return (
-                    <div key={stage.stage} className="flex items-center gap-3">
-                      <div className="w-20 shrink-0 text-right">
-                        <p className="text-[11px] font-medium text-muted-foreground">{stage.stage}</p>
-                        <p className="text-sm font-bold tabular-nums">{stage.value.toLocaleString()}</p>
-                      </div>
-                      <div className="relative min-w-0 flex-1">
-                        <motion.div
-                          className="h-8 rounded-lg border border-brand/20 bg-gradient-to-r from-brand/25 to-brand/5"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${widthPct}%` }}
-                          transition={{ duration: 0.7, delay: i * 0.08, ease: RECRUITER_EASE }}
-                        />
-                        {i > 0 && (
-                          <span className="absolute -right-1 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-brand">
-                            {stage.conversion}%
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <p className="mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <TrendingUp className="size-3 text-brand" />
-                Overall conversion <span className="font-semibold text-foreground">0.9%</span>
-                <Delta value={1} suffix="pp" className="ml-1" />
-              </p>
-            </SectionCard>
-          </Reveal>
-
-          <Reveal className="lg:col-span-4" delay={0.15}>
-            <SectionCard
-              title="Candidate Source Performance"
-              action={
-                <button type="button" className="text-[11px] font-medium text-brand hover:underline">
-                  View full source report →
-                </button>
-              }
+        <div className="flex w-full shrink-0 flex-col items-stretch gap-3 lg:w-auto lg:items-end">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={onOpenSearch}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') onOpenSearch?.()
+              }}
+              className="analytics-search cursor-pointer"
             >
-              <div className="flex flex-col items-center gap-4 sm:flex-row">
-                <div className="relative h-44 w-44 shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={SOURCE_PERFORMANCE}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={52}
-                        outerRadius={72}
-                        paddingAngle={2}
-                        stroke="none"
-                      >
-                        {SOURCE_PERFORMANCE.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <AnimatedNumber value={SOURCE_TOTAL} className="text-xl font-bold tabular-nums" />
-                    <span className="text-[10px] text-muted-foreground">Total Sourced</span>
+              <Search className="size-4 text-white/55" />
+              <input
+                readOnly
+                placeholder="Search candidates, roles, or notes"
+                className="cursor-pointer"
+              />
+              <kbd>⌘ K</kbd>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                toast.success('System status: Healthy', {
+                  description: '3 active sourcing agents running. 0 active errors.',
+                  duration: 3500,
+                })
+              }}
+              className="analytics-icon-button cursor-pointer"
+              aria-label="Notifications"
+            >
+              <Bell className="size-4" />
+              <span>3</span>
+            </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="analytics-new-button cursor-pointer"
+              >
+                <Plus className="size-5" />
+                New
+                <ChevronDown className="ml-5 size-4" />
+              </button>
+
+              {dropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setDropdownOpen(false)} />
+                  <div className="absolute right-0 z-40 mt-2 w-48 rounded-xl border border-zinc-800 bg-[#09090b] p-1.5 shadow-2xl backdrop-blur-md">
+                    <button
+                      type="button"
+                      onClick={() => { setDropdownOpen(false); onOpenChat?.() }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60"
+                    >
+                      New Search Chat
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setDropdownOpen(false); onOpenChat?.('Help me create a new job role template.') }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60"
+                    >
+                      New Job Role
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setDropdownOpen(false); onTakeMeetingNotes?.() }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60"
+                    >
+                      New Meeting Notes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setDropdownOpen(false); onOpenAgents?.() }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60"
+                    >
+                      New AI Agent
+                    </button>
                   </div>
-                </div>
-                <ul className="min-w-0 flex-1 space-y-2">
-                  {SOURCE_PERFORMANCE.map((s) => (
-                    <li key={s.name} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="flex items-center gap-2 truncate text-muted-foreground">
-                        <span className="size-2 shrink-0 rounded-full" style={{ background: s.color }} />
-                        {s.name}
-                      </span>
-                      <span className="shrink-0 font-semibold tabular-nums text-foreground">{s.pct}%</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </SectionCard>
-          </Reveal>
-
-          <Reveal className="lg:col-span-4" delay={0.2}>
-            <SectionCard
-              title="Outreach Response Trend"
-              action={
-                <button type="button" className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  {trendMetric}
-                  <ChevronDown className="size-3" />
-                </button>
-              }
-            >
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={OUTREACH_TREND} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="outreachFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#1dff00" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="#1dff00" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis
-                      tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                      domain={[0, 40]}
-                      tickFormatter={(v) => `${v}%`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'rgba(0,0,0,0.9)',
-                        border: '1px solid rgba(29,255,0,0.25)',
-                        borderRadius: 10,
-                        fontSize: 12,
-                      }}
-                      formatter={(v) => [`${Number(v)}%`, 'Response rate']}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#1dff00"
-                      strokeWidth={2}
-                      fill="url(#outreachFill)"
-                      dot={{ r: 3, fill: '#1dff00', strokeWidth: 0 }}
-                      activeDot={{ r: 5, fill: '#1dff00' }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </SectionCard>
-          </Reveal>
-        </div>
-
-        {/* Bottom row */}
-        <div className="mt-4 grid gap-4 lg:grid-cols-12">
-          <Reveal className="lg:col-span-4" delay={0.1}>
-            <SectionCard
-              title="Time to Fill by Role"
-              action={
-                <button type="button" className="text-[11px] font-medium text-brand hover:underline">
-                  View full report →
-                </button>
-              }
-            >
-              {filteredTimeToFill.length === 0 ? (
-                <EmptyState
-                  icon={<Briefcase className="size-6" />}
-                  title="No roles match your search"
-                  body="Try a different query or clear the search bar."
-                />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-border/40 text-muted-foreground">
-                        <th className="pb-2 font-medium">Role</th>
-                        <th className="pb-2 font-medium">Time to Fill</th>
-                        <th className="pb-2 font-medium">vs Prior Period</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredTimeToFill.map((row) => (
-                        <tr key={row.role} className="recruiter-row border-b border-border/20">
-                          <td className="py-2.5 pr-2 font-medium text-foreground">{row.role}</td>
-                          <td className="py-2.5 tabular-nums text-foreground">{row.days} days</td>
-                          <td className="py-2.5">
-                            <Delta value={-row.deltaDays} suffix=" days" invertColor />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                </>
               )}
-            </SectionCard>
-          </Reveal>
+            </div>
 
-          <Reveal className="lg:col-span-4" delay={0.15}>
-            <SectionCard
-              title="Pipeline Health"
-              action={
-                <button type="button" className="text-[11px] font-medium text-brand hover:underline">
-                  See pipeline breakdown →
-                </button>
-              }
+            <button
+              type="button"
+              onClick={() => {
+                toast.info('Date range filter changed', {
+                  description: `Displaying metrics for ${DATE_RANGE_LABEL}.`,
+                })
+              }}
+              className="analytics-date-button cursor-pointer"
             >
-              <div className="flex gap-4">
-                <div className="relative flex size-28 shrink-0 items-center justify-center">
-                  <svg className="-rotate-90" width={112} height={112}>
-                    <circle cx={56} cy={56} r={48} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={8} />
-                    <motion.circle
-                      cx={56}
-                      cy={56}
-                      r={48}
-                      fill="none"
-                      stroke="#1dff00"
-                      strokeWidth={8}
-                      strokeLinecap="round"
-                      strokeDasharray={2 * Math.PI * 48}
-                      initial={{ strokeDashoffset: 2 * Math.PI * 48 }}
-                      animate={{ strokeDashoffset: 2 * Math.PI * 48 * (1 - PIPELINE_HEALTH.score / 100) }}
-                      transition={{ duration: 1, ease: RECRUITER_EASE }}
-                    />
-                  </svg>
-                  <div className="absolute text-center">
-                    <AnimatedNumber value={PIPELINE_HEALTH.score} className="text-2xl font-bold text-brand" />
-                    <p className="text-[10px] text-muted-foreground">{PIPELINE_HEALTH.label}</p>
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <p className="text-[11px] leading-relaxed text-muted-foreground">{PIPELINE_HEALTH.note}</p>
-                  {PIPELINE_HEALTH.stages.map((s) => (
-                    <div key={s.stage} className="flex items-center gap-2">
-                      <span className="w-16 shrink-0 text-[10px] text-muted-foreground">{s.stage}</span>
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10">
-                        <motion.div
-                          className="h-full rounded-full bg-brand"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${s.pct}%` }}
-                          transition={{ duration: 0.6, ease: RECRUITER_EASE }}
-                        />
-                      </div>
-                      <Delta value={s.deltaPct} suffix="%" className="w-10 justify-end" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </SectionCard>
-          </Reveal>
+              <CalendarDays className="size-3.5" />
+              {DATE_RANGE_LABEL.replace('–', '-')}
+              <ChevronDown className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      </header>
 
-          <Reveal className="lg:col-span-4" delay={0.2}>
-            <SectionCard
-              title={
-                <span className="flex items-center gap-2">
-                  <Sparkles className="size-4 text-brand" />
-                  AI Insights
-                </span>
-              }
-              action={
-                <button
-                  type="button"
-                  className="text-[11px] font-medium text-brand hover:underline"
-                  onClick={() => onAskCopilot?.('Analyze my recruiting analytics and suggest top 3 actions for this week.')}
-                >
-                  View all insights →
-                </button>
-              }
-            >
-              <div className="space-y-3">
-                {ANALYTICS_INSIGHTS.map((insight) => (
-                  <div
-                    key={insight.title}
-                    className="rounded-xl border border-border/40 bg-foreground/[0.03] p-3"
-                  >
-                    <p className="text-xs font-semibold text-foreground">{insight.title}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{insight.body}</p>
-                  </div>
-                ))}
-                <div className="rounded-xl border border-border/40 bg-foreground/[0.03] p-3">
-                  <p className="text-xs font-semibold text-foreground">Recommended actions</p>
-                  <ul className="mt-2 space-y-1.5">
-                    {ANALYTICS_RECOMMENDED_ACTIONS.map((action) => (
-                      <li key={action} className="flex items-start gap-2 text-[11px] text-muted-foreground">
-                        <CheckCircle2 className="mt-0.5 size-3 shrink-0 text-brand" />
-                        {action}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onAskCopilot?.('What should I prioritize in my recruiting pipeline this week?')}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-brand/30 bg-brand/10 py-2 text-xs font-semibold text-brand transition hover:bg-brand/15"
-                >
-                  Ask AI Agent for more insights
-                  <ArrowRight className="size-3.5" />
-                </button>
-              </div>
-            </SectionCard>
+      <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {ANALYTICS_KPIS.map((kpi, index) => (
+          <Reveal key={kpi.label} delay={index * 0.035} className="min-w-0">
+            <KpiCard kpi={kpi} />
           </Reveal>
+        ))}
+      </section>
+
+      <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <Reveal className="min-w-0 xl:col-span-4" delay={0.06}>
+          <AnalyticsPanel title="Hiring Funnel" aside="Conversion" className="min-h-[252px]">
+            <FunnelChart />
+          </AnalyticsPanel>
+        </Reveal>
+
+        <Reveal className="min-w-0 xl:col-span-4" delay={0.09}>
+          <AnalyticsPanel title="Candidate Source Performance" className="min-h-[252px]">
+            <SourcePerformance onAskCopilot={onAskCopilot} />
+          </AnalyticsPanel>
+        </Reveal>
+
+        <Reveal className="min-w-0 xl:col-span-4" delay={0.12}>
+          <AnalyticsPanel
+            title="Outreach Response Trend"
+            aside={(
+              <button type="button" className="analytics-select-pill">
+                Response Rate
+                <ChevronDown className="size-3" />
+              </button>
+            )}
+            className="min-h-[252px]"
+          >
+            <ResponseTrend />
+          </AnalyticsPanel>
+        </Reveal>
+
+        <Reveal className="min-w-0 xl:col-span-4" delay={0.08}>
+          <AnalyticsPanel title="Time to Fill by Role" className="min-h-[278px]">
+            <TimeToFillTable rows={filteredTimeToFill} onAskCopilot={onAskCopilot} />
+          </AnalyticsPanel>
+        </Reveal>
+
+        <Reveal className="min-w-0 xl:col-span-4" delay={0.11}>
+          <AnalyticsPanel title="Pipeline Health" className="min-h-[278px]">
+            <PipelineHealth onNavigatePipeline={onNavigatePipeline} />
+          </AnalyticsPanel>
+        </Reveal>
+
+        <Reveal className="min-w-0 xl:col-span-4" delay={0.14}>
+          <AnalyticsPanel
+            title={(
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="size-3.5 fill-[#b6ff00] text-[#b6ff00]" />
+                AI Insights
+                <span className="rounded-full bg-[#39ff14]/20 px-1.5 py-0.5 text-[9px] font-bold text-[#39ff14]">AI</span>
+              </span>
+            )}
+            aside={(
+              <button
+                type="button"
+                className="analytics-link"
+                onClick={() => onAskCopilot?.('Analyze my recruiting analytics and suggest top 3 actions for this week.')}
+              >
+                View all insights {'->'}
+              </button>
+            )}
+            className="min-h-[278px]"
+          >
+            <AiInsights onAskCopilot={onAskCopilot} />
+          </AnalyticsPanel>
+        </Reveal>
+      </section>
+    </PageTransition>
+  )
+}
+
+function KpiCard({ kpi }: { kpi: Kpi }) {
+  const invert = kpi.icon === 'time'
+  const positive = kpi.trend === 'up'
+  return (
+    <div className="analytics-kpi-card">
+      <div>
+        <p className="analytics-kpi-label">{kpi.label}</p>
+        <p className="mt-2 text-[25px] font-semibold leading-none tracking-[-0.04em] text-white">{kpi.value}</p>
+        <p className="mt-2 flex items-center gap-1 text-[10px] text-white/48">
+          <Delta
+            value={positive ? 1 : -1}
+            suffix={invert ? ' days' : kpi.value.includes('%') ? 'pp' : ''}
+            invertColor={invert}
+            className="!text-[10px]"
+          />
+          <span>{kpi.deltaLabel.replace('–', '-')}</span>
+        </p>
+      </div>
+      <div className="analytics-kpi-orb">
+        {KPI_ICONS[kpi.icon]}
+      </div>
+    </div>
+  )
+}
+
+function AnalyticsPanel({
+  title,
+  aside,
+  className,
+  children,
+}: {
+  title: React.ReactNode
+  aside?: React.ReactNode
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={`analytics-panel ${className ?? ''}`}>
+      <div className="analytics-panel-header">
+        <h2>
+          {title}
+          <Info className="size-3 text-white/35" />
+        </h2>
+        {aside && <div className="analytics-panel-aside">{aside}</div>}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function FunnelChart() {
+  const max = HIRING_FUNNEL[0]?.value ?? 1
+  return (
+    <div className="mt-4">
+      <div className="grid grid-cols-[64px_1fr_58px] gap-3 text-[10px] text-white/48">
+        <span />
+        <span />
+        <span className="text-right">Conversion</span>
+      </div>
+      <div className="mt-1 space-y-0">
+        {HIRING_FUNNEL.map((stage, index) => {
+          const width = Math.max(19, (stage.value / max) * 100)
+          return (
+            <div key={stage.stage} className="analytics-funnel-row">
+              <span>{stage.stage}</span>
+              <div className="analytics-funnel-track">
+                <motion.div
+                  className="analytics-funnel-bar"
+                  style={{ width: `${width}%` }}
+                  initial={{ scaleX: 0.2, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 0.55, delay: index * 0.07, ease: RECRUITER_EASE }}
+                >
+                  <strong>{stage.value.toLocaleString()}</strong>
+                </motion.div>
+              </div>
+              <span className="text-right text-white/58">{index === 0 ? '' : `${stage.conversion}%`}</span>
+            </div>
+          )
+        })}
+      </div>
+      <div className="mt-4 flex items-center justify-between text-[11px]">
+        <span className="text-white/70">Overall conversion <strong className="text-white">0.9%</strong></span>
+        <span className="text-[#39ff14]">↑ 0.2pp vs Apr 11 - May 10</span>
+      </div>
+    </div>
+  )
+}
+
+function SourcePerformance({ onAskCopilot }: { onAskCopilot?: (prompt: string) => void }) {
+  return (
+    <div className="mt-4 grid grid-cols-1 items-center gap-4 sm:grid-cols-[154px_1fr]">
+      <div className="relative mx-auto h-[154px] w-[154px] shrink-0 sm:mx-0">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={SOURCE_PERFORMANCE}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={52}
+              outerRadius={72}
+              paddingAngle={1.5}
+              stroke="#050705"
+              strokeWidth={2}
+            >
+              {SOURCE_PERFORMANCE.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <AnimatedNumber value={SOURCE_TOTAL} className="text-[24px] font-semibold leading-none tracking-[-0.04em]" />
+          <span className="mt-1 text-[10px] text-white/48">Total Sourced</span>
         </div>
       </div>
+      <div className="space-y-2.5">
+        {SOURCE_PERFORMANCE.map((source) => (
+          <div key={source.name} className="flex items-center justify-between gap-2 text-[11px]">
+            <span className="flex min-w-0 items-center gap-2 text-white/70">
+              <span className="size-2.5 rounded-full" style={{ background: source.color }} />
+              <span className="truncate">{source.name}</span>
+            </span>
+            <span className="shrink-0 tabular-nums text-white">{source.pct}% ({source.value})</span>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => onAskCopilot?.("Give me a comprehensive report on Candidate Source performance.")}
+        className="analytics-link col-span-2 mt-2 justify-self-start"
+      >
+        View full source report {'->'}
+      </button>
+    </div>
+  )
+}
+
+function ResponseTrend() {
+  return (
+    <div className="relative mt-3 h-[196px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={OUTREACH_TREND} margin={{ top: 10, right: 16, left: -18, bottom: 10 }}>
+          <XAxis
+            dataKey="label"
+            axisLine={false}
+            tickLine={false}
+            interval="preserveStartEnd"
+            tick={{ fill: 'rgba(255,255,255,0.42)', fontSize: 10 }}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            domain={[0, 40]}
+            ticks={[0, 10, 20, 30, 40]}
+            tickFormatter={(value) => `${value}%`}
+            tick={{ fill: 'rgba(255,255,255,0.42)', fontSize: 10 }}
+          />
+          <Tooltip
+            cursor={{ stroke: 'rgba(57,255,20,0.28)', strokeDasharray: '3 4' }}
+            contentStyle={{
+              background: '#050705',
+              border: '1px solid rgba(57,255,20,0.25)',
+              borderRadius: 10,
+              boxShadow: '0 16px 40px rgba(0,0,0,0.6)',
+              color: 'white',
+              fontSize: 11,
+            }}
+            formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Response Rate']}
+          />
+          <Line
+            type="monotone"
+            dataKey="value"
+            stroke="#39ff14"
+            strokeWidth={2.2}
+            dot={{ r: 4, fill: '#39ff14', stroke: '#39ff14', strokeWidth: 0 }}
+            activeDot={{ r: 5.5, fill: '#39ff14', stroke: '#050705', strokeWidth: 2 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+      <div className="analytics-chart-legend">
+        <span className="size-2.5 rounded-full bg-[#39ff14]" />
+        Response Rate
+      </div>
+    </div>
+  )
+}
+
+function TimeToFillTable({
+  rows,
+  onAskCopilot,
+}: {
+  rows: typeof TIME_TO_FILL_BY_ROLE
+  onAskCopilot?: (prompt: string) => void
+}) {
+  return (
+    <div className="mt-4">
+      {rows.length === 0 ? (
+        <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-white/10 text-[12px] text-white/45">
+          No roles match your search.
+        </div>
+      ) : (
+        <table className="analytics-table">
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Time to Fill</th>
+              <th>vs Prior Period</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.role}>
+                <td>{row.role}</td>
+                <td>{row.days} days</td>
+                <td>
+                  <Delta value={-row.deltaDays} suffix=" days" invertColor />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <button
+        type="button"
+        onClick={() => onAskCopilot?.("Give me a detailed report of recruiting Time to Fill metrics by role.")}
+        className="analytics-link mt-6"
+      >
+        View full report {'->'}
+      </button>
+    </div>
+  )
+}
+
+function PipelineHealth({ onNavigatePipeline }: { onNavigatePipeline?: () => void }) {
+  return (
+    <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:grid-cols-[120px_1fr]">
+      <div>
+        <div className="relative flex size-[112px] items-center justify-center">
+          <svg className="-rotate-90" width={112} height={112}>
+            <circle cx={56} cy={56} r={44} fill="none" stroke="rgba(57,255,20,0.12)" strokeWidth={8} />
+            <motion.circle
+              cx={56}
+              cy={56}
+              r={44}
+              fill="none"
+              stroke="#7cff00"
+              strokeLinecap="round"
+              strokeWidth={8}
+              strokeDasharray={2 * Math.PI * 44}
+              initial={{ strokeDashoffset: 2 * Math.PI * 44 }}
+              animate={{ strokeDashoffset: 2 * Math.PI * 44 * (1 - PIPELINE_HEALTH.score / 100) }}
+              transition={{ duration: 1, ease: RECRUITER_EASE }}
+            />
+          </svg>
+          <div className="absolute text-center">
+            <AnimatedNumber value={PIPELINE_HEALTH.score} className="text-[28px] font-semibold leading-none text-[#b6ff00]" />
+            <p className="mt-1 text-[10px] text-[#b6ff00]">{PIPELINE_HEALTH.label}</p>
+          </div>
+        </div>
+        <p className="mt-3 text-[11px] leading-5 text-white/62">{PIPELINE_HEALTH.note}</p>
+      </div>
+
+      <div>
+        <div className="mb-3 grid grid-cols-[1fr_1.6fr_44px] gap-2 text-[10px] text-white/42">
+          <span>Stage</span>
+          <span />
+          <span className="text-right">vs Prior Period</span>
+        </div>
+        <div className="space-y-3">
+          {PIPELINE_HEALTH.stages.map((stage) => (
+            <div key={stage.stage} className="grid grid-cols-[1fr_1.6fr_44px] items-center gap-2">
+              <span className="text-[11px] text-white/70">{stage.stage}</span>
+              <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                <motion.div
+                  className="h-full rounded-full bg-[#39ff14]"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${stage.pct}%` }}
+                  transition={{ duration: 0.62, ease: RECRUITER_EASE }}
+                />
+              </div>
+              <Delta value={stage.deltaPct} suffix="%" className="justify-end" />
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onNavigatePipeline}
+          className="analytics-link mt-8"
+        >
+          See pipeline breakdown {'->'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AiInsights({ onAskCopilot }: { onAskCopilot?: AnalyticsPageProps['onAskCopilot'] }) {
+  return (
+    <div className="mt-3 space-y-2">
+      {ANALYTICS_INSIGHTS.map((insight, index) => (
+        <div
+          key={insight.title}
+          onClick={() => onAskCopilot?.(`Analyze recruiting insight: ${insight.title} - ${insight.body}`)}
+          className="analytics-insight-row cursor-pointer hover:bg-white/5 transition rounded-lg p-1"
+        >
+          <span className={index === 0 ? 'analytics-insight-icon analytics-insight-icon--green' : 'analytics-insight-icon analytics-insight-icon--purple'}>
+            {index === 0 ? <TrendingUp className="size-5" /> : <Zap className="size-5" />}
+          </span>
+          <span className="min-w-0">
+            <strong>{insight.title}</strong>
+            <span>{insight.body}</span>
+          </span>
+        </div>
+      ))}
+
+      <div className="analytics-actions-box">
+        <p>Recommended actions</p>
+        {ANALYTICS_RECOMMENDED_ACTIONS.map((action) => (
+          <button
+            key={action}
+            type="button"
+            onClick={() => onAskCopilot?.(`Help me execute recommended action: ${action}`)}
+            className="flex w-full items-center gap-2 text-left hover:text-[#b6ff00] transition-colors py-0.5"
+          >
+            <Check className="size-3 shrink-0" />
+            <span>{action}</span>
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        className="analytics-link mt-2"
+        onClick={() => onAskCopilot?.('What should I prioritize in my recruiting pipeline this week?')}
+      >
+        Ask AI Agent for more insights {'->'}
+      </button>
     </div>
   )
 }
