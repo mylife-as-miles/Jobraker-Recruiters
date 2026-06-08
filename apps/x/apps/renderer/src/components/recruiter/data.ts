@@ -693,5 +693,13 @@ export const ANALYTICS_RECOMMENDED_ACTIONS = [
 export const DATE_RANGE_LABEL = 'May 11 – Jun 10, 2025'
 
 export function candidateById(id: string): Candidate | undefined {
+  try {
+    const raw = localStorage.getItem('jobraker-recruiter-ui:candidates')
+    if (raw) {
+      const parsed = JSON.parse(raw) as Candidate[]
+      const found = parsed.find((c) => c.id === id)
+      if (found) return found
+    }
+  } catch {}
   return CANDIDATES.find((c) => c.id === id)
 }
