@@ -37,7 +37,7 @@ export function TabBar<T>({
   return (
     <div
       className={cn(
-        'jobraker-recruiter-tabbar flex flex-1 self-stretch min-w-0',
+        'jobraker-recruiter-tabbar flex flex-1 self-center min-w-0',
         layout === 'scroll'
           ? 'overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
           : 'overflow-hidden'
@@ -51,17 +51,17 @@ export function TabBar<T>({
         return (
           <React.Fragment key={tabId}>
             {index > 0 && (
-              <div className="self-stretch w-px bg-border/70 shrink-0" aria-hidden="true" />
+              <div className="jobraker-recruiter-tab-divider" aria-hidden="true" />
             )}
             <button
               type="button"
               onClick={() => onSwitchTab(tabId)}
               className={cn(
-                'jobraker-recruiter-tab titlebar-no-drag group/tab relative flex items-center gap-1.5 px-3 self-stretch text-xs transition-colors',
+                'jobraker-recruiter-tab titlebar-no-drag group/tab relative flex items-center gap-1.5 px-4 text-xs transition-colors',
                 layout === 'scroll' ? 'min-w-[140px] max-w-[240px]' : 'min-w-0 max-w-[220px]',
                 isActive
-                  ? 'bg-background text-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  ? 'is-active text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
               style={layout === 'scroll' ? { flex: '0 0 auto' } : { flex: '1 1 0px' }}
             >
@@ -69,7 +69,7 @@ export function TabBar<T>({
               {(allowSingleTabClose || tabs.length > 1) && (
                 <span
                   role="button"
-                  className="shrink-0 flex items-center justify-center rounded-sm p-0.5 opacity-0 group-hover/tab:opacity-60 hover:opacity-100! hover:bg-foreground/10 transition-all"
+                  className="shrink-0 flex items-center justify-center rounded-full p-0.5 opacity-0 transition-all group-hover/tab:opacity-60 hover:bg-foreground/10 hover:opacity-100!"
                   onClick={(e) => {
                     e.stopPropagation()
                     onCloseTab(tabId)
@@ -82,7 +82,7 @@ export function TabBar<T>({
             </button>
             {/* Right edge divider after last tab to close off the section */}
             {index === tabs.length - 1 && (
-              <div className="self-stretch w-px bg-border/70 shrink-0" aria-hidden="true" />
+              <div className="jobraker-recruiter-tab-divider" aria-hidden="true" />
             )}
           </React.Fragment>
         )
