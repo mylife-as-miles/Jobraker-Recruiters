@@ -35,7 +35,7 @@
   }
 }
 
-/* Radix Collapsible expand/collapse â€” animate height (via the radix CSS var)
+/* Radix Collapsible expand/collapse — animate height (via the radix CSS var)
    plus a subtle fade. Used by the web search card. */
 @keyframes collapsible-down {
   from {
@@ -1775,7 +1775,7 @@
   box-shadow: 0 0 6px color-mix(in oklab, var(--brand) 55%, transparent);
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Recruiter dashboards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ───────────────────────── Recruiter dashboards ───────────────────────── */
 
 .recruiter-scroll {
   scrollbar-width: thin;
@@ -1879,6 +1879,375 @@
   background: color-mix(in oklab, var(--brand) 9%, transparent);
 }
 
+/* Screenshot-matched Analytics dashboard */
+.analytics-shot {
+  --analytics-green: #39ff14;
+  --analytics-lime: #9dff00;
+  --analytics-panel: #060806;
+  --analytics-panel-2: #080b08;
+  --analytics-border: rgba(255, 255, 255, 0.105);
+  --analytics-muted: rgba(255, 255, 255, 0.54);
+  background:
+    radial-gradient(circle at 78% 8%, rgba(57, 255, 20, 0.06), transparent 22%),
+    radial-gradient(circle at 10% 0%, rgba(255, 255, 255, 0.035), transparent 18%),
+    #020302;
+  color-scheme: dark;
+}
+
+.analytics-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.analytics-search {
+  display: flex;
+  height: 42px;
+  width: min(420px, 38vw);
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid var(--analytics-border);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0 0.75rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.analytics-search input {
+  min-width: 0;
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: white;
+  font-size: 12px;
+}
+
+.analytics-search input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.analytics-search kbd {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.2rem 0.45rem;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.analytics-icon-button {
+  position: relative;
+  display: grid;
+  height: 42px;
+  width: 42px;
+  place-items: center;
+  border: 1px solid var(--analytics-border);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.analytics-icon-button span {
+  position: absolute;
+  right: -4px;
+  top: -5px;
+  display: grid;
+  height: 16px;
+  min-width: 16px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--analytics-green);
+  color: #031003;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.analytics-new-button,
+.analytics-date-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid rgba(57, 255, 20, 0.18);
+  color: white;
+  font-weight: 600;
+}
+
+.analytics-new-button {
+  height: 42px;
+  min-width: 126px;
+  border-radius: 0.78rem;
+  background: linear-gradient(180deg, rgba(57, 255, 20, 0.45), rgba(47, 175, 16, 0.7));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 32px rgba(57, 255, 20, 0.12);
+}
+
+.analytics-date-button {
+  height: 30px;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0 0.8rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+}
+
+.analytics-kpi-card,
+.analytics-panel {
+  border: 1px solid var(--analytics-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    var(--analytics-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 48px rgba(0, 0, 0, 0.28);
+}
+
+.analytics-kpi-card {
+  display: flex;
+  min-height: 92px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 0.65rem;
+  padding: 1rem 1.1rem;
+}
+
+.analytics-kpi-label {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.analytics-kpi-orb {
+  position: relative;
+  display: grid;
+  height: 52px;
+  width: 52px;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(57, 255, 20, 0.24);
+  background:
+    radial-gradient(circle, rgba(57, 255, 20, 0.24), rgba(57, 255, 20, 0.06) 58%, transparent 70%);
+  color: var(--analytics-green);
+  box-shadow:
+    0 0 0 8px rgba(57, 255, 20, 0.035),
+    0 0 28px rgba(57, 255, 20, 0.18);
+}
+
+.analytics-panel {
+  overflow: hidden;
+  border-radius: 0.7rem;
+  padding: 1rem;
+}
+
+.analytics-panel-header {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.analytics-panel-header h2 {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.analytics-panel-aside {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 10px;
+}
+
+.analytics-select-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 0.35rem 0.6rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 10px;
+}
+
+.analytics-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--analytics-green);
+  font-size: 11px;
+  font-weight: 600;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.analytics-link:hover {
+  color: #a6ff00;
+  transform: translateX(1px);
+}
+
+.analytics-funnel-row {
+  display: grid;
+  grid-template-columns: 64px 1fr 58px;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+}
+
+.analytics-funnel-row:last-child {
+  border-bottom: 0;
+}
+
+.analytics-funnel-track {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.analytics-funnel-bar {
+  display: grid;
+  height: 32px;
+  min-width: 42px;
+  transform-origin: center;
+  place-items: center;
+  clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
+  border: 1px solid rgba(57, 255, 20, 0.36);
+  background:
+    linear-gradient(180deg, rgba(57, 255, 20, 0.28), rgba(57, 255, 20, 0.1)),
+    rgba(57, 255, 20, 0.08);
+  box-shadow: inset 0 0 20px rgba(57, 255, 20, 0.08);
+  color: white;
+  font-size: 11px;
+}
+
+.analytics-chart-legend {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: left;
+}
+
+.analytics-table th {
+  padding: 0 0 0.65rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+}
+
+.analytics-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.7rem 0;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.analytics-table td:nth-child(2) {
+  color: white;
+}
+
+.analytics-insight-row {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 0.45rem;
+  background: rgba(0, 0, 0, 0.18);
+  padding: 0.75rem;
+}
+
+.analytics-insight-icon {
+  display: grid;
+  height: 42px;
+  width: 42px;
+  place-items: center;
+  border-radius: 0.55rem;
+}
+
+.analytics-insight-icon--green {
+  background: rgba(57, 255, 20, 0.14);
+  color: var(--analytics-green);
+}
+
+.analytics-insight-icon--purple {
+  background: rgba(160, 78, 255, 0.16);
+  color: #b45cff;
+}
+
+.analytics-insight-row strong,
+.analytics-actions-box p {
+  display: block;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.analytics-insight-row span span {
+  display: block;
+  margin-top: 0.2rem;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.analytics-actions-box {
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 0.45rem;
+  background: rgba(0, 0, 0, 0.18);
+  padding: 0.75rem;
+}
+
+.analytics-actions-box button {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 11px;
+}
+
+.analytics-actions-box svg {
+  color: var(--analytics-green);
+}
+
+.analytics-shot .text-brand {
+  color: var(--analytics-green);
+}
+
+@media (max-width: 1279px) {
+  .analytics-topbar {
+    flex-direction: column;
+  }
+
+  .analytics-topbar > div:last-child {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .analytics-search {
+    width: 100%;
+  }
+}
+
 .recruiter-kanban-card {
   transition:
     border-color 0.15s ease,
@@ -1974,24 +2343,95 @@
   color: var(--foreground);
 }
 
-.jobraker-recruiter-tabbar {
-  background: color-mix(in oklab, var(--background) 78%, var(--muted) 22%);
+.jobraker-recruiter-titlebar {
+  background:
+    radial-gradient(circle at 20% 0%, rgba(77, 255, 24, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(5, 7, 9, 0.98), rgba(0, 0, 0, 0.94));
+  border-bottom-color: rgba(255, 255, 255, 0.075);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 14px 40px rgba(0, 0, 0, 0.28);
 }
 
-.jobraker-recruiter-titlebar {
-  background: var(--background);
-  border-bottom-color: color-mix(in oklab, var(--border) 82%, transparent);
+.jobraker-titlebar-nav {
+  height: 100%;
+}
+
+.jobraker-titlebar-icon {
+  color: rgba(220, 230, 225, 0.46);
+  background: transparent;
+}
+
+.jobraker-titlebar-icon:hover {
+  color: #55ff1f;
+  background: rgba(77, 255, 24, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(77, 255, 24, 0.13);
+}
+
+.jobraker-titlebar-divider {
+  align-self: center;
+  width: 1px;
+  height: 24px;
+  margin-right: 10px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+}
+
+.jobraker-recruiter-tabbar {
+  height: 34px;
+  margin-right: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(8, 10, 13, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 12px 34px rgba(0, 0, 0, 0.24);
+}
+
+.jobraker-recruiter-tab-divider {
+  align-self: center;
+  width: 1px;
+  height: 18px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.095), transparent);
 }
 
 .jobraker-recruiter-tab {
-  min-height: 2.5rem;
-  border-bottom: 1px solid transparent;
+  min-height: 32px;
+  border-radius: 999px;
+  color: rgba(220, 230, 225, 0.58);
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.jobraker-recruiter-tab[class*="bg-background"] {
-  border-bottom-color: var(--primary);
-  background: var(--jobraker-recruiter-raised);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, var(--foreground) 8%, transparent);
+.jobraker-recruiter-tab:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.jobraker-recruiter-tab.is-active {
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 22% 0%, rgba(77, 255, 24, 0.18), transparent 42%),
+    linear-gradient(180deg, rgba(18, 22, 27, 0.98), rgba(8, 10, 13, 0.98));
+  box-shadow:
+    inset 0 0 0 1px rgba(77, 255, 24, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 24px rgba(77, 255, 24, 0.08);
+}
+
+.jobraker-recruiter-tab.is-active::after {
+  position: absolute;
+  right: 14px;
+  bottom: 4px;
+  left: 14px;
+  height: 1px;
+  border-radius: 999px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(77, 255, 24, 0.72), transparent);
 }
 
 /* Jobraker chat page design (scoped to chat surfaces) */
