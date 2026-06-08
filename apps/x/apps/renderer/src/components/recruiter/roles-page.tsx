@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { toast } from 'sonner'
 import {
   Bookmark,
   Briefcase,
@@ -36,9 +37,24 @@ const STATUS_STYLES: Record<Role['status'], string> = {
 type RolesPageProps = {
   onNavigatePipeline?: () => void
   onNavigateCandidates?: () => void
+  onAskCopilot?: (prompt: string) => void
+  onOpenSearch?: () => void
+  onOpenChat?: (prompt?: string) => void
+  onTakeMeetingNotes?: () => void
+  onOpenAgents?: () => void
+  onOpenEmail?: (threadId?: string) => void
+  onOpenMeetings?: () => void
 }
 
-export function RolesPage({ onNavigatePipeline, onNavigateCandidates }: RolesPageProps) {
+export function RolesPage({
+  onNavigatePipeline,
+  onNavigateCandidates,
+  onAskCopilot,
+  onOpenSearch,
+  onOpenChat,
+  onTakeMeetingNotes,
+  onOpenAgents,
+}: RolesPageProps) {
   const loading = useFakeLoading(660)
   const [search, setSearch] = React.useState('')
   const [selectedId, setSelectedId] = React.useState<string>(ROLES[0]?.id ?? '')
@@ -102,6 +118,10 @@ export function RolesPage({ onNavigatePipeline, onNavigateCandidates }: RolesPag
         searchPlaceholder="Search roles by title, department, location…"
         searchValue={search}
         onSearchChange={setSearch}
+        onOpenSearch={onOpenSearch}
+        onOpenChat={onOpenChat}
+        onTakeMeetingNotes={onTakeMeetingNotes}
+        onOpenAgents={onOpenAgents}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -114,7 +134,11 @@ export function RolesPage({ onNavigatePipeline, onNavigateCandidates }: RolesPag
                 title="No roles found"
                 body="Try a different search or create a new role."
                 action={
-                  <button type="button" className="rounded-xl bg-brand px-4 py-2 text-xs font-semibold text-black">
+                  <button
+                    type="button"
+                    onClick={() => onAskCopilot?.("Help me create a new job role template.")}
+                    className="rounded-xl bg-brand px-4 py-2 text-xs font-semibold text-black hover:brightness-110"
+                  >
                     <Plus className="mr-1 inline size-3.5" />
                     Create role
                   </button>
@@ -189,6 +213,7 @@ export function RolesPage({ onNavigatePipeline, onNavigateCandidates }: RolesPag
                   onToggleFavorite={() => toggleFavorite(selected.id)}
                   onOpenPipeline={onNavigatePipeline}
                   onOpenCandidates={onNavigateCandidates}
+                  onAskCopilot={onAskCopilot}
                 />
               </motion.div>
             ) : (
@@ -211,12 +236,14 @@ function RoleDetail({
   onToggleFavorite,
   onOpenPipeline,
   onOpenCandidates,
+  onAskCopilot,
 }: {
   role: Role
   isFavorite: boolean
   onToggleFavorite: () => void
   onOpenPipeline?: () => void
   onOpenCandidates?: () => void
+  onAskCopilot?: (prompt: string) => void
 }) {
   const maxStage = Math.max(...role.stageCounts.map((s) => s.count), 1)
 
@@ -266,10 +293,15 @@ function RoleDetail({
           {PIPELINE_STAGES.map((stage) => {
             const count = role.stageCounts.find((s) => s.stage === stage)?.count ?? 0
             return (
-              <div key={stage} className="text-center">
+              <button
+                key={stage}
+                type="button"
+                onClick={onOpenPipeline}
+                className="text-center cursor-pointer group hover:bg-foreground/[0.02] p-1.5 rounded-xl transition"
+              >
                 <div className="mx-auto flex h-16 w-full max-w-[72px] items-end justify-center">
                   <motion.div
-                    className="w-full rounded-t-lg bg-gradient-to-t from-brand/30 to-brand/70"
+                    className="w-full rounded-t-lg bg-gradient-to-t from-brand/30 to-brand/70 group-hover:brightness-110 transition-all"
                     initial={{ height: 0 }}
                     animate={{ height: `${Math.max(12, (count / maxStage) * 100)}%` }}
                     transition={{ duration: 0.6, ease: RECRUITER_EASE }}
@@ -279,8 +311,8 @@ function RoleDetail({
                 <p className="mt-2 text-lg font-bold tabular-nums">
                   <AnimatedNumber value={count} />
                 </p>
-                <p className="text-[10px] text-muted-foreground">{stage}</p>
-              </div>
+                <p className="text-[10px] text-muted-foreground group-hover:text-brand transition-colors">{stage}</p>
+              </button>
             )
           })}
         </div>
@@ -339,14 +371,27 @@ function RoleDetail({
         <button
           type="button"
           onClick={onOpenCandidates}
-          className="rounded-xl border border-brand/35 bg-brand/10 px-4 py-2 text-xs font-semibold text-brand hover:bg-brand/15"
+          className="rounded-xl border border-brand/35 bg-brand/10 px-4 py-2 text-xs font-semibold text-brand hover:bg-brand/15 hover:border-brand/40"
         >
           Browse candidates
         </button>
-        <button type="button" className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
+        <button
+          type="button"
+          onClick={() => onAskCopilot?.(`Help me edit the job role template for ${role.title}.`)}
+          className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
           Edit role
         </button>
-        <button type="button" className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard.writeText(`https://jobraker.com/careers/${role.id}`)
+            toast.success("Job posting link copied!", {
+              description: `The careers page URL for ${role.title} is now in your clipboard.`,
+            })
+          }}
+          className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
           Share posting
         </button>
       </div>
