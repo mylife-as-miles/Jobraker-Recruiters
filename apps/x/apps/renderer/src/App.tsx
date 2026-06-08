@@ -5,12 +5,12 @@ import { RunEvent, ListRunsResponse } from '@x/shared/src/runs.js';
 import type { LanguageModelUsage, ToolUIPart } from 'ai';
 import './App.css'
 import z from 'zod';
-import { CheckIcon, LoaderIcon, PanelLeftIcon, ArrowRight, MessageSquare, ChevronLeftIcon, ChevronRightIcon, Plus, HistoryIcon } from 'lucide-react';
+import { CheckIcon, LoaderIcon, ChevronLeftIcon, ChevronRightIcon, Plus, HistoryIcon, Loader2, Mic, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/markdown-editor';
 import { ChatSidebar } from './components/chat-sidebar';
 import { ChatHeader } from './components/chat-header';
-import { RecruiterScreens } from './components/recruiter';
+import { RecruiterScreens, type RecruiterScreenId } from './components/recruiter';
 import { ChatAssistantRow } from './components/chat-assistant-row';
 import { ChatEmptyState } from './components/chat-empty-state';
 import { ChatInputWithMentions, type StagedAttachment } from './components/chat-input-with-mentions';
@@ -87,6 +87,13 @@ import { MarkdownPreOverride } from '@/components/ai-elements/markdown-code-over
 import { defaultRemarkPlugins } from 'streamdown'
 import remarkBreaks from 'remark-breaks'
 import { TabBar, type ChatTab, type FileTab } from '@/components/tab-bar'
+import { isMacPlatform, titlebarRightInsetPx } from '@/lib/titlebar-platform'
+import {
+  getRecruiterScreenFromTabPath,
+  getRecruiterTabPath,
+  getRecruiterTabTitle,
+  isRecruiterTabPath,
+} from '@/lib/view-tab-paths'
 import {
   type ChatMessage,
   type ChatViewportAnchorState,
@@ -590,6 +597,8 @@ type ViewState =
   | { type: 'knowledge-view'; folderPath?: string }
   | { type: 'chat-history' }
   | { type: 'home' }
+  | { type: 'bg-tasks' }
+  | { type: 'recruiter'; screen: RecruiterScreen }
 
 function viewStatesEqual(a: ViewState, b: ViewState): boolean {
   if (a.type !== b.type) return false
@@ -598,6 +607,7 @@ function viewStatesEqual(a: ViewState, b: ViewState): boolean {
   if (a.type === 'task' && b.type === 'task') return a.name === b.name
   if (a.type === 'workspace' && b.type === 'workspace') return (a.path ?? '') === (b.path ?? '')
   if (a.type === 'knowledge-view' && b.type === 'knowledge-view') return (a.folderPath ?? '') === (b.folderPath ?? '')
+  if (a.type === 'recruiter' && b.type === 'recruiter') return a.screen === b.screen
   return true // both graph
 }
 
@@ -658,30 +668,6 @@ function parseDeepLink(input: string): ViewState | null {
   }
 }
 
-/** Sidebar toggle (fixed position, top-left) */
-function FixedSidebarToggle({
-  leftInsetPx,
-}: {
-  leftInsetPx: number
-}) {
-  const { toggleSidebar } = useSidebar()
-  return (
-    <div className="fixed left-0 top-0 z-50 flex h-10 items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-      <div aria-hidden="true" className="h-10 shrink-0" style={{ width: leftInsetPx }} />
-      {/* Sidebar toggle */}
-      <button
-        type="button"
-        onClick={toggleSidebar}
-        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-        style={{ marginLeft: TITLEBAR_TOGGLE_MARGIN_LEFT_PX }}
-        aria-label="Toggle Sidebar"
-      >
-        <PanelLeftIcon className="size-5" />
-      </button>
-    </div>
-  )
-}
-
 /** Main content header that adjusts padding based on sidebar state */
 function ContentHeader({
   children,
@@ -702,20 +688,20 @@ function ContentHeader({
   const isCollapsed = state === "collapsed"
   return (
     <header
-      className="jobraker-recruiter-titlebar titlebar-drag-region flex h-10 shrink-0 items-stretch border-b border-border bg-sidebar overflow-hidden"
+      className="jobraker-recruiter-titlebar titlebar-drag-region flex h-12 shrink-0 items-center overflow-hidden border-b"
       style={{
         paddingLeft: isCollapsed ? (collapsedLeftPaddingPx ?? 196) : 12,
-        paddingRight: 12,
+        paddingRight: titlebarRightInsetPx(),
         transition: 'padding-left 200ms linear',
       }}
     >
       {onNavigateBack && onNavigateForward ? (
-        <div className="titlebar-no-drag flex items-center gap-1 pr-2 shrink-0">
+        <div className="jobraker-titlebar-nav titlebar-no-drag flex shrink-0 items-center gap-1 pr-2">
           <button
             type="button"
             onClick={onNavigateBack}
             disabled={!canNavigateBack}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            className="jobraker-titlebar-icon flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:pointer-events-none disabled:opacity-30"
             aria-label="Go back"
           >
             <ChevronLeftIcon className="size-5" />
@@ -724,7 +710,7 @@ function ContentHeader({
             type="button"
             onClick={onNavigateForward}
             disabled={!canNavigateForward}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            className="jobraker-titlebar-icon flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:pointer-events-none disabled:opacity-30"
             aria-label="Go forward"
           >
             <ChevronRightIcon className="size-5" />
@@ -732,7 +718,7 @@ function ContentHeader({
         </div>
       ) : null}
       {onNavigateBack && onNavigateForward ? (
-        <div className="titlebar-no-drag self-stretch w-px bg-border/70" aria-hidden="true" />
+        <div className="jobraker-titlebar-divider titlebar-no-drag" aria-hidden="true" />
       ) : null}
       {children}
     </header>
@@ -792,7 +778,8 @@ function App() {
   })
   const [graphStatus, setGraphStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [graphError, setGraphError] = useState<string | null>(null)
-  const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(true)
+  const isChatSidebarOpen = false
+  const setIsChatSidebarOpen = (_val: any) => {}
   const [isRightPaneMaximized, setIsRightPaneMaximized] = useState(false)
   // Middle-pane collapse animation. Animating its max-width from 100% is janky:
   // 100% is relative to the parent (far wider than the pane's real width), so the
@@ -807,7 +794,7 @@ function App() {
   // auto-closes when the active note changes.
   const [liveNotePanelPath, setLiveNotePanelPath] = useState<string | null>(null)
   const [activeShortcutPane, setActiveShortcutPane] = useState<ShortcutPane>('left')
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac')
+  const isMac = isMacPlatform()
   const collapsedLeftPaddingPx =
     (isMac ? MACOS_TRAFFIC_LIGHTS_RESERVED_PX : 0) +
     TITLEBAR_TOGGLE_MARGIN_LEFT_PX +
@@ -1163,7 +1150,9 @@ function App() {
   const [editorSessionByTabId, setEditorSessionByTabId] = useState<Record<string, number>>({})
   const fileHistoryHandlersRef = useRef<Map<string, MarkdownHistoryHandlers>>(new Map())
   const fileTabIdCounterRef = useRef(0)
+  const navigateToViewRef = useRef<(view: ViewState) => Promise<void>>(async () => {})
   const newFileTabId = () => `file-tab-${++fileTabIdCounterRef.current}`
+  const [bgTaskNewDialogRequest, setBgTaskNewDialogRequest] = useState(0)
 
   const getFileTabTitle = useCallback((tab: FileTab) => {
     if (isGraphTabPath(tab.path)) return 'Graph View'
@@ -1176,6 +1165,8 @@ function App() {
     if (isKnowledgeViewTabPath(tab.path)) return 'Notes'
     if (isChatHistoryTabPath(tab.path)) return 'Chat history'
     if (isHomeTabPath(tab.path)) return 'Home'
+    const recruiterTitle = getRecruiterTabTitle(tab.path)
+    if (recruiterTitle) return recruiterTitle
     if (tab.path === BASES_DEFAULT_TAB_PATH) return 'Bases'
     if (tab.path.endsWith('.base')) return tab.path.split('/').pop()?.replace(/\.base$/i, '') || 'Base'
     return tab.path.split('/').pop()?.replace(/\.md$/i, '') || tab.path
@@ -3087,7 +3078,24 @@ function App() {
       setIsGraphOpen(false)
       setIsSuggestedTopicsOpen(false)
       setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false)
+      setRecruiterScreen(null)
       setIsHomeOpen(true)
+      return
+    }
+    const recruiterScreenFromTab = getRecruiterScreenFromTabPath(tab.path)
+    if (recruiterScreenFromTab) {
+      setSelectedPath(null)
+      setIsGraphOpen(false)
+      setIsSuggestedTopicsOpen(false)
+      setIsMeetingsOpen(false)
+      setIsLiveNotesOpen(false)
+      setIsBgTasksOpen(false)
+      setIsEmailOpen(false)
+      setIsWorkspaceOpen(false)
+      setIsKnowledgeViewOpen(false)
+      setIsChatHistoryOpen(false)
+      setIsHomeOpen(false)
+      setRecruiterScreen(recruiterScreenFromTab)
       return
     }
     setIsGraphOpen(false)
@@ -3098,7 +3106,7 @@ function App() {
 
   const closeFileTab = useCallback((tabId: string) => {
     const closingTab = fileTabs.find(t => t.id === tabId)
-    if (closingTab && !isGraphTabPath(closingTab.path) && !isSuggestedTopicsTabPath(closingTab.path) && !isLiveNotesTabPath(closingTab.path) && !isBgTasksTabPath(closingTab.path) && !isEmailTabPath(closingTab.path) && !isWorkspaceTabPath(closingTab.path) && !isKnowledgeViewTabPath(closingTab.path) && !isChatHistoryTabPath(closingTab.path) && !isHomeTabPath(closingTab.path) && !isBaseFilePath(closingTab.path)) {
+    if (closingTab && !isGraphTabPath(closingTab.path) && !isSuggestedTopicsTabPath(closingTab.path) && !isLiveNotesTabPath(closingTab.path) && !isBgTasksTabPath(closingTab.path) && !isEmailTabPath(closingTab.path) && !isWorkspaceTabPath(closingTab.path) && !isKnowledgeViewTabPath(closingTab.path) && !isChatHistoryTabPath(closingTab.path) && !isHomeTabPath(closingTab.path) && !isRecruiterTabPath(closingTab.path) && !isBaseFilePath(closingTab.path)) {
       removeEditorCacheForPath(closingTab.path)
       initialContentByPathRef.current.delete(closingTab.path)
       untitledRenameReadyPathsRef.current.delete(closingTab.path)
@@ -3229,7 +3237,21 @@ function App() {
           setIsGraphOpen(false)
           setIsSuggestedTopicsOpen(false)
           setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false)
+          setRecruiterScreen(null)
           setIsHomeOpen(true)
+        } else if (isRecruiterTabPath(newActiveTab.path)) {
+          setSelectedPath(null)
+          setIsGraphOpen(false)
+          setIsSuggestedTopicsOpen(false)
+          setIsMeetingsOpen(false)
+          setIsLiveNotesOpen(false)
+          setIsBgTasksOpen(false)
+          setIsEmailOpen(false)
+          setIsWorkspaceOpen(false)
+          setIsKnowledgeViewOpen(false)
+          setIsChatHistoryOpen(false)
+          setIsHomeOpen(false)
+          setRecruiterScreen(getRecruiterScreenFromTabPath(newActiveTab.path))
         } else {
           setIsGraphOpen(false)
           setIsSuggestedTopicsOpen(false)
@@ -3385,12 +3407,6 @@ function App() {
     return () => window.removeEventListener('jobraker-recruiter:open-copilot-prompt', handler as EventListener)
   }, [submitFromPalette])
 
-  // Reveal the chat in the right side pane (from the middle-panel chat icon).
-  const openChatSidePane = useCallback(() => {
-    setIsRightPaneMaximized(false)
-    setIsChatSidebarOpen(true)
-  }, [])
-
   // Browser is an overlay on the middle pane: opening it forces the chat
   // sidebar to be visible on the right; closing it restores whatever the
   // middle pane was showing previously (file/graph/task/chat).
@@ -3502,9 +3518,11 @@ function App() {
 
   const currentViewState = React.useMemo<ViewState>(() => {
     if (selectedBackgroundTask) return { type: 'task', name: selectedBackgroundTask }
+    if (recruiterScreen) return { type: 'recruiter', screen: recruiterScreen }
     if (isEmailOpen) return { type: 'email' }
     if (isMeetingsOpen) return { type: 'meetings' }
     if (isLiveNotesOpen) return { type: 'live-notes' }
+    if (isBgTasksOpen) return { type: 'bg-tasks' }
     if (isSuggestedTopicsOpen) return { type: 'suggested-topics' }
     if (isWorkspaceOpen) return { type: 'workspace', path: workspaceInitialPath ?? undefined }
     if (isKnowledgeViewOpen) return { type: 'knowledge-view', folderPath: knowledgeViewFolderPath ?? undefined }
@@ -3513,7 +3531,7 @@ function App() {
     if (selectedPath) return { type: 'file', path: selectedPath }
     if (isGraphOpen) return { type: 'graph' }
     return { type: 'chat', runId }
-  }, [selectedBackgroundTask, isEmailOpen, isMeetingsOpen, isLiveNotesOpen, isBgTasksOpen, isSuggestedTopicsOpen, selectedPath, isGraphOpen, isWorkspaceOpen, isKnowledgeViewOpen, knowledgeViewFolderPath, isChatHistoryOpen, isHomeOpen, workspaceInitialPath, runId])
+  }, [selectedBackgroundTask, recruiterScreen, isEmailOpen, isMeetingsOpen, isLiveNotesOpen, isBgTasksOpen, isSuggestedTopicsOpen, selectedPath, isGraphOpen, isWorkspaceOpen, isKnowledgeViewOpen, knowledgeViewFolderPath, isChatHistoryOpen, isHomeOpen, workspaceInitialPath, runId])
 
   const appendUnique = useCallback((stack: ViewState[], entry: ViewState) => {
     const last = stack[stack.length - 1]
@@ -3658,6 +3676,18 @@ function App() {
     setActiveFileTabId(id)
   }, [fileTabs])
 
+  const ensureRecruiterFileTab = useCallback((screen: RecruiterScreen) => {
+    const path = getRecruiterTabPath(screen)
+    const existing = fileTabs.find((tab) => tab.path === path)
+    if (existing) {
+      setActiveFileTabId(existing.id)
+      return
+    }
+    const id = newFileTabId()
+    setFileTabs((prev) => [...prev, { id, path }])
+    setActiveFileTabId(id)
+  }, [fileTabs])
+
   const openEmailView = useCallback((threadId?: string) => {
     setRecruiterScreen(null)
     setSelectedPath(null)
@@ -3683,61 +3713,18 @@ function App() {
   }, [ensureEmailFileTab])
 
   const openBgTasksView = useCallback(() => {
-    setRecruiterScreen(null)
-    setSelectedPath(null)
-    setIsGraphOpen(false)
-    setIsBrowserOpen(false)
-    setIsSuggestedTopicsOpen(false)
-    setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false)
-    setSelectedBackgroundTask(null)
-    setExpandedFrom(null)
-    setIsRightPaneMaximized(false)
-    setIsBgTasksOpen(true)
-    ensureBgTasksFileTab()
-  }, [ensureBgTasksFileTab])
+    void navigateToViewRef.current({ type: 'bg-tasks' })
+  }, [])
 
   const openMeetingsView = useCallback(() => {
-    setRecruiterScreen(null)
-    setSelectedPath(null)
-    setIsGraphOpen(false)
-    setIsBrowserOpen(false)
-    setIsSuggestedTopicsOpen(false)
-    setIsMeetingsOpen(true)
-    setIsLiveNotesOpen(false)
-    setIsBgTasksOpen(false)
-    setIsEmailOpen(false)
-    setIsWorkspaceOpen(false)
-    setIsKnowledgeViewOpen(false)
-    setIsChatHistoryOpen(false)
-    setIsHomeOpen(false)
-    setSelectedBackgroundTask(null)
-    setExpandedFrom(null)
-    setIsRightPaneMaximized(false)
-    ensureMeetingsFileTab()
-  }, [ensureMeetingsFileTab])
+    void navigateToViewRef.current({ type: 'meetings' })
+  }, [])
 
   const openRecruiterScreen = useCallback((screen: RecruiterScreen) => {
-    setSelectedPath(null)
-    setIsGraphOpen(false)
-    setIsBrowserOpen(false)
-    setIsSuggestedTopicsOpen(false)
-    setIsMeetingsOpen(false)
-    setIsLiveNotesOpen(false)
-    setIsBgTasksOpen(false)
-    setIsEmailOpen(false)
-    setIsWorkspaceOpen(false)
-    setIsKnowledgeViewOpen(false)
-    setIsChatHistoryOpen(false)
-    setIsHomeOpen(false)
-    setSelectedBackgroundTask(null)
-    setExpandedFrom(null)
-    setIsRightPaneMaximized(false)
-    setRecruiterScreen(screen)
+    void navigateToViewRef.current({ type: 'recruiter', screen })
   }, [])
 
   const applyViewState = useCallback(async (view: ViewState) => {
-    // Any standard navigation dismisses the recruiter dashboard overlay.
-    setRecruiterScreen(null)
     switch (view.type) {
       case 'file':
         setSelectedBackgroundTask(null)
@@ -3823,8 +3810,47 @@ function App() {
         setIsKnowledgeViewOpen(false)
         setIsChatHistoryOpen(false)
       setIsHomeOpen(false)
+        setRecruiterScreen(null)
         setIsLiveNotesOpen(true)
         ensureLiveNotesFileTab()
+        return
+      case 'bg-tasks':
+        setSelectedPath(null)
+        setIsGraphOpen(false)
+        setIsBrowserOpen(false)
+        setExpandedFrom(null)
+        setIsRightPaneMaximized(false)
+        setSelectedBackgroundTask(null)
+        setIsSuggestedTopicsOpen(false)
+        setIsMeetingsOpen(false)
+        setIsLiveNotesOpen(false)
+        setIsEmailOpen(false)
+        setIsWorkspaceOpen(false)
+        setIsKnowledgeViewOpen(false)
+        setIsChatHistoryOpen(false)
+        setIsHomeOpen(false)
+        setRecruiterScreen(null)
+        setIsBgTasksOpen(true)
+        ensureBgTasksFileTab()
+        return
+      case 'recruiter':
+        setSelectedPath(null)
+        setIsGraphOpen(false)
+        setIsBrowserOpen(false)
+        setExpandedFrom(null)
+        setIsRightPaneMaximized(false)
+        setSelectedBackgroundTask(null)
+        setIsSuggestedTopicsOpen(false)
+        setIsMeetingsOpen(false)
+        setIsLiveNotesOpen(false)
+        setIsBgTasksOpen(false)
+        setIsEmailOpen(false)
+        setIsWorkspaceOpen(false)
+        setIsKnowledgeViewOpen(false)
+        setIsChatHistoryOpen(false)
+        setIsHomeOpen(false)
+        setRecruiterScreen(view.screen)
+        ensureRecruiterFileTab(view.screen)
         return
       case 'email':
         setSelectedPath(null)
@@ -3945,7 +3971,7 @@ function App() {
         }
         return
     }
-  }, [ensureEmailFileTab, ensureMeetingsFileTab, ensureLiveNotesFileTab, ensureFileTabForPath, ensureGraphFileTab, ensureSuggestedTopicsFileTab, ensureWorkspaceFileTab, ensureKnowledgeViewFileTab, ensureChatHistoryFileTab, ensureHomeFileTab, handleNewChat, isRightPaneMaximized, loadRun])
+  }, [ensureEmailFileTab, ensureMeetingsFileTab, ensureLiveNotesFileTab, ensureBgTasksFileTab, ensureRecruiterFileTab, ensureFileTabForPath, ensureGraphFileTab, ensureSuggestedTopicsFileTab, ensureWorkspaceFileTab, ensureKnowledgeViewFileTab, ensureChatHistoryFileTab, ensureHomeFileTab, handleNewChat, isRightPaneMaximized, loadRun])
 
   const navigateToView = useCallback(async (nextView: ViewState) => {
     const current = currentViewState
@@ -3965,18 +3991,7 @@ function App() {
     await applyViewState(nextView)
   }, [appendUnique, applyViewState, cancelRecordingIfActive, currentViewState, setHistory, isBrowserOpen, dismissBrowserOverlay])
 
-  // Move the maximized/full-screen chat into the right side pane: restore the
-  // view we expanded from (or fall back to Home) and dock the chat on the right.
-  const pushChatToSidePane = useCallback(() => {
-    setIsRightPaneMaximized(false)
-    setIsChatSidebarOpen(true)
-    // Restore the view we expanded from; if there was nothing to restore
-    // (e.g. the chat was started fresh from Home), fall back to Home so a
-    // single click always docks the chat instead of needing two.
-    if (!handleCloseFullScreenChat()) {
-      void navigateToView({ type: 'home' })
-    }
-  }, [handleCloseFullScreenChat, navigateToView])
+  navigateToViewRef.current = navigateToView
 
   const navigateBack = useCallback(async () => {
     const { back, forward } = historyRef.current
@@ -4040,9 +4055,6 @@ function App() {
   // IPC listener (and run the one-time pending-link drain) just once on mount,
   // rather than re-running on every navigation when navigateToView's identity
   // changes.
-  const navigateToViewRef = useRef(navigateToView)
-  useEffect(() => { navigateToViewRef.current = navigateToView }, [navigateToView])
-
   useEffect(() => {
     const handle = (url: string) => {
       const view = parseDeepLink(url)
@@ -4280,7 +4292,7 @@ function App() {
   }, [])
 
   // Keyboard shortcut: Ctrl+L to toggle main chat view
-  const isFullScreenChat = !selectedPath && !isGraphOpen && !isSuggestedTopicsOpen && !isMeetingsOpen && !isLiveNotesOpen && !isBgTasksOpen && !isEmailOpen && !isWorkspaceOpen && !isKnowledgeViewOpen && !isChatHistoryOpen && !isHomeOpen && !selectedBackgroundTask && !isBrowserOpen
+  const isFullScreenChat = !selectedPath && !recruiterScreen && !isGraphOpen && !isSuggestedTopicsOpen && !isMeetingsOpen && !isLiveNotesOpen && !isBgTasksOpen && !isEmailOpen && !isWorkspaceOpen && !isKnowledgeViewOpen && !isChatHistoryOpen && !isHomeOpen && !selectedBackgroundTask && !isBrowserOpen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
@@ -5266,7 +5278,13 @@ function App() {
   const selectedTask = selectedBackgroundTask
     ? backgroundTasks.find(t => t.name === selectedBackgroundTask)
     : null
-  const isRightPaneContext = Boolean(selectedPath || isGraphOpen || isSuggestedTopicsOpen || isMeetingsOpen || isLiveNotesOpen || isBgTasksOpen || isEmailOpen || isWorkspaceOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen || isBrowserOpen)
+  const isRightPaneContext = Boolean(selectedPath || recruiterScreen || isGraphOpen || isSuggestedTopicsOpen || isMeetingsOpen || isLiveNotesOpen || isBgTasksOpen || isEmailOpen || isWorkspaceOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen || isBrowserOpen)
+  const handleAddNewLiveNote = useCallback(() => {
+    submitFromPalette(buildLiveNoteSetupPrompt(), null)
+  }, [submitFromPalette])
+  const requestBgTaskNewDialog = useCallback(() => {
+    setBgTaskNewDialogRequest((version) => version + 1)
+  }, [])
   const isRightPaneOnlyMode = isRightPaneContext && isChatSidebarOpen && isRightPaneMaximized
   const shouldCollapseLeftPane = isRightPaneOnlyMode
   // Collapsing: pin max-width to the snapshot px (no transition) for one frame so it's
@@ -5370,7 +5388,7 @@ function App() {
                 canNavigateForward={canNavigateForward}
                 collapsedLeftPaddingPx={collapsedLeftPaddingPx}
               >
-                {(selectedPath || isGraphOpen || isSuggestedTopicsOpen || isMeetingsOpen || isLiveNotesOpen || isBgTasksOpen || isEmailOpen || isWorkspaceOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen) && fileTabs.length >= 1 ? (
+                {!isFullScreenChat && fileTabs.length >= 1 ? (
                   <TabBar
                     tabs={fileTabs}
                     activeTabId={activeFileTabId ?? ''}
@@ -5378,7 +5396,12 @@ function App() {
                     getTabId={(t) => t.id}
                     onSwitchTab={switchFileTab}
                     onCloseTab={closeFileTab}
-                    allowSingleTabClose={fileTabs.length === 1 && (isGraphOpen || isSuggestedTopicsOpen || isMeetingsOpen || isLiveNotesOpen || isBgTasksOpen || isEmailOpen || isWorkspaceOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen || (selectedPath != null && isBaseFilePath(selectedPath)))}
+                    allowSingleTabClose={fileTabs.length === 1 && (
+                      isGraphOpen || isSuggestedTopicsOpen || isMeetingsOpen || isLiveNotesOpen || isBgTasksOpen
+                      || isEmailOpen || isWorkspaceOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen
+                      || recruiterScreen != null
+                      || (selectedPath != null && isBaseFilePath(selectedPath))
+                    )}
                   />
                 ) : isFullScreenChat ? (
                   <ChatHeader
@@ -5443,7 +5466,7 @@ function App() {
                     <TooltipContent side="bottom">Version history</TooltipContent>
                   </Tooltip>
                 )}
-                {!isFullScreenChat && !selectedPath && !isGraphOpen && !isSuggestedTopicsOpen && !isMeetingsOpen && !isLiveNotesOpen && !isBgTasksOpen && !isEmailOpen && !isWorkspaceOpen && !isKnowledgeViewOpen && !isChatHistoryOpen && !selectedTask && !isBrowserOpen && (
+                {!isFullScreenChat && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -5458,37 +5481,60 @@ function App() {
                     <TooltipContent side="bottom">New chat</TooltipContent>
                   </Tooltip>
                 )}
+                {isMeetingsOpen ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={meetingTranscription.state === 'recording' ? 'destructive' : 'default'}
+                    disabled={meetingTranscription.state === 'connecting' || meetingTranscription.state === 'stopping' || meetingSummarizing}
+                    onClick={() => { void handleToggleMeeting() }}
+                    className="titlebar-no-drag self-center shrink-0"
+                  >
+                    {meetingSummarizing || meetingTranscription.state === 'connecting' || meetingTranscription.state === 'stopping' ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : meetingTranscription.state === 'recording' ? (
+                      <Square className="mr-2 size-3.5" />
+                    ) : (
+                      <Mic className="mr-2 size-4" />
+                    )}
+                    {meetingSummarizing ? 'Generating notes...' : meetingTranscription.state === 'recording' ? 'Stop recording' : 'Take meeting notes'}
+                  </Button>
+                ) : null}
+                {isLiveNotesOpen ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddNewLiveNote}
+                    className="titlebar-no-drag self-center shrink-0"
+                  >
+                    New live note
+                  </Button>
+                ) : null}
+                {isBgTasksOpen ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={requestBgTaskNewDialog}
+                    className="titlebar-no-drag self-center shrink-0"
+                  >
+                    New task
+                  </Button>
+                ) : null}
                 {/* Trailing layout control. Always mounted (just toggled invisible
                     when inactive) so its -webkit-app-region:no-drag rect is stable —
                     a freshly-mounted no-drag button inside the drag-region header
                     otherwise has its first click swallowed by the window drag. */}
                 {(() => {
-                  const viewOpen = selectedPath || isGraphOpen || isSuggestedTopicsOpen || isMeetingsOpen || isLiveNotesOpen || isBgTasksOpen || isEmailOpen || isWorkspaceOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen
-                  const action = isFullScreenChat
-                    ? { onClick: pushChatToSidePane, icon: <ArrowRight className="size-5" />, label: 'Dock chat to side pane' }
-                    : (viewOpen && !isChatSidebarOpen)
-                      ? { onClick: openChatSidePane, icon: <MessageSquare className="size-5" />, label: 'Open chat' }
-                      : (viewOpen && isChatSidebarOpen && !isRightPaneMaximized)
-                        ? { onClick: () => setIsChatSidebarOpen(false), icon: <ArrowRight className="size-5" />, label: 'Expand pane' }
-                        : null
                   return (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          onClick={action ? action.onClick : undefined}
-                          disabled={!action}
-                          aria-hidden={!action}
-                          aria-label={action?.label}
-                          className={cn(
-                            'titlebar-no-drag flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors -mr-1 self-center shrink-0',
-                            action ? 'hover:bg-accent hover:text-foreground' : 'invisible pointer-events-none',
-                          )}
-                        >
-                          {action?.icon}
-                        </button>
+                          disabled
+                          aria-hidden
+                          className="titlebar-no-drag invisible pointer-events-none -mr-1 flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground transition-colors"
+                        />
                       </TooltipTrigger>
-                      {action && <TooltipContent side="bottom">{action.label}</TooltipContent>}
                     </Tooltip>
                   )
                 })()}
@@ -5512,7 +5558,31 @@ function App() {
                     onOpenNote={(path) => navigateToFile(path)}
                     onOpenRun={(rid) => void navigateToView({ type: 'chat', runId: rid })}
                     onTakeMeetingNotes={() => { void handleToggleMeeting() }}
-                    onOpenChat={handleNewChatTab}
+                    onOpenChat={(prompt) => {
+                      if (prompt) setPresetMessage(prompt)
+                      handleNewChatTab()
+                    }}
+                    onOpenRecruiterScreen={(screen) => openRecruiterScreen(screen)}
+                    onOpenSearch={() => setIsSearchOpen(true)}
+                  />
+                </div>
+              ) : recruiterScreen ? (
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                  <RecruiterScreens
+                    screen={recruiterScreen}
+                    onNavigate={(screen: RecruiterScreenId) => openRecruiterScreen(screen)}
+                    onAskCopilot={(prompt) => {
+                      submitFromPalette(prompt, null)
+                    }}
+                    onOpenSearch={() => setIsSearchOpen(true)}
+                    onOpenChat={(prompt?: string) => {
+                      if (prompt) setPresetMessage(prompt)
+                      handleNewChatTab()
+                    }}
+                    onTakeMeetingNotes={() => { void handleToggleMeeting() }}
+                    onOpenAgents={() => { setBgTaskInitialSlug(null); setBgTaskSlugVersion((v) => v + 1); openBgTasksView() }}
+                    onOpenEmail={(threadId?: string) => openEmailView(threadId)}
+                    onOpenMeetings={openMeetingsView}
                   />
                 </div>
               ) : isSuggestedTopicsOpen ? (
@@ -5537,9 +5607,7 @@ function App() {
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   <LiveNotesView
                     onOpenNote={(path) => navigateToFile(path)}
-                    onAddNewLiveNote={() => {
-                      submitFromPalette(buildLiveNoteSetupPrompt(), null)
-                    }}
+                    onAddNewLiveNote={handleAddNewLiveNote}
                   />
                 </div>
               ) : isBgTasksOpen ? (
@@ -5547,6 +5615,7 @@ function App() {
                   <BgTasksView
                     initialSlug={bgTaskInitialSlug}
                     slugVersion={bgTaskSlugVersion}
+                    newTaskRequestVersion={bgTaskNewDialogRequest}
                     onCreateWithCopilot={(description) => {
                       submitFromPalette(buildBgTaskSetupPrompt(description), null)
                     }}
@@ -6003,22 +6072,10 @@ function App() {
               </div>
               </FileCardProvider>
               )}
-              {recruiterScreen && (
-                <div className="absolute inset-0 z-40 flex flex-col overflow-hidden bg-background">
-                  <RecruiterScreens
-                    screen={recruiterScreen}
-                    onNavigate={(screen) => openRecruiterScreen(screen)}
-                    onAskCopilot={(prompt) => {
-                      setRecruiterScreen(null)
-                      submitFromPalette(prompt, null)
-                    }}
-                  />
-                </div>
-              )}
             </SidebarInset>
 
             {/* Chat sidebar - shown when viewing files/graph */}
-            {isRightPaneContext && (
+            {isRightPaneContext && isChatSidebarOpen && (
               <ChatSidebar
                 defaultWidth={460}
                 isOpen={isChatSidebarOpen}
@@ -6089,10 +6146,6 @@ function App() {
                 onComposioConnected={handleComposioConnected}
               />
             )}
-            {/* Rendered last so its no-drag region paints over the sidebar drag region */}
-            <FixedSidebarToggle
-              leftInsetPx={isMac ? MACOS_TRAFFIC_LIGHTS_RESERVED_PX : 0}
-            />
           </SidebarProvider>
         </div>
         <CommandPalette
