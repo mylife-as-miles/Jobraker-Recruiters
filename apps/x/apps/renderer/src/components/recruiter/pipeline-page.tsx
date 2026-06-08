@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { toast } from 'sonner'
 import {
   Briefcase,
   ChevronDown,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'motion/react'
 import {
+  CANDIDATES,
   PIPELINE_COLUMNS,
   PIPELINE_INSIGHTS,
   PIPELINE_ROLE_OPTIONS,
@@ -67,15 +69,65 @@ function buildInitialBoard(): Record<PipelineStage, string[]> {
 type PipelinePageProps = {
   onAskCopilot?: (prompt: string) => void
   onNavigateCandidates?: () => void
+  onOpenSearch?: () => void
+  onOpenChat?: (prompt?: string) => void
+  onTakeMeetingNotes?: () => void
+  onOpenAgents?: () => void
+  onOpenEmail?: (threadId?: string) => void
+  onOpenMeetings?: () => void
 }
 
-export function PipelinePage({ onAskCopilot, onNavigateCandidates }: PipelinePageProps) {
+export function PipelinePage({
+  onAskCopilot,
+  onOpenSearch,
+  onOpenChat,
+  onTakeMeetingNotes,
+  onOpenAgents,
+  onOpenMeetings,
+}: PipelinePageProps) {
   const loading = useFakeLoading(700)
   const [search, setSearch] = React.useState('')
   const [role, setRole] = React.useState(PIPELINE_ROLE_OPTIONS[0])
   const [board, setBoard] = React.useState(buildInitialBoard)
   const [dragId, setDragId] = React.useState<string | null>(null)
   const [overStage, setOverStage] = React.useState<PipelineStage | null>(null)
+
+  const addCandidateToStage = (stage: PipelineStage) => {
+    const name = window.prompt(`Enter candidate name for the ${stage} stage:`)
+    if (!name || !name.trim()) return
+
+    const newId = `c_custom_${Date.now()}`
+    const newCandidate = {
+      id: newId,
+      name: name.trim(),
+      title: role,
+      location: 'Remote',
+      experienceYears: 4,
+      matchScore: 85,
+      stage: (stage === 'Sourced' ? 'New' : stage === 'Contacted' ? 'Screening' : stage === 'Interview' ? 'Interview' : stage === 'Offer' ? 'Offer' : stage === 'Hired' ? 'Hired' : 'Screening') as any,
+      source: 'LinkedIn' as any,
+      lastActivity: 'Just now',
+      fit: 'Recommended' as const,
+      skills: ['React', 'TypeScript'],
+      highlights: ['Added from interactive board'],
+      aiInsight: 'Candidate matches the specified role requirements.',
+      note: '',
+      email: `${name.trim().toLowerCase().replace(/\s+/g, '.')}@example.com`,
+    }
+
+    const currentCandidates = loadRecruiterState<any[]>('candidates', [])
+    const nextCandidates = currentCandidates.length > 0 ? [...currentCandidates] : [...CANDIDATES]
+    nextCandidates.push(newCandidate)
+    saveRecruiterState('candidates', nextCandidates)
+
+    setBoard((prev) => {
+      const next = { ...prev }
+      next[stage] = [...(next[stage] ?? []), newId]
+      return next
+    })
+
+    toast.success(`Candidate ${name.trim()} added to ${stage}!`)
+  }
 
   React.useEffect(() => {
     saveRecruiterState('pipeline-board', board)
@@ -140,6 +192,10 @@ export function PipelinePage({ onAskCopilot, onNavigateCandidates }: PipelinePag
         searchPlaceholder="Search candidates, roles, or notes"
         searchValue={search}
         onSearchChange={setSearch}
+        onOpenSearch={onOpenSearch}
+        onOpenChat={onOpenChat}
+        onTakeMeetingNotes={onTakeMeetingNotes}
+        onOpenAgents={onOpenAgents}
         rightExtra={
           <div className="relative">
             <Briefcase className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand" />
@@ -278,7 +334,7 @@ export function PipelinePage({ onAskCopilot, onNavigateCandidates }: PipelinePag
                       })}
                       <button
                         type="button"
-                        onClick={onNavigateCandidates}
+                        onClick={() => addCandidateToStage(stage)}
                         className="flex items-center justify-center gap-1 rounded-xl border border-dashed border-border/50 py-2 text-[10px] font-medium text-brand transition hover:border-brand/40 hover:bg-brand/5"
                       >
                         <Plus className="size-3" />
@@ -307,7 +363,11 @@ export function PipelinePage({ onAskCopilot, onNavigateCandidates }: PipelinePag
                 <div key={insight.title} className="rounded-xl border border-border/40 bg-foreground/[0.03] p-3">
                   <p className="text-xs font-semibold text-foreground">{insight.title}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">{insight.body}</p>
-                  <button type="button" className="mt-2 text-[11px] font-medium text-brand hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => onAskCopilot?.(insight.body)}
+                    className="mt-2 text-[11px] font-medium text-brand hover:underline"
+                  >
                     {insight.cta}
                   </button>
                 </div>
@@ -330,7 +390,11 @@ export function PipelinePage({ onAskCopilot, onNavigateCandidates }: PipelinePag
                     />
                   </svg>
                 </div>
-                <button type="button" className="mt-2 text-[11px] font-medium text-brand hover:underline">
+                <button
+                  type="button"
+                  onClick={() => onAskCopilot?.("Give me suggestions to optimize my pipeline conversion rates.")}
+                  className="mt-2 text-[11px] font-medium text-brand hover:underline"
+                >
                   View other suggestions
                 </button>
               </div>
@@ -354,7 +418,11 @@ export function PipelinePage({ onAskCopilot, onNavigateCandidates }: PipelinePag
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {(board.Interview?.length ?? 0)} candidates ready for interview scheduling.
                 </p>
-                <button type="button" className="mt-2 text-[11px] font-medium text-brand hover:underline">
+                <button
+                  type="button"
+                  onClick={onOpenMeetings}
+                  className="mt-2 text-[11px] font-medium text-brand hover:underline"
+                >
                   View schedule
                 </button>
               </div>
