@@ -1398,7 +1398,7 @@ function TaskDetail({
                     />
                 )}
             </div>
-        </div>
+        </PageTransition>
     )
 }
 
@@ -1534,7 +1534,7 @@ export function BgTasksView({ onCreateWithCopilot, onEditWithCopilot, initialSlu
     }
 
     return (
-        <div className="flex h-full flex-col overflow-hidden">
+        <PageTransition className="flex h-full flex-col overflow-hidden">
             <div className="shrink-0 border-b border-border px-6 py-5">
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
