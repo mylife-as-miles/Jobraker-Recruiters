@@ -6,6 +6,10 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   base: './',  // Use relative paths for assets (required for Electron custom protocol)
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   plugins: [
     react(),
     tailwindcss(),
