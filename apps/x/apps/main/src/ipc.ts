@@ -5,6 +5,7 @@ import os from 'node:os';
 import {
   connectProvider,
   disconnectProvider,
+  ensureGoogleProfileCached,
   listProviders,
 } from './oauth-handler.js';
 import { watcher as watcherCore, workspace } from '@x/core';
@@ -44,7 +45,7 @@ import { IAgentScheduleRepo } from '@x/core/dist/agent-schedule/repo.js';
 import { IAgentScheduleStateRepo } from '@x/core/dist/agent-schedule/state-repo.js';
 import { triggerRun as triggerAgentScheduleRun } from '@x/core/dist/agent-schedule/runner.js';
 import { search } from '@x/core/dist/search/search.js';
-import { versionHistory, voice } from '@x/core';
+import { versionHistory, voice, scribe, generateRecruiterLlmText } from '@x/core';
 import { classifySchedule, processJobrakerRecruiterInstruction } from '@x/core/dist/knowledge/inline_tasks.js';
 import { getBillingInfo } from '@x/core/dist/billing/billing.js';
 import { summarizeMeeting } from '@x/core/dist/knowledge/summarize_meeting.js';
@@ -610,6 +611,7 @@ export function setupIpcHandlers() {
       return listProviders();
     },
     'oauth:getState': async () => {
+      await ensureGoogleProfileCached();
       const repo = container.resolve<IOAuthRepo>('oauthRepo');
       const config = await repo.getClientFacingConfig();
       return { config };
@@ -913,6 +915,18 @@ export function setupIpcHandlers() {
     'voice:synthesize': async (_event, args) => {
       return voice.synthesizeSpeech(args.text);
     },
+    'elevenlabs:listVoices': async (_event, args) => {
+      const voices = await voice.listElevenLabsVoices(args?.apiKey);
+      return { voices };
+    },
+    'elevenlabs:createScribeToken': async () => {
+      const token = await scribe.createScribeRealtimeToken();
+      return { token };
+    },
+    'elevenlabs:transcribeAudio': async (_event, args) => {
+      const text = await scribe.transcribeAudioWithScribe(args.audioBase64, args.mimeType);
+      return { text };
+    },
     // Live-note handlers
     'live-note:run': async (_event, args) => {
       const result = await runLiveNoteAgent(args.filePath, 'manual', args.context);
@@ -1045,6 +1059,14 @@ export function setupIpcHandlers() {
     // Billing handler
     'billing:getInfo': async () => {
       return await getBillingInfo();
+    },
+    'recruiter:generateLlm': async (_event, args) => {
+      try {
+        const text = await generateRecruiterLlmText(args.systemPrompt, args.prompt, args.temperature);
+        return { text };
+      } catch (err: any) {
+        return { text: '', error: err?.message || String(err) };
+      }
     },
     // Embedded browser handlers (WebContentsView + navigation)
     ...browserIpcHandlers,
