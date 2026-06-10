@@ -9,6 +9,8 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { LlmModelConfig, LlmProvider } from "@x/shared/dist/models.js";
 import z from "zod";
 import { getGatewayProvider } from "./gateway.js";
+import container from "../di/container.js";
+import { IModelConfigRepo } from "./repo.js";
 
 export const Provider = LlmProvider;
 export const ModelConfig = LlmModelConfig;
@@ -96,3 +98,23 @@ export async function testModelConnection(
         clearTimeout(timeout);
     }
 }
+
+export async function generateRecruiterLlmText(
+    systemPrompt: string,
+    prompt: string,
+    temperature?: number,
+): Promise<string> {
+    const repo = container.resolve<IModelConfigRepo>("modelConfigRepo");
+    const config = await repo.getConfig();
+    const provider = createProvider(config.provider);
+    const model = provider.languageModel(config.model);
+
+    const result = await generateText({
+        model,
+        system: systemPrompt,
+        prompt,
+        temperature,
+    });
+    return result.text.trim();
+}
+
