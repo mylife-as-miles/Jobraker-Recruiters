@@ -16,6 +16,9 @@ const ProviderConnectionSchema = z.object({
    */
   mode: z.enum(['byok', 'jobraker-recruiter']).optional(),
   error: z.string().nullable().optional(),
+  profileName: z.string().nullable().optional(),
+  profileImage: z.string().nullable().optional(),
+  profileEmail: z.string().nullable().optional(),
 });
 
 const OAuthConfigSchema = z.object({
@@ -27,6 +30,9 @@ const ClientFacingConfigSchema = z.record(z.string(), z.object({
   connected: z.boolean(),
   error: z.string().nullable().optional(),
   clientId: z.string().nullable().optional(),
+  profileName: z.string().nullable().optional(),
+  profileImage: z.string().nullable().optional(),
+  profileEmail: z.string().nullable().optional(),
 }));
 
 const LegacyOauthConfigSchema = z.record(z.string(), OAuthTokens);
@@ -121,6 +127,9 @@ export class FSOAuthRepo implements IOAuthRepo {
         connected: !!providerConfig.tokens,
         error: providerConfig.error,
         clientId: providerConfig.clientId ?? null,
+        profileName: providerConfig.profileName ?? null,
+        profileImage: providerConfig.profileImage ?? null,
+        profileEmail: providerConfig.profileEmail ?? null,
       };
     }
     return ClientFacingConfigSchema.parse(clientFacingConfig);
