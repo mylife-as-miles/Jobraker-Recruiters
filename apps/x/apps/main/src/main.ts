@@ -1,5 +1,6 @@
 import { app, BrowserWindow, desktopCapturer, protocol, net, shell, session, Menu, type Session } from "electron";
 import path from "node:path";
+import fs from "node:fs";
 import {
   setupIpcHandlers,
   startRunsWatcher,
@@ -131,12 +132,15 @@ initializeExecutionEnvironment();
 // Path resolution differs between development and production:
 const preloadPath = app.isPackaged
   ? path.join(__dirname, "../preload/dist/preload.js")
-  : path.join(__dirname, "../../../preload/dist/preload.js");
+  : path.join(__dirname, "../../preload/dist/preload.js");
 console.log("preloadPath", preloadPath);
+if (!fs.existsSync(preloadPath)) {
+  console.error("[main] Preload script missing:", preloadPath);
+}
 
 const rendererPath = app.isPackaged
   ? path.join(__dirname, "../renderer/dist") // Production
-  : path.join(__dirname, "../../../renderer/dist"); // Development
+  : path.join(__dirname, "../../renderer/dist"); // Development
 console.log("rendererPath", rendererPath);
 
 // Register custom protocol for serving built renderer files in production
@@ -275,13 +279,28 @@ function createWindow() {
 
   // Handle navigation to external URLs (e.g., clicking a link without target="_blank")
   win.webContents.on("will-navigate", (event, url) => {
+    const isDevLocalhost = !app.isPackaged && /^https?:\/\/localhost:\d+/.test(url);
     const isInternal =
-      url.startsWith("app://") || url.startsWith("http://localhost:5173");
+      url.startsWith("app://") || url.startsWith("http://localhost:5173") || isDevLocalhost;
     if (!isInternal) {
       event.preventDefault();
       shell.openExternal(url);
     }
   });
+
+  if (!app.isPackaged) {
+    win.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
+      console.error("[Renderer] did-fail-load:", { errorCode, errorDescription, validatedURL });
+    });
+    win.webContents.on("render-process-gone", (_event, details) => {
+      console.error("[Renderer] render-process-gone:", details);
+    });
+    win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+      if (level >= 2) {
+        console.error(`[Renderer console] ${message} (${sourceId}:${line})`);
+      }
+    });
+  }
 
   // Attach the embedded browser pane manager to this window.
   // The WebContentsView is created lazily on first `browser:setVisible`.
@@ -290,7 +309,8 @@ function createWindow() {
   if (app.isPackaged) {
     win.loadURL("app://-/index.html");
   } else {
-    win.loadURL("http://localhost:5173");
+    const devServerUrl = process.env.VITE_DEV_SERVER_URL ?? "http://localhost:5173";
+    win.loadURL(devServerUrl);
   }
 }
 
