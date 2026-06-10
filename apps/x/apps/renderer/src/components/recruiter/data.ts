@@ -39,6 +39,11 @@ export type CandidateSource =
   | 'Twitter'
   | 'Career Page'
 
+export type CompanyStage = 'Seed' | 'Series A' | 'Series B' | 'Growth' | 'Enterprise'
+export type GrowthTrajectory = 'Fast' | 'Moderate' | 'Steady'
+export type VestingStatus = 'Fully Vested' | 'Partially Vested' | 'Unvested'
+export type IntentSignal = 'Actively Sourcing' | 'Recently Promoted' | 'High Engagement' | 'Passive'
+
 export type Candidate = {
   id: string
   name: string
@@ -55,6 +60,12 @@ export type Candidate = {
   aiInsight: string
   note?: string
   email: string
+  companyStages: CompanyStage[]
+  growthTrajectory: GrowthTrajectory
+  vestingStatus: VestingStatus
+  intentSignal: IntentSignal
+  startupFitScore: number
+  startupFitInsight: string
 }
 
 // Deterministic avatar gradient from a name so colors stay stable per person.
@@ -113,6 +124,12 @@ export const CANDIDATES: Candidate[] = [
       'Teni has strong fundamentals in interaction design but could strengthen visual design skills.',
     note: 'Impressed with portfolio case studies and user research depth.',
     email: 'teni.ogunleye@example.com',
+    companyStages: ['Seed', 'Series A'],
+    growthTrajectory: 'Fast',
+    vestingStatus: 'Partially Vested',
+    intentSignal: 'Actively Sourcing',
+    startupFitScore: 95,
+    startupFitInsight: 'Proven experience designing and shipping zero-to-one product features in seed and series A environments. High ownership capacity.',
   },
   {
     id: 'c2',
@@ -132,6 +149,12 @@ export const CANDIDATES: Candidate[] = [
     ],
     aiInsight: 'Strong systems thinker; comp expectations may run above band.',
     email: 'femi.okoro@example.com',
+    companyStages: ['Seed'],
+    growthTrajectory: 'Fast',
+    vestingStatus: 'Unvested',
+    intentSignal: 'Recently Promoted',
+    startupFitScore: 92,
+    startupFitInsight: 'Recently scaled a fintech product from 0 to 250K users. Highly motivated with an accelerated career trajectory.',
   },
   {
     id: 'c3',
@@ -147,6 +170,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Redesigned marketing site lifting conversion 22%'],
     aiInsight: 'Great visual polish; less depth in research methods.',
     email: 'chinaza.uche@example.com',
+    companyStages: ['Growth'],
+    growthTrajectory: 'Moderate',
+    vestingStatus: 'Partially Vested',
+    intentSignal: 'High Engagement',
+    startupFitScore: 84,
+    startupFitInsight: 'Great visual craft. Solid growth-stage experience, though has had less exposure to zero-to-one research ambiguity.',
   },
   {
     id: 'c4',
@@ -162,6 +191,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Owned end-to-end design for B2B SaaS dashboard'],
     aiInsight: 'Senior generalist; strong stakeholder management.',
     email: 'david.adeyemi@example.com',
+    companyStages: ['Enterprise', 'Growth'],
+    growthTrajectory: 'Steady',
+    vestingStatus: 'Fully Vested',
+    intentSignal: 'Passive',
+    startupFitScore: 82,
+    startupFitInsight: 'A senior generalist with strong B2B SaaS experience. Accustomed to larger team structures but highly capable of establishing design processes.',
   },
   {
     id: 'c5',
@@ -177,6 +212,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Strong early-career portfolio with mobile focus'],
     aiInsight: 'Promising junior; would benefit from systems exposure.',
     email: 'zainab.yusuf@example.com',
+    companyStages: ['Seed'],
+    growthTrajectory: 'Fast',
+    vestingStatus: 'Unvested',
+    intentSignal: 'Actively Sourcing',
+    startupFitScore: 78,
+    startupFitInsight: 'Promising early-career designer. Shows fast learning curve, though would need guidance in complex design systems.',
   },
   {
     id: 'c6',
@@ -192,6 +233,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Shipped 3 consumer apps end to end'],
     aiInsight: 'Solid execution; portfolio narrative could be sharper.',
     email: 'ibrahim.bello@example.com',
+    companyStages: ['Seed', 'Growth'],
+    growthTrajectory: 'Moderate',
+    vestingStatus: 'Unvested',
+    intentSignal: 'Passive',
+    startupFitScore: 81,
+    startupFitInsight: 'Shipped 3 consumer apps in seed and growth startups. Thrives in highly autonomous execution roles.',
   },
   {
     id: 'c7',
@@ -208,6 +255,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Led design at a YC-backed startup'],
     aiInsight: 'Startup-ready; thrives in ambiguity.',
     email: 'aisha.lawal@example.com',
+    companyStages: ['Seed'],
+    growthTrajectory: 'Fast',
+    vestingStatus: 'Fully Vested',
+    intentSignal: 'Actively Sourcing',
+    startupFitScore: 96,
+    startupFitInsight: 'Led design at a fast-paced YC-backed startup. Highly comfortable with ambiguity and rapid product iterations.',
   },
   {
     id: 'c8',
@@ -223,6 +276,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Award-winning visual portfolio'],
     aiInsight: 'Exceptional craft; timezone overlap is limited.',
     email: 'daniel.kim@example.com',
+    companyStages: ['Growth'],
+    growthTrajectory: 'Steady',
+    vestingStatus: 'Partially Vested',
+    intentSignal: 'Passive',
+    startupFitScore: 75,
+    startupFitInsight: 'Outstanding visual craft and branding expertise. Thrives in design-led growth startups, though timezone overlap requires management.',
   },
   {
     id: 'c9',
@@ -238,6 +297,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Strong product thinking in interviews'],
     aiInsight: 'Consistent performer across screens.',
     email: 'fatima.yusuf@example.com',
+    companyStages: ['Series B'],
+    growthTrajectory: 'Moderate',
+    vestingStatus: 'Unvested',
+    intentSignal: 'High Engagement',
+    startupFitScore: 83,
+    startupFitInsight: 'Consistent performer with series B product experience. Highly collaborative and process-oriented.',
   },
   {
     id: 'c10',
@@ -254,6 +319,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Staff-level designer with platform experience'],
     aiInsight: 'Top of funnel; move quickly to secure.',
     email: 'morgan.lee@example.com',
+    companyStages: ['Growth', 'Enterprise'],
+    growthTrajectory: 'Steady',
+    vestingStatus: 'Fully Vested',
+    intentSignal: 'Actively Sourcing',
+    startupFitScore: 87,
+    startupFitInsight: 'Staff-level designer with platform design systems experience. Looking to return to an agile growth environment.',
   },
   {
     id: 'c11',
@@ -269,6 +340,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Referred by current senior designer'],
     aiInsight: 'Warm referral; strong culture signal.',
     email: 'tobi.martins@example.com',
+    companyStages: ['Seed', 'Series A'],
+    growthTrajectory: 'Fast',
+    vestingStatus: 'Unvested',
+    intentSignal: 'High Engagement',
+    startupFitScore: 89,
+    startupFitInsight: 'Strong culture signal. Has successfully shipped complex features in seed-stage teams.',
   },
   {
     id: 'c12',
@@ -285,6 +362,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Offer extended — pending acceptance'],
     aiInsight: 'High intent; competing offer likely.',
     email: 'priya.shah@example.com',
+    companyStages: ['Series B', 'Growth'],
+    growthTrajectory: 'Fast',
+    vestingStatus: 'Partially Vested',
+    intentSignal: 'Recently Promoted',
+    startupFitScore: 90,
+    startupFitInsight: 'High intent candidate with senior strategy experience. Has navigated series B scale phase successfully.',
   },
   {
     id: 'c13',
@@ -300,6 +383,12 @@ export const CANDIDATES: Candidate[] = [
     highlights: ['Offer pending internal approval'],
     aiInsight: 'Strong all-rounder.',
     email: 'jason.ng@example.com',
+    companyStages: ['Growth'],
+    growthTrajectory: 'Moderate',
+    vestingStatus: 'Unvested',
+    intentSignal: 'Passive',
+    startupFitScore: 80,
+    startupFitInsight: 'Strong all-rounder with growth-stage B2B SaaS experience. Highly reliable operator.',
   },
   {
     id: 'c14',
@@ -307,15 +396,21 @@ export const CANDIDATES: Candidate[] = [
     title: 'Product Designer',
     location: 'Remote',
     experienceYears: 7,
-    matchScore: 94,
+    matchScore: 72,
     stage: 'Hired',
     source: 'LinkedIn',
     lastActivity: 'May 28, 2025',
-    fit: 'High fit',
+    fit: null,
     skills: ['Product Design', 'Design Systems', 'Leadership'],
     highlights: ['Hired — start date confirmed'],
     aiInsight: 'Closed successfully.',
     email: 'sarah.johnson@example.com',
+    companyStages: ['Enterprise'],
+    growthTrajectory: 'Steady',
+    vestingStatus: 'Fully Vested',
+    intentSignal: 'Passive',
+    startupFitScore: 68,
+    startupFitInsight: 'Experienced designer but has primarily worked in large corporate frameworks. May find early startup ambiguity challenging.',
   },
 ]
 
