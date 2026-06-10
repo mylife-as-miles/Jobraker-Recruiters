@@ -2,11 +2,13 @@
 
 import * as React from "react"
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Server, Key, Shield, Palette, Monitor, Sun, Moon, Loader2, CheckCircle2, Plus, X, Wrench, Search, ChevronRight, Link2, Tags, Mail, BookOpen, User, Plug, HelpCircle, MessageCircle, Bug, Terminal, AlertTriangle, RefreshCw } from "lucide-react"
+import { Server, Key, Shield, Palette, Monitor, Sun, Moon, Loader2, CheckCircle2, Plus, X, Wrench, Search, ChevronRight, Link2, Tags, Mail, BookOpen, User, Plug, MessageCircle, Bug, Terminal, AlertTriangle, RefreshCw } from "lucide-react"
 
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -25,6 +27,7 @@ import { useTheme } from "@/contexts/theme-context"
 import { toast } from "sonner"
 import { AccountSettings } from "@/components/settings/account-settings"
 import { ConnectedAccountsSettings } from "@/components/settings/connected-accounts-settings"
+import { ConnectorApiKeysSettings } from "@/components/settings/connector-api-keys-settings"
 
 type ConfigTab = "account" | "connections" | "models" | "mcp" | "security" | "code-mode" | "appearance" | "note-tagging" | "help"
 
@@ -87,13 +90,7 @@ const tabs: TabConfig[] = [
     label: "Note Tagging",
     icon: Tags,
     path: "config/tags.json",
-    description: "Configure tags for notes and emails",
-  },
-  {
-    id: "help",
-    label: "Help",
-    icon: HelpCircle,
-    description: "Get help and support",
+    description: "Tune recruiter labels for candidates, roles, interviews, and hiring signals",
   },
 ]
 
@@ -1957,6 +1954,10 @@ export function SettingsDialog({ children, defaultTab = "account", open: control
       <DialogContent
         className="max-w-[900px]! w-[900px] h-[600px] p-0 gap-0 overflow-hidden"
       >
+        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <DialogDescription className="sr-only">
+          Manage your account, connections, models, and app preferences.
+        </DialogDescription>
         <div className="flex h-full overflow-hidden">
           {/* Sidebar */}
           <div className="w-48 border-r bg-muted/30 p-2 flex flex-col">
@@ -2007,6 +2008,7 @@ export function SettingsDialog({ children, defaultTab = "account", open: control
                   <Separator />
                   <div className="space-y-2">
                     <h4 className="text-sm font-semibold">Library</h4>
+                    <ConnectorApiKeysSettings dialogOpen={open} />
                     <ToolsLibrarySettings dialogOpen={open} jobrakerRecruiterConnected={jobrakerRecruiterConnected} />
                   </div>
                 </div>
