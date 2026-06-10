@@ -1,27 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
-import { buildDeepgramListenUrl } from '@/lib/deepgram-listen-url';
-import { useJobrakerRecruiterAccount } from '@/hooks/useJobrakerRecruiterAccount';
 import posthog from 'posthog-js';
 import * as analytics from '@/lib/analytics';
+import {
+  connectScribeRealtime,
+  float32ToInt16,
+  sendScribeAudioChunk,
+  type ScribeServerMessage,
+} from '@/lib/elevenlabs-scribe';
+import { useJobrakerRecruiterAccount } from '@/hooks/useJobrakerRecruiterAccount';
 
 export type VoiceState = 'idle' | 'connecting' | 'listening';
-
-const DEEPGRAM_PARAMS = new URLSearchParams({
-    model: 'nova-3',
-    encoding: 'linear16',
-    sample_rate: '16000',
-    channels: '1',
-    interim_results: 'true',
-    smart_format: 'true',
-    punctuate: 'true',
-    language: 'en',
-    endpointing: '100',
-    no_delay: 'true',
-});
-const DEEPGRAM_LISTEN_URL = `wss://api.deepgram.com/v1/listen?${DEEPGRAM_PARAMS.toString()}`;
-
-// Cache auth details so we don't need IPC round-trips on every mic click
-let cachedAuth: { type: 'jobraker-recruiter'; url: string; token: string } | { type: 'local'; apiKey: string } | null = null;
 
 export function useVoiceMode() {
     const { refresh: refreshJobrakerRecruiterAccount } = useJobrakerRecruiterAccount();
@@ -33,86 +21,85 @@ export function useVoiceMode() {
     const audioCtxRef = useRef<AudioContext | null>(null);
     const transcriptBufferRef = useRef('');
     const interimRef = useRef('');
-    // Buffer audio chunks captured before the WebSocket is ready
-    const audioBufferRef = useRef<ArrayBuffer[]>([]);
+    const audioBufferRef = useRef<Int16Array[]>([]);
+    const scribeReadyRef = useRef(false);
 
-    // Refresh cached auth details (called on warmup, not on mic click)
-    const refreshAuth = useCallback(async () => {
+    const refreshAuth = useCallback(async (): Promise<boolean> => {
         const account = await refreshJobrakerRecruiterAccount();
-        if (
-            account?.signedIn &&
-            account.accessToken &&
-            account.config?.websocketApiUrl
-        ) {
-            cachedAuth = { type: 'jobraker-recruiter', url: account.config.websocketApiUrl, token: account.accessToken };
-        } else {
-            const config = await window.ipc.invoke('voice:getConfig', null);
-            if (config?.deepgram) {
-                cachedAuth = { type: 'local', apiKey: config.deepgram.apiKey };
-            }
-        }
+        if (account?.signedIn) return true;
+        const config = await window.ipc.invoke('voice:getConfig', null);
+        return !!config.elevenlabs;
     }, [refreshJobrakerRecruiterAccount]);
 
-    // Create and connect a Deepgram WebSocket using cached auth.
-    // Starts the connection and returns immediately (does not wait for open).
     const connectWs = useCallback(async () => {
-        if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return;
-
-        // Refresh auth if we don't have it cached yet
-        if (!cachedAuth) {
-            await refreshAuth();
+        if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+            return;
         }
-        if (!cachedAuth) return;
 
-        let ws: WebSocket;
-        if (cachedAuth.type === 'jobraker-recruiter') {
-            const listenUrl = buildDeepgramListenUrl(cachedAuth.url, DEEPGRAM_PARAMS);
-            ws = new WebSocket(listenUrl, ['bearer', cachedAuth.token]);
-        } else {
-            ws = new WebSocket(DEEPGRAM_LISTEN_URL, ['token', cachedAuth.apiKey]);
-        }
-        wsRef.current = ws;
+        const available = await refreshAuth();
+        if (!available) return;
 
-        ws.onopen = () => {
-            console.log('[voice] WebSocket connected');
-            // Flush any buffered audio captured while we were connecting
+        setState('connecting');
+        scribeReadyRef.current = false;
+
+        try {
+            const { token } = await window.ipc.invoke('elevenlabs:createScribeToken', null);
+            const ws = await connectScribeRealtime(token);
+            wsRef.current = ws;
+            scribeReadyRef.current = true;
+
+            ws.onmessage = (event) => {
+                let data: ScribeServerMessage;
+                try {
+                    data = JSON.parse(event.data as string) as ScribeServerMessage;
+                } catch {
+                    return;
+                }
+
+                if (data.message_type === 'partial_transcript' && data.text) {
+                    interimRef.current = data.text;
+                    setInterimText(
+                        transcriptBufferRef.current
+                            + (transcriptBufferRef.current ? ' ' : '')
+                            + data.text,
+                    );
+                    return;
+                }
+
+                if (
+                    (data.message_type === 'committed_transcript'
+                        || data.message_type === 'committed_transcript_with_timestamps')
+                    && data.text
+                ) {
+                    transcriptBufferRef.current += (transcriptBufferRef.current ? ' ' : '') + data.text;
+                    interimRef.current = '';
+                    setInterimText(transcriptBufferRef.current);
+                }
+            };
+
             const buffered = audioBufferRef.current;
             audioBufferRef.current = [];
             for (const chunk of buffered) {
-                ws.send(chunk);
+                sendScribeAudioChunk(ws, chunk);
             }
-        };
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (!data.channel?.alternatives?.[0]) return;
+            ws.onerror = () => {
+                console.error('[voice] Scribe WebSocket error');
+                scribeReadyRef.current = false;
+            };
 
-            const transcript = data.channel.alternatives[0].transcript;
-            if (!transcript) return;
-
-            if (data.is_final) {
-                transcriptBufferRef.current += (transcriptBufferRef.current ? ' ' : '') + transcript;
-                interimRef.current = '';
-                setInterimText(transcriptBufferRef.current);
-            } else {
-                interimRef.current = transcript;
-                setInterimText(transcriptBufferRef.current + (transcriptBufferRef.current ? ' ' : '') + transcript);
-            }
-        };
-
-        ws.onerror = () => {
-            console.error('[voice] WebSocket error');
-            // Auth may be stale — clear cache so next attempt refreshes
-            cachedAuth = null;
-        };
-
-        ws.onclose = () => {
-            console.log('[voice] WebSocket closed');
-            wsRef.current = null;
-        };
+            ws.onclose = () => {
+                console.log('[voice] Scribe WebSocket closed');
+                wsRef.current = null;
+                scribeReadyRef.current = false;
+            };
+        } catch (error) {
+            console.error('[voice] Failed to connect Scribe:', error);
+            scribeReadyRef.current = false;
+            setState('idle');
+        }
     }, [refreshAuth]);
 
-    // Stop audio capture and close WS
     const stopAudioCapture = useCallback(() => {
         if (processorRef.current) {
             processorRef.current.disconnect();
@@ -132,6 +119,7 @@ export function useVoiceMode() {
             wsRef.current = null;
         }
         audioBufferRef.current = [];
+        scribeReadyRef.current = false;
         setInterimText('');
         transcriptBufferRef.current = '';
         interimRef.current = '';
@@ -146,12 +134,10 @@ export function useVoiceMode() {
         setInterimText('');
         audioBufferRef.current = [];
 
-        // Show listening immediately — don't wait for WebSocket
         setState('listening');
         analytics.voiceInputStarted();
         posthog.people.set_once({ has_used_voice: true });
 
-        // Kick off mic + WebSocket in parallel, don't await WebSocket
         const [stream] = await Promise.all([
             navigator.mediaDevices.getUserMedia({ audio: true }).catch((err) => {
                 console.error('Microphone access denied:', err);
@@ -161,13 +147,12 @@ export function useVoiceMode() {
         ]);
 
         if (!stream) {
-            setState('idle');
+            stopAudioCapture();
             return;
         }
 
         mediaStreamRef.current = stream;
 
-        // Start audio capture immediately — buffer if WS isn't open yet
         const audioCtx = new AudioContext({ sampleRate: 16000 });
         audioCtxRef.current = audioCtx;
         const source = audioCtx.createMediaStreamSource(stream);
@@ -175,26 +160,19 @@ export function useVoiceMode() {
         processorRef.current = processor;
 
         processor.onaudioprocess = (e) => {
-            const float32 = e.inputBuffer.getChannelData(0);
-            const int16 = new Int16Array(float32.length);
-            for (let i = 0; i < float32.length; i++) {
-                const s = Math.max(-1, Math.min(1, float32[i]));
-                int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-            }
-            const buffer = int16.buffer;
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(buffer);
+            const int16 = float32ToInt16(e.inputBuffer.getChannelData(0));
+            const ws = wsRef.current;
+            if (ws?.readyState === WebSocket.OPEN && scribeReadyRef.current) {
+                sendScribeAudioChunk(ws, int16);
             } else {
-                // WebSocket still connecting — buffer the audio
-                audioBufferRef.current.push(buffer);
+                audioBufferRef.current.push(int16);
             }
         };
 
         source.connect(processor);
         processor.connect(audioCtx.destination);
-    }, [state, connectWs]);
+    }, [state, connectWs, stopAudioCapture]);
 
-    /** Stop recording and return the full transcript (finalized + any current interim) */
     const submit = useCallback((): string => {
         let text = transcriptBufferRef.current;
         if (interimRef.current) {
@@ -205,12 +183,10 @@ export function useVoiceMode() {
         return text;
     }, [stopAudioCapture]);
 
-    /** Cancel recording without returning transcript */
     const cancel = useCallback(() => {
         stopAudioCapture();
     }, [stopAudioCapture]);
 
-    /** Pre-cache auth details so mic click skips IPC round-trips */
     const warmup = useCallback(() => {
         refreshAuth().catch(() => {});
     }, [refreshAuth]);
