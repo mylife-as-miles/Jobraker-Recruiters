@@ -5,13 +5,11 @@ import {
   Briefcase,
   CalendarDays,
   Check,
-  CheckCircle2,
   ChevronDown,
   Clock,
   Info,
   Plus,
   Search,
-  Send,
   Sparkles,
   TrendingUp,
   Users,
@@ -31,16 +29,14 @@ import {
 import { motion } from 'motion/react'
 import {
   ANALYTICS_INSIGHTS,
-  ANALYTICS_KPIS,
   ANALYTICS_RECOMMENDED_ACTIONS,
   DATE_RANGE_LABEL,
-  HIRING_FUNNEL,
   OUTREACH_TREND,
-  PIPELINE_HEALTH,
-  SOURCE_PERFORMANCE,
-  SOURCE_TOTAL,
-  TIME_TO_FILL_BY_ROLE,
+  type Candidate,
+  type Role,
   type Kpi,
+  type FunnelStage,
+  type SourceSlice,
 } from './data'
 import {
   AnimatedNumber,
@@ -61,7 +57,12 @@ const KPI_ICONS: Record<Kpi['icon'], React.ReactNode> = {
   offer: <CheckCircle2 className="size-5" />,
 }
 
+// Fallback icons in case they're not imported
+import { Send, CheckCircle2 } from 'lucide-react'
+
 type AnalyticsPageProps = {
+  candidates: Candidate[]
+  roles: Role[]
   onAskCopilot?: (prompt: string) => void
   onNavigatePipeline?: () => void
   onOpenSearch?: () => void
@@ -70,25 +71,113 @@ type AnalyticsPageProps = {
   onOpenAgents?: () => void
   onOpenEmail?: (threadId?: string) => void
   onOpenMeetings?: () => void
+  onNavigate?: (screen: 'roles' | 'candidates' | 'pipeline' | 'analytics', candidateId?: string | null, initialAction?: 'add-candidate' | 'add-role' | null) => void
 }
 
 export function AnalyticsPage({
+  candidates,
+  roles,
   onAskCopilot,
   onNavigatePipeline,
   onOpenSearch,
   onOpenChat,
-  onTakeMeetingNotes,
   onOpenAgents,
+  onOpenEmail,
+  onNavigate,
 }: AnalyticsPageProps) {
   const loading = useFakeLoading(720)
-  const [search] = React.useState('')
+  const [search, setSearch] = React.useState('')
   const [dropdownOpen, setDropdownOpen] = React.useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false)
 
-  const filteredTimeToFill = React.useMemo(() => {
+  // Dynamic calculations for KPIs
+  const calculatedKpis = React.useMemo<Kpi[]>(() => {
+    const openRolesCount = roles.filter(r => r.status === 'Open' || r.status === 'Interviewing').length
+    const interviewCount = candidates.filter(c => c.stage === 'Interview').length
+    const hiredCount = candidates.filter(c => c.stage === 'Hired').length
+    const offerCount = candidates.filter(c => c.stage === 'Offer').length
+    
+    const offerAcceptance = (offerCount + hiredCount) > 0 
+      ? Math.round((hiredCount / (offerCount + hiredCount)) * 100) 
+      : 86
+
+    const activeResponseCount = candidates.filter(c => c.intentSignal === 'Actively Sourcing' || c.intentSignal === 'High Engagement').length
+    const responseRate = candidates.length > 0 ? Math.round((activeResponseCount / candidates.length) * 1000) / 10 : 34.2
+
+    const avgDays = roles.length > 0 ? Math.round(roles.reduce((acc, r) => acc + (r.qualityScore ? Math.round(r.qualityScore * 0.38) : 28), 0) / roles.length) : 32
+
+    return [
+      { label: 'Open Roles', value: String(openRolesCount), deltaLabel: '2 vs prior month', trend: 'up', icon: 'roles' },
+      { label: 'Response Rate', value: `${responseRate}%`, deltaLabel: '6.2pp vs prior month', trend: 'up', icon: 'response' },
+      { label: 'Time to Fill', value: `${avgDays} days`, deltaLabel: '5 days vs prior month', trend: 'down', icon: 'time' },
+      { label: 'Interviews Booked', value: String(interviewCount), deltaLabel: '18 vs prior month', trend: 'up', icon: 'interviews' },
+      { label: 'Offer Acceptance Rate', value: `${offerAcceptance}%`, deltaLabel: '4.1pp vs prior month', trend: 'up', icon: 'offer' },
+    ]
+  }, [candidates, roles])
+
+  // Dynamic Funnel calculations
+  const calculatedFunnel = React.useMemo(() => {
+    const sourcedCount = candidates.length
+    const screenedCount = candidates.filter(c => c.stage !== 'New').length
+    const interviewCount = candidates.filter(c => c.stage === 'Interview' || c.stage === 'Offer' || c.stage === 'Hired').length
+    const offerCount = candidates.filter(c => c.stage === 'Offer' || c.stage === 'Hired').length
+    const hiredCount = candidates.filter(c => c.stage === 'Hired').length
+
+    return [
+      { stage: 'Sourced', value: sourcedCount, conversion: 100 },
+      { stage: 'Screened', value: screenedCount, conversion: sourcedCount > 0 ? Math.round((screenedCount / sourcedCount) * 1000) / 10 : 0 },
+      { stage: 'Interview', value: interviewCount, conversion: screenedCount > 0 ? Math.round((interviewCount / screenedCount) * 1000) / 10 : 0 },
+      { stage: 'Offer', value: offerCount, conversion: interviewCount > 0 ? Math.round((offerCount / interviewCount) * 1000) / 10 : 0 },
+      { stage: 'Hired', value: hiredCount, conversion: offerCount > 0 ? Math.round((hiredCount / offerCount) * 1000) / 10 : 0 },
+    ]
+  }, [candidates])
+
+  // Dynamic Candidate Source breakdowns
+  const sourcePerformance = React.useMemo(() => {
+    const counts: Record<string, number> = {
+      LinkedIn: 0,
+      Referral: 0,
+      Website: 0,
+      'Job Board': 0,
+      AngelList: 0,
+      Dribbble: 0,
+    }
+
+    candidates.forEach((c) => {
+      const source = c.source
+      if (source in counts) counts[source]++
+      else if (source === 'Twitter') counts.LinkedIn++
+      else if (source === 'Career Page') counts.Website++
+      else counts.LinkedIn++
+    })
+
+    const slices = [
+      { name: 'LinkedIn', value: counts.LinkedIn, color: '#1dff00' },
+      { name: 'Employee Referral', value: counts.Referral, color: '#f8d74a' },
+      { name: 'Website / Careers', value: counts.Website, color: '#38bdf8' },
+      { name: 'AI Agent', value: counts.AngelList, color: '#c084fc' },
+      { name: 'Other', value: counts['Job Board'] + counts.Dribbble, color: '#64748b' },
+    ].filter(s => s.value > 0)
+
+    const sum = slices.reduce((acc, s) => acc + s.value, 0)
+    return {
+      slices: slices.map((s) => ({ ...s, pct: sum > 0 ? Math.round((s.value / sum) * 100) : 0 })),
+      total: sum,
+    }
+  }, [candidates])
+
+  // Dynamic Time to Fill per role
+  const calculatedTimeToFill = React.useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return TIME_TO_FILL_BY_ROLE
-    return TIME_TO_FILL_BY_ROLE.filter((r) => r.role.toLowerCase().includes(q))
-  }, [search])
+    const list = roles.map((r, idx) => ({
+      role: r.title,
+      days: r.qualityScore ? Math.round(r.qualityScore * 0.38) : 28 + idx * 2,
+      deltaDays: r.newApplicants > 0 ? -4 - idx : 2,
+    }))
+
+    if (!q) return list
+    return list.filter((r) => r.role.toLowerCase().includes(q))
+  }, [roles, search])
 
   if (loading) {
     return (
@@ -129,42 +218,83 @@ export function AnalyticsPage({
 
         <div className="flex w-full shrink-0 flex-col items-stretch gap-3 lg:w-auto lg:items-end">
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={onOpenSearch}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') onOpenSearch?.()
-              }}
-              className="analytics-search cursor-pointer"
-            >
-              <Search className="size-4 text-white/55" />
-              <input
-                readOnly
-                placeholder="Search candidates, roles, or notes"
-                className="cursor-pointer"
+            <div className="analytics-search">
+              <Search
+                className="size-4 text-white/55 cursor-pointer hover:text-white transition-colors"
+                onClick={onOpenSearch}
               />
-              <kbd>⌘ K</kbd>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search metrics by job role..."
+                className="outline-none border-none text-white text-[12px] bg-transparent"
+              />
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                toast.success('System status: Healthy', {
-                  description: '3 active sourcing agents running. 0 active errors.',
-                  duration: 3500,
-                })
-              }}
-              className="analytics-icon-button cursor-pointer"
-              aria-label="Notifications"
-            >
-              <Bell className="size-4" />
-              <span>3</span>
-            </button>
+            
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNotificationsOpen(!isNotificationsOpen)
+                  setDropdownOpen(false)
+                }}
+                className="analytics-icon-button cursor-pointer"
+                aria-label="Notifications"
+              >
+                <Bell className="size-4" />
+                <span>3</span>
+              </button>
+              {isNotificationsOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setIsNotificationsOpen(false)} />
+                  <div className="absolute right-0 mt-2 z-45 w-[280px] rounded-xl border border-zinc-800 bg-[#09090b]/95 p-1.5 shadow-2xl backdrop-blur-md text-white text-left">
+                    <div className="border-b border-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-400">
+                      Notifications
+                    </div>
+                    <div className="py-1 divide-y divide-zinc-900">
+                      <button
+                        onClick={() => {
+                          setIsNotificationsOpen(false)
+                          onOpenEmail?.()
+                        }}
+                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
+                      >
+                        <span className="font-semibold text-zinc-200">New reply from Michael O.</span>
+                        <span className="text-[10px] text-zinc-500">LinkedIn outreach has a new message</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsNotificationsOpen(false)
+                          onNavigatePipeline?.()
+                        }}
+                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
+                      >
+                        <span className="font-semibold text-zinc-200">Teni Ogunleye responded</span>
+                        <span className="text-[10px] text-zinc-500">Agreed to a screening interview</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsNotificationsOpen(false)
+                          onOpenAgents?.()
+                        }}
+                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
+                      >
+                        <span className="font-semibold text-zinc-200">Sourcing completed</span>
+                        <span className="text-[10px] text-zinc-500">AI agent found 15 new designers</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setDropdownOpen(!dropdownOpen)}
+                onClick={() => {
+                  setDropdownOpen(!dropdownOpen)
+                  setIsNotificationsOpen(false)
+                }}
                 className="analytics-new-button cursor-pointer"
               >
                 <Plus className="size-5" />
@@ -175,34 +305,50 @@ export function AnalyticsPage({
               {dropdownOpen && (
                 <>
                   <div className="fixed inset-0 z-30" onClick={() => setDropdownOpen(false)} />
-                  <div className="absolute right-0 z-40 mt-2 w-48 rounded-xl border border-zinc-800 bg-[#09090b] p-1.5 shadow-2xl backdrop-blur-md">
+                  <div className="absolute right-0 z-45 mt-2 w-48 rounded-xl border border-zinc-800 bg-[#09090b]/95 p-1.5 shadow-2xl backdrop-blur-md">
                     <button
                       type="button"
-                      onClick={() => { setDropdownOpen(false); onOpenChat?.() }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60"
+                      onClick={() => {
+                        setDropdownOpen(false)
+                        onNavigate?.('candidates', null, 'add-candidate')
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60 cursor-pointer"
                     >
-                      New Search Chat
+                      <Users className="h-4 w-4 text-[#4dff18]" />
+                      Add Candidate
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setDropdownOpen(false); onOpenChat?.('Help me create a new job role template.') }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60"
+                      onClick={() => {
+                        setDropdownOpen(false)
+                        onNavigate?.('roles', null, 'add-role')
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60 cursor-pointer"
                     >
-                      New Job Role
+                      <Briefcase className="h-4 w-4 text-[#4dff18]" />
+                      Create Job Position
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setDropdownOpen(false); onTakeMeetingNotes?.() }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60"
+                      onClick={() => {
+                        setDropdownOpen(false)
+                        onOpenChat?.("Draft a LinkedIn outreach sequence to candidates sourced for the Senior Product Designer role.")
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60 cursor-pointer"
                     >
-                      New Meeting Notes
+                      <Send className="h-4 w-4 text-[#4dff18]" />
+                      Draft AI Outreach
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setDropdownOpen(false); onOpenAgents?.() }}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60"
+                      onClick={() => {
+                        setDropdownOpen(false)
+                        onOpenChat?.("Source product designers in Lagos with 5+ years experience.")
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-white transition-colors hover:bg-zinc-800/60 cursor-pointer"
                     >
-                      New AI Agent
+                      <Sparkles className="h-4 w-4 text-[#4dff18]" />
+                      Start Sourcing Search
                     </button>
                   </div>
                 </>
@@ -227,7 +373,7 @@ export function AnalyticsPage({
       </header>
 
       <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {ANALYTICS_KPIS.map((kpi, index) => (
+        {calculatedKpis.map((kpi, index) => (
           <Reveal key={kpi.label} delay={index * 0.035} className="min-w-0">
             <KpiCard kpi={kpi} />
           </Reveal>
@@ -237,13 +383,13 @@ export function AnalyticsPage({
       <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-12">
         <Reveal className="min-w-0 xl:col-span-4" delay={0.06}>
           <AnalyticsPanel title="Hiring Funnel" aside="Conversion" className="min-h-[252px]">
-            <FunnelChart />
+            <FunnelChart funnel={calculatedFunnel} />
           </AnalyticsPanel>
         </Reveal>
 
         <Reveal className="min-w-0 xl:col-span-4" delay={0.09}>
           <AnalyticsPanel title="Candidate Source Performance" className="min-h-[252px]">
-            <SourcePerformance onAskCopilot={onAskCopilot} />
+            <SourcePerformance data={sourcePerformance} onAskCopilot={onAskCopilot} />
           </AnalyticsPanel>
         </Reveal>
 
@@ -264,13 +410,13 @@ export function AnalyticsPage({
 
         <Reveal className="min-w-0 xl:col-span-4" delay={0.08}>
           <AnalyticsPanel title="Time to Fill by Role" className="min-h-[278px]">
-            <TimeToFillTable rows={filteredTimeToFill} onAskCopilot={onAskCopilot} />
+            <TimeToFillTable rows={calculatedTimeToFill} onAskCopilot={onAskCopilot} />
           </AnalyticsPanel>
         </Reveal>
 
         <Reveal className="min-w-0 xl:col-span-4" delay={0.11}>
-          <AnalyticsPanel title="Pipeline Health" className="min-h-[278px]">
-            <PipelineHealth onNavigatePipeline={onNavigatePipeline} />
+          <AnalyticsPanel title="Startup Fit Distribution" className="min-h-[278px]">
+            <StartupFitDistribution candidates={candidates} onAskCopilot={onAskCopilot} />
           </AnalyticsPanel>
         </Reveal>
 
@@ -286,7 +432,7 @@ export function AnalyticsPage({
             aside={(
               <button
                 type="button"
-                className="analytics-link"
+                className="analytics-link cursor-pointer"
                 onClick={() => onAskCopilot?.('Analyze my recruiting analytics and suggest top 3 actions for this week.')}
               >
                 View all insights {'->'}
@@ -352,8 +498,11 @@ function AnalyticsPanel({
   )
 }
 
-function FunnelChart() {
-  const max = HIRING_FUNNEL[0]?.value ?? 1
+function FunnelChart({ funnel }: { funnel: FunnelStage[] }) {
+  const max = funnel[0]?.value ?? 1
+  const sourcedVal = funnel.find(f => f.stage === 'Sourced')?.value ?? 0
+  const hiredVal = funnel.find(f => f.stage === 'Hired')?.value ?? 0
+  const overallPct = sourcedVal > 0 ? Math.round((hiredVal / sourcedVal) * 1000) / 10 : 0
   return (
     <div className="mt-4">
       <div className="grid grid-cols-[64px_1fr_58px] gap-3 text-[10px] text-white/48">
@@ -362,7 +511,7 @@ function FunnelChart() {
         <span className="text-right">Conversion</span>
       </div>
       <div className="mt-1 space-y-0">
-        {HIRING_FUNNEL.map((stage, index) => {
+        {funnel.map((stage, index) => {
           const width = Math.max(19, (stage.value / max) * 100)
           return (
             <div key={stage.stage} className="analytics-funnel-row">
@@ -384,21 +533,26 @@ function FunnelChart() {
         })}
       </div>
       <div className="mt-4 flex items-center justify-between text-[11px]">
-        <span className="text-white/70">Overall conversion <strong className="text-white">0.9%</strong></span>
-        <span className="text-[#39ff14]">↑ 0.2pp vs Apr 11 - May 10</span>
+        <span className="text-white/70">Overall conversion <strong className="text-white">{overallPct}%</strong></span>
+        <span className="text-[#39ff14]">↑ 1.2pp vs prior month</span>
       </div>
     </div>
   )
 }
 
-function SourcePerformance({ onAskCopilot }: { onAskCopilot?: (prompt: string) => void }) {
+function SourcePerformance({
+  data,
+  onAskCopilot,
+}: {
+  data: { slices: SourceSlice[]; total: number }
+  onAskCopilot?: (prompt: string) => void
+}) {
   return (
     <div className="mt-4 grid grid-cols-1 items-center gap-4 sm:grid-cols-[154px_1fr]">
       <div className="relative mx-auto h-[154px] w-[154px] shrink-0 sm:mx-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+        <PieChart width={154} height={154}>
             <Pie
-              data={SOURCE_PERFORMANCE}
+              data={data.slices}
               dataKey="value"
               nameKey="name"
               cx="50%"
@@ -409,19 +563,18 @@ function SourcePerformance({ onAskCopilot }: { onAskCopilot?: (prompt: string) =
               stroke="#050705"
               strokeWidth={2}
             >
-              {SOURCE_PERFORMANCE.map((entry) => (
+              {data.slices.map((entry) => (
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
           </PieChart>
-        </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <AnimatedNumber value={SOURCE_TOTAL} className="text-[24px] font-semibold leading-none tracking-[-0.04em]" />
+          <AnimatedNumber value={data.total} className="text-[24px] font-semibold leading-none tracking-[-0.04em]" />
           <span className="mt-1 text-[10px] text-white/48">Total Sourced</span>
         </div>
       </div>
       <div className="space-y-2.5">
-        {SOURCE_PERFORMANCE.map((source) => (
+        {data.slices.map((source) => (
           <div key={source.name} className="flex items-center justify-between gap-2 text-[11px]">
             <span className="flex min-w-0 items-center gap-2 text-white/70">
               <span className="size-2.5 rounded-full" style={{ background: source.color }} />
@@ -434,7 +587,7 @@ function SourcePerformance({ onAskCopilot }: { onAskCopilot?: (prompt: string) =
       <button
         type="button"
         onClick={() => onAskCopilot?.("Give me a comprehensive report on Candidate Source performance.")}
-        className="analytics-link col-span-2 mt-2 justify-self-start"
+        className="analytics-link col-span-2 mt-2 justify-self-start cursor-pointer"
       >
         View full source report {'->'}
       </button>
@@ -444,8 +597,8 @@ function SourcePerformance({ onAskCopilot }: { onAskCopilot?: (prompt: string) =
 
 function ResponseTrend() {
   return (
-    <div className="relative mt-3 h-[196px]">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="relative mt-3 h-[196px] min-h-[196px] w-full">
+      <ResponsiveContainer width="100%" height={196}>
         <LineChart data={OUTREACH_TREND} margin={{ top: 10, right: 16, left: -18, bottom: 10 }}>
           <XAxis
             dataKey="label"
@@ -496,7 +649,7 @@ function TimeToFillTable({
   rows,
   onAskCopilot,
 }: {
-  rows: typeof TIME_TO_FILL_BY_ROLE
+  rows: { role: string; days: number; deltaDays: number }[]
   onAskCopilot?: (prompt: string) => void
 }) {
   return (
@@ -506,20 +659,20 @@ function TimeToFillTable({
           No roles match your search.
         </div>
       ) : (
-        <table className="analytics-table">
+        <table className="analytics-table text-[11px] text-white">
           <thead>
-            <tr>
-              <th>Role</th>
-              <th>Time to Fill</th>
-              <th>vs Prior Period</th>
+            <tr className="text-zinc-500 font-semibold border-b border-zinc-800 pb-2">
+              <th className="pb-2">Role</th>
+              <th className="pb-2">Time to Fill</th>
+              <th className="pb-2">vs Prior Period</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.role}>
-                <td>{row.role}</td>
-                <td>{row.days} days</td>
-                <td>
+              <tr key={row.role} className="border-b border-zinc-900">
+                <td className="py-2.5">{row.role}</td>
+                <td className="py-2.5 text-white font-semibold">{row.days} days</td>
+                <td className="py-2.5">
                   <Delta value={-row.deltaDays} suffix=" days" invertColor />
                 </td>
               </tr>
@@ -530,7 +683,7 @@ function TimeToFillTable({
       <button
         type="button"
         onClick={() => onAskCopilot?.("Give me a detailed report of recruiting Time to Fill metrics by role.")}
-        className="analytics-link mt-6"
+        className="analytics-link mt-6 cursor-pointer"
       >
         View full report {'->'}
       </button>
@@ -538,63 +691,95 @@ function TimeToFillTable({
   )
 }
 
-function PipelineHealth({ onNavigatePipeline }: { onNavigatePipeline?: () => void }) {
+function StartupFitDistribution({
+  candidates,
+  onAskCopilot,
+}: {
+  candidates: Candidate[]
+  onAskCopilot?: (prompt: string) => void
+}) {
+  const stats = React.useMemo(() => {
+    if (candidates.length === 0) return { avg: 0, stages: {} as Record<string, number> }
+
+    const avg = Math.round(candidates.reduce((acc, c) => acc + c.startupFitScore, 0) / candidates.length)
+    const stagesCount = { Seed: 0, 'Series A': 0, 'Series B': 0, Growth: 0, Enterprise: 0 }
+
+    candidates.forEach((c) => {
+      c.companyStages.forEach((stage) => {
+        if (stage in stagesCount) stagesCount[stage as keyof typeof stagesCount]++
+      })
+    })
+
+    return { avg, stages: stagesCount }
+  }, [candidates])
+
+  const stageSlices = Object.entries(stats.stages).map(([name, val]) => ({
+    name,
+    val,
+    pct: candidates.length > 0 ? Math.round((val / candidates.length) * 100) : 0,
+  }))
+
   return (
     <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:grid-cols-[120px_1fr]">
-      <div>
-        <div className="relative flex size-[112px] items-center justify-center">
+      <div className="flex flex-col items-center">
+        <div className="relative flex size-[112px] items-center justify-center shrink-0">
           <svg className="-rotate-90" width={112} height={112}>
-            <circle cx={56} cy={56} r={44} fill="none" stroke="rgba(57,255,20,0.12)" strokeWidth={8} />
+            <circle cx={56} cy={56} r={44} fill="none" stroke="rgba(29,255,0,0.08)" strokeWidth={8} />
             <motion.circle
               cx={56}
               cy={56}
               r={44}
               fill="none"
-              stroke="#7cff00"
+              stroke="#1dff00"
               strokeLinecap="round"
               strokeWidth={8}
               strokeDasharray={2 * Math.PI * 44}
               initial={{ strokeDashoffset: 2 * Math.PI * 44 }}
-              animate={{ strokeDashoffset: 2 * Math.PI * 44 * (1 - PIPELINE_HEALTH.score / 100) }}
+              animate={{ strokeDashoffset: 2 * Math.PI * 44 * (1 - stats.avg / 100) }}
               transition={{ duration: 1, ease: RECRUITER_EASE }}
             />
           </svg>
           <div className="absolute text-center">
-            <AnimatedNumber value={PIPELINE_HEALTH.score} className="text-[28px] font-semibold leading-none text-[#b6ff00]" />
-            <p className="mt-1 text-[10px] text-[#b6ff00]">{PIPELINE_HEALTH.label}</p>
+            <span className="text-[28px] font-semibold leading-none text-brand">
+              <AnimatedNumber value={stats.avg} />
+            </span>
+            <p className="mt-1 text-[9px] font-bold text-white/50 tracking-wider">AVG FIT</p>
           </div>
         </div>
-        <p className="mt-3 text-[11px] leading-5 text-white/62">{PIPELINE_HEALTH.note}</p>
+        <p className="mt-3 text-center text-[10px] text-zinc-400 leading-normal px-1">
+          Average candidate alignment with startup requirements.
+        </p>
       </div>
 
-      <div>
-        <div className="mb-3 grid grid-cols-[1fr_1.6fr_44px] gap-2 text-[10px] text-white/42">
-          <span>Stage</span>
-          <span />
-          <span className="text-right">vs Prior Period</span>
+      <div className="min-w-0">
+        <div className="mb-2 text-[10px] text-zinc-500 font-semibold tracking-wider uppercase">
+          Stage Experience Breakdown
         </div>
-        <div className="space-y-3">
-          {PIPELINE_HEALTH.stages.map((stage) => (
-            <div key={stage.stage} className="grid grid-cols-[1fr_1.6fr_44px] items-center gap-2">
-              <span className="text-[11px] text-white/70">{stage.stage}</span>
-              <div className="h-2 overflow-hidden rounded-full bg-white/8">
+        <div className="space-y-2.5">
+          {stageSlices.map((stage) => (
+            <div key={stage.name} className="grid grid-cols-[72px_1fr_36px] items-center gap-2">
+              <span className="text-[11px] text-white/70 truncate">{stage.name}</span>
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/8">
                 <motion.div
-                  className="h-full rounded-full bg-[#39ff14]"
+                  className="h-full rounded-full bg-[#1dff00]"
                   initial={{ width: 0 }}
-                  animate={{ width: `${stage.pct}%` }}
+                  animate={{ width: `${Math.min(100, stage.pct * 1.5)}%` }}
                   transition={{ duration: 0.62, ease: RECRUITER_EASE }}
                 />
               </div>
-              <Delta value={stage.deltaPct} suffix="%" className="justify-end" />
+              <span className="text-right text-[10px] font-medium text-zinc-400 tabular-nums">
+                {stage.val}
+              </span>
             </div>
           ))}
         </div>
+        
         <button
           type="button"
-          onClick={onNavigatePipeline}
-          className="analytics-link mt-8"
+          onClick={() => onAskCopilot?.("Explain the startup fit distribution of my candidate pipeline.")}
+          className="analytics-link mt-6 cursor-pointer"
         >
-          See pipeline breakdown {'->'}
+          View detailed fit audit {'->'}
         </button>
       </div>
     </div>
@@ -627,7 +812,7 @@ function AiInsights({ onAskCopilot }: { onAskCopilot?: AnalyticsPageProps['onAsk
             key={action}
             type="button"
             onClick={() => onAskCopilot?.(`Help me execute recommended action: ${action}`)}
-            className="flex w-full items-center gap-2 text-left hover:text-[#b6ff00] transition-colors py-0.5"
+            className="flex w-full items-center gap-2 text-left hover:text-[#b6ff00] transition-colors py-0.5 cursor-pointer"
           >
             <Check className="size-3 shrink-0" />
             <span>{action}</span>
@@ -637,7 +822,7 @@ function AiInsights({ onAskCopilot }: { onAskCopilot?: AnalyticsPageProps['onAsk
 
       <button
         type="button"
-        className="analytics-link mt-2"
+        className="analytics-link mt-2 cursor-pointer"
         onClick={() => onAskCopilot?.('What should I prioritize in my recruiting pipeline this week?')}
       >
         Ask AI Agent for more insights {'->'}
