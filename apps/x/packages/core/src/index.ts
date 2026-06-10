@@ -12,3 +12,8 @@ export * as versionHistory from './knowledge/version_history.js';
 
 // Voice mode (config + TTS)
 export * as voice from './voice/voice.js';
+export * as scribe from './voice/scribe.js';
+
+// AI Model/Generation operations
+export { generateRecruiterLlmText } from './models/models.js';
+
