@@ -157,13 +157,23 @@ async function getProviderConfiguration(
       console.log(`[OAuth] ${provider}: Discovery from issuer with DCR`);
       const clientRepo = getClientRegistrationRepo();
       const existingRegistration = await clientRepo.getClientRegistration(provider);
+      const storedRedirectUri = existingRegistration
+        ? await clientRepo.getRegisteredRedirectUri(provider)
+        : null;
 
-      if (existingRegistration) {
+      if (existingRegistration && storedRedirectUri === redirectUri) {
         console.log(`[OAuth] ${provider}: Using existing DCR registration`);
         return await oauthClient.discoverConfiguration(
           config.discovery.issuer,
           existingRegistration.client_id
         );
+      }
+
+      if (existingRegistration) {
+        console.log(
+          `[OAuth] ${provider}: DCR registration stale (stored redirect=${storedRedirectUri ?? 'none'}, current=${redirectUri}), re-registering`,
+        );
+        await clientRepo.clearClientRegistration(provider);
       }
 
       // Register new client with the actual redirect URI (port already bound)
@@ -178,7 +188,7 @@ async function getProviderConfiguration(
       const boundPort = new URL(redirectUri).port
         ? parseInt(new URL(redirectUri).port, 10)
         : DEFAULT_CALLBACK_PORT;
-      await clientRepo.saveClientRegistration(provider, registration, boundPort);
+      await clientRepo.saveClientRegistration(provider, registration, boundPort, redirectUri);
       console.log(`[OAuth] ${provider}: DCR registration saved (port ${boundPort})`);
 
       return oauthConfig;
@@ -230,6 +240,49 @@ export async function resolveStartPort(
     await clientRepo.clearClientRegistration(provider);
     return DEFAULT_CALLBACK_PORT;
   }
+}
+
+async function fetchGoogleProfile(accessToken: string): Promise<{ name?: string; picture?: string; email?: string } | null> {
+  try {
+    console.log('[OAuth] Fetching Google profile information...');
+    const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Google profile fetch returned status ${response.status}`);
+    }
+    const data = (await response.json()) as { name?: string; picture?: string; email?: string };
+    return {
+      name: data.name,
+      picture: data.picture,
+      email: data.email,
+    };
+  } catch (error) {
+    console.error('[OAuth] Failed to fetch Google profile:', error);
+    return null;
+  }
+}
+
+/** Backfill profile fields for Google connections saved before profile caching existed. */
+export async function ensureGoogleProfileCached(): Promise<void> {
+  const oauthRepo = getOAuthRepo();
+  const connection = await oauthRepo.read('google');
+  if (!connection.tokens?.access_token) return;
+  if (connection.profileName?.trim()) return;
+
+  const accessToken = await getAccessToken('google');
+  if (!accessToken) return;
+
+  const googleProfile = await fetchGoogleProfile(accessToken);
+  if (!googleProfile) return;
+
+  await oauthRepo.upsert('google', {
+    profileName: googleProfile.name ?? connection.profileName ?? null,
+    profileImage: googleProfile.picture ?? connection.profileImage ?? null,
+    profileEmail: googleProfile.email ?? connection.profileEmail ?? null,
+  });
 }
 
 /**
@@ -314,6 +367,11 @@ export async function connectProvider(provider: string, credentials?: { clientId
             state
           );
 
+          let googleProfile: { name?: string; picture?: string; email?: string } | null = null;
+          if (provider === 'google') {
+            googleProfile = await fetchGoogleProfile(tokens.access_token);
+          }
+
           // Save tokens and credentials. For Google, BYOK is the only path
           // that reaches this token exchange (jobraker-recruiter path returns above
           // before any local server runs); stamp mode: 'byok' so a future
@@ -324,6 +382,11 @@ export async function connectProvider(provider: string, credentials?: { clientId
             ...(credentials ? { clientId: credentials.clientId, clientSecret: credentials.clientSecret } : {}),
             ...(provider === 'google' ? { mode: 'byok' as const } : {}),
             error: null,
+            ...(googleProfile ? {
+              profileName: googleProfile.name,
+              profileImage: googleProfile.picture,
+              profileEmail: googleProfile.email,
+            } : {}),
           });
 
           // Trigger immediate sync for relevant providers
@@ -470,6 +533,7 @@ export async function completeJobrakerRecruiterGoogleConnect(state: string): Pro
   try {
     console.log('[OAuth] Claiming jobraker-recruiter-mode Google tokens...');
     const tokens = await claimTokensViaBackend(state);
+    const googleProfile = await fetchGoogleProfile(tokens.access_token);
     const oauthRepo = getOAuthRepo();
     await oauthRepo.upsert('google', {
       tokens,
@@ -478,6 +542,11 @@ export async function completeJobrakerRecruiterGoogleConnect(state: string): Pro
       clientId: null,
       clientSecret: null,
       error: null,
+      ...(googleProfile ? {
+        profileName: googleProfile.name,
+        profileImage: googleProfile.picture,
+        profileEmail: googleProfile.email,
+      } : {}),
     });
     triggerGmailSync();
     triggerCalendarSync();
@@ -519,6 +588,12 @@ export async function disconnectProvider(provider: string): Promise<{ success: b
     }
 
     await oauthRepo.delete(provider);
+
+    const providerConfig = await getProviderConfig(provider);
+    if (providerConfig.client.mode === 'dcr') {
+      await getClientRegistrationRepo().clearClientRegistration(provider);
+    }
+
     if (provider === 'jobraker-recruiter') {
       analyticsCapture('user_signed_out');
       analyticsReset();
