@@ -378,6 +378,9 @@ const ipcSchemas = {
         error: z.string().nullable().optional(),
         userId: z.string().optional(),
         clientId: z.string().nullable().optional(),
+        profileName: z.string().nullable().optional(),
+        profileImage: z.string().nullable().optional(),
+        profileEmail: z.string().nullable().optional(),
       })),
     }),
   },
@@ -661,7 +664,6 @@ const ipcSchemas = {
   'voice:getConfig': {
     req: z.null(),
     res: z.object({
-      deepgram: z.object({ apiKey: z.string() }).nullable(),
       elevenlabs: z.object({ apiKey: z.string(), voiceId: z.string().optional() }).nullable(),
     }),
   },
@@ -672,6 +674,32 @@ const ipcSchemas = {
     res: z.object({
       audioBase64: z.string(),
       mimeType: z.string(),
+    }),
+  },
+  'elevenlabs:listVoices': {
+    req: z.object({
+      apiKey: z.string().optional(),
+    }).nullable(),
+    res: z.object({
+      voices: z.array(z.object({
+        voice_id: z.string(),
+        name: z.string(),
+      })),
+    }),
+  },
+  'elevenlabs:createScribeToken': {
+    req: z.null(),
+    res: z.object({
+      token: z.string(),
+    }),
+  },
+  'elevenlabs:transcribeAudio': {
+    req: z.object({
+      audioBase64: z.string(),
+      mimeType: z.string(),
+    }),
+    res: z.object({
+      text: z.string(),
     }),
   },
   'meeting:checkScreenPermission': {
@@ -989,6 +1017,17 @@ const ipcSchemas = {
   'billing:getInfo': {
     req: z.null(),
     res: BillingInfoSchema,
+  },
+  'recruiter:generateLlm': {
+    req: z.object({
+      systemPrompt: z.string(),
+      prompt: z.string(),
+      temperature: z.number().optional(),
+    }),
+    res: z.object({
+      text: z.string(),
+      error: z.string().optional(),
+    }),
   },
 } as const;
 
