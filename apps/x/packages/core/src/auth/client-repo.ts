@@ -9,12 +9,22 @@ export interface IClientRegistrationRepo {
   getClientRegistration(provider: string): Promise<ClientRegistrationResponse | null>;
   /** Returns the port that was used when DCR-registering this provider, or DEFAULT_CALLBACK_PORT if not stored. */
   getRegisteredPort(provider: string): Promise<number>;
-  saveClientRegistration(provider: string, registration: ClientRegistrationResponse, port: number): Promise<void>;
+  /** Redirect URI used when DCR-registering this provider, if recorded. */
+  getRegisteredRedirectUri(provider: string): Promise<string | null>;
+  saveClientRegistration(
+    provider: string,
+    registration: ClientRegistrationResponse,
+    port: number,
+    redirectUri: string,
+  ): Promise<void>;
   clearClientRegistration(provider: string): Promise<void>;
 }
 
-// _registeredPort is our private field — stripped by Zod when we parse the RFC response fields
-type StoredEntry = Record<string, unknown> & { _registeredPort?: number };
+// Private fields stripped by Zod when we parse the RFC response fields
+type StoredEntry = Record<string, unknown> & {
+  _registeredPort?: number;
+  _registeredRedirectUri?: string;
+};
 
 type ClientRegistrationStorage = {
   [provider: string]: StoredEntry;
@@ -72,9 +82,20 @@ export class FSClientRegistrationRepo implements IClientRegistrationRepo {
     return config[provider]?._registeredPort ?? DEFAULT_CALLBACK_PORT;
   }
 
-  async saveClientRegistration(provider: string, registration: ClientRegistrationResponse, port: number): Promise<void> {
+  async getRegisteredRedirectUri(provider: string): Promise<string | null> {
     const config = await this.readConfig();
-    config[provider] = { ...registration, _registeredPort: port };
+    const redirectUri = config[provider]?._registeredRedirectUri;
+    return typeof redirectUri === 'string' && redirectUri.trim() ? redirectUri : null;
+  }
+
+  async saveClientRegistration(
+    provider: string,
+    registration: ClientRegistrationResponse,
+    port: number,
+    redirectUri: string,
+  ): Promise<void> {
+    const config = await this.readConfig();
+    config[provider] = { ...registration, _registeredPort: port, _registeredRedirectUri: redirectUri };
     await this.writeConfig(config);
   }
 
