@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { motion, useInView, useMotionValue, useSpring } from 'motion/react'
+import { motion, useInView, useMotionValue, useMotionValueEvent, useSpring } from 'motion/react'
 import {
   Search,
   Bell,
@@ -89,15 +89,16 @@ export function AnimatedNumber({
   const mv = useMotionValue(0)
   const spring = useSpring(mv, { stiffness: 90, damping: 18, mass: 0.6 })
   const [display, setDisplay] = React.useState(() => format(0))
+  const formatRef = React.useRef(format)
+  formatRef.current = format
 
   React.useEffect(() => {
     if (inView) mv.set(value)
   }, [inView, value, mv])
 
-  React.useEffect(() => {
-    return spring.on('change', (v) => setDisplay(format(v)))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spring])
+  useMotionValueEvent(spring, 'change', (latest) => {
+    setDisplay(formatRef.current(latest))
+  })
 
   return (
     <span ref={ref} className={className}>
