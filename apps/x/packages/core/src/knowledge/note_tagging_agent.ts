@@ -34,17 +34,17 @@ Info attributes from the \`## Info\` section are also included as top-level keys
 
 \`\`\`yaml
 ---
-relationship: customer
+relationship: candidate
 relationship_sub: primary
 topic:
-  - sales
-  - fundraising
+  - interview
+  - offer
 source: email
 status: active
 action: action-required
-role: VP Engineering
-organization: Acme Corp
-email: sarah@acme.com
+role: Senior Product Designer
+organization: Jobraker Recruiter
+email: teni@example.com
 first_met: "2024-06-15"
 last_update: "2025-01-20"
 ---
@@ -56,21 +56,21 @@ Use these exact keys for each tag category:
 
 | Category | Key | Single or multi | Example |
 |----------|-----|-----------------|---------|
-| Relationship | \`relationship\` | single | \`relationship: customer\` |
+| Relationship | \`relationship\` | single | \`relationship: candidate\` |
 | Relationship sub | \`relationship_sub\` | single or multi | \`relationship_sub: primary\` |
-| Topic | \`topic\` | single or multi | \`topic: sales\` or list |
+| Topic | \`topic\` | single or multi | \`topic: interview\` or list |
 | Email type | \`email_type\` | single or multi | \`email_type: followup\` |
 | Action | \`action\` | single or multi | \`action: action-required\` |
 | Status | \`status\` | single | \`status: active\` |
 | Source | \`source\` | single or multi | \`source: email\` or list |
 
 **Rules:**
-- Use a plain string when there's only one value: \`topic: sales\`
+- Use a plain string when there's only one value: \`topic: interview\`
 - Use a YAML list when there are multiple values:
   \`\`\`yaml
   topic:
-    - sales
-    - fundraising
+    - interview
+    - offer
   \`\`\`
 - **Omit a category entirely** if no tags apply for it. Do not include empty keys.
 - Only use tag values from the Jobraker Recruiter Tag System — do not invent new tags.
@@ -80,14 +80,14 @@ Use these exact keys for each tag category:
 Extract all \`**Key:** value\` fields from the \`## Info\` (or \`## About\`) section into YAML frontmatter keys:
 
 1. **Convert keys to snake_case**: e.g. \`**First met:**\` → \`first_met\`, \`**Last update:**\` → \`last_update\`.
-2. **Strip wiki-link syntax**: \`[[Organizations/Acme Corp]]\` → \`Acme Corp\`. Extract just the display name (last path segment).
+2. **Strip wiki-link syntax**: \`[[Organizations/Jobraker Recruiter]]\` → \`Jobraker Recruiter\`. Extract just the display name (last path segment).
 3. **Skip blank/placeholder values**: If a field says "leave blank", is empty, or contains only template placeholders like \`{role}\`, omit it from the frontmatter.
 4. **Quote dates**: Wrap date values in quotes, e.g. \`first_met: "2024-06-15"\`.
 5. **Aliases as list**: If the value is comma-separated (like Aliases), store as a YAML list:
    \`\`\`yaml
    aliases:
      - Sarah
-     - sarah@acme.com
+     - teni@example.com
    \`\`\`
 
 **Per note type, extract these fields:**
@@ -111,7 +111,7 @@ Note: For Organizations, the Info \`**Relationship:**\` field is separate from t
 2. **Always include a source tag** — \`email\` or \`meeting\` based on what the note's Activity section shows.
 3. **Default status is \`active\`** for all new tags.
 4. **For People notes**, include:
-   - One primary relationship tag (e.g. \`customer\`, \`investor\`, \`prospect\`)
+   - One primary relationship tag (e.g. \`candidate\`, \`hiring-manager\`, \`interviewer\`, \`referrer\`)
    - Relationship sub-tags if applicable (e.g. \`primary\`, \`champion\`, \`former\`)
    - Topic tags based on what you're working on together
    - Source tags based on the Activity section

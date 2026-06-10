@@ -288,20 +288,26 @@ function extractTopLevelBlock(raw: string, key: string): string | null {
 /** Map known tag values → category for legacy flat-list frontmatter. */
 const LEGACY_TAG_TO_CATEGORY: Record<string, string> = {
   // relationship
+  candidate: 'relationship', 'hiring-manager': 'relationship',
+  interviewer: 'relationship', referrer: 'relationship',
+  agency: 'relationship', client: 'relationship', team: 'relationship',
+  executive: 'relationship', vendor: 'relationship',
+  'talent-community': 'relationship', 'candidate-support': 'relationship',
   investor: 'relationship', customer: 'relationship', prospect: 'relationship',
-  partner: 'relationship', vendor: 'relationship', product: 'relationship',
-  candidate: 'relationship', team: 'relationship', advisor: 'relationship',
+  partner: 'relationship', product: 'relationship', advisor: 'relationship',
   personal: 'relationship', press: 'relationship', community: 'relationship',
   government: 'relationship',
   // relationship_sub
   primary: 'relationship_sub', secondary: 'relationship_sub',
-  'executive-assistant': 'relationship_sub', cc: 'relationship_sub',
+  'executive-assistant': 'relationship_sub', coordinator: 'relationship_sub', cc: 'relationship_sub',
   'referred-by': 'relationship_sub', former: 'relationship_sub',
   champion: 'relationship_sub', blocker: 'relationship_sub',
   // topic
-  sales: 'topic', support: 'topic', legal: 'topic', finance: 'topic',
-  hiring: 'topic', fundraising: 'topic', travel: 'topic', event: 'topic',
-  shopping: 'topic', health: 'topic', learning: 'topic', research: 'topic',
+  sourcing: 'topic', screening: 'topic', interview: 'topic', offer: 'topic',
+  pipeline: 'topic', 'role-intake': 'topic', outreach: 'topic',
+  compliance: 'topic', sales: 'topic', support: 'topic', legal: 'topic',
+  finance: 'topic', hiring: 'topic', fundraising: 'topic', travel: 'topic',
+  event: 'topic', shopping: 'topic', health: 'topic', learning: 'topic', research: 'topic',
   // email_type
   intro: 'email_type', followup: 'email_type',
   // action

@@ -56,14 +56,14 @@ ${renderTagSystemForEmails()}
 # Instructions
 
 1. For each email file provided in the message, read its content carefully.
-2. Classify the email using the taxonomy above. Think like a **YC startup founder** triaging their inbox — your time is your scarcest resource:
-   - **Relationship**: Who is this from? An investor, customer, team member, vendor, candidate, etc.?
-   - **Topic**: What is this about? Legal, finance, hiring, fundraising, security, infrastructure, etc.?
+2. Classify the email using the taxonomy above. Think like a **busy recruiter or hiring manager** triaging a high-volume hiring inbox: candidate signal, role urgency, and interview momentum matter most.
+   - **Relationship**: Who is this from? A candidate, hiring manager, interviewer, referrer, agency, client, teammate, vendor, etc.?
+   - **Topic**: What is this about? Sourcing, screening, interviews, offers, role intake, outreach, compliance, pipeline movement, or recruiting research?
    - **Email Type**: Is this a warm intro or a followup on an existing conversation?
    - **Filter (Noise)**: Is this email noise? **Apply ALL applicable filter tags.** If even one noise tag is present the email is skipped — noise overrides everything. Common noise:
-     - Cold outreach / unsolicited service pitches / "YC exclusive" deals / freelancers offering free work
-     - Newsletters, industry reports, webinar invitations, product tips from vendors
-     - Promotions, marketing, event invitations you did not register for, startup program upsells
+     - Cold outreach / unsolicited service pitches / generic candidate blasts / vendors pitching recruiting tools
+     - Recruiting newsletters, talent market reports, webinar invitations, and product tips from vendors
+     - Promotions, marketing, and hiring events you did not register for
      - Automated notifications (email verifications, recording uploads, platform policy changes, expired OTPs)
      - Transactional confirmations (salary disbursements, tax payments, GST filings, TDS workings, invoice-sharing threads)
      - Spam and spam moderation digests
@@ -74,18 +74,18 @@ ${renderTagSystemForEmails()}
 6. Always include \`processed: true\` and \`labeled_at\` with the current ISO timestamp.
 7. If the email already has frontmatter (starts with \`---\`), skip it.
 
-# The Founder Signal Test
+# The Recruiter Signal Test
 
-Before finalizing labels, ask: **"Would a busy YC founder want a note about this in their knowledge system?"**
+Before finalizing labels, ask: **"Would a busy recruiter want a note about this in their hiring knowledge system?"**
 
 **YES — create a note** if the email:
-- Requires a decision or response from the founder
-- Updates an active business relationship (customer deal, investor conversation, partner integration)
-- Contains information that will be referenced later (pricing, terms, deadlines, compliance requirements)
+- Requires a decision or response from the recruiter or hiring manager
+- Updates an active hiring relationship (candidate conversation, hiring-manager request, interview feedback, referral, agency search, or client role)
+- Contains information that will be referenced later (role requirements, salary range, interview availability, offer terms, deadlines, compliance requirements)
 - Has action items for the team (e.g. standup notes, meeting notes with to-dos)
-- Presents a genuine opportunity worth evaluating (accelerator, partnership, relevant hire)
+- Presents a genuine recruiting opportunity worth evaluating (warm referral, strong candidate, role intake, agency shortlist, talent event you opted into)
 - Flags a risk that needs attention (security vulnerability, legal issue, compliance blocker)
-- Is from a vendor you are actively engaged with on an ongoing process (e.g. your compliance assessor following up after a call you participated in)
+- Is from a vendor you are actively engaged with on an ongoing recruiting process (e.g., a background-check provider, job board, assessment vendor, or agency following up after a real conversation)
 
 **NO — skip it** if the email:
 - Confirms a transaction that already happened with no open decision (payment received, tax filed, salary disbursed, invoice shared)
@@ -98,25 +98,25 @@ Before finalizing labels, ask: **"Would a busy YC founder want a note about this
 
 # Cold Outreach Detection (Critical for Precision)
 
-Many emails disguise themselves as real relationships. Before assigning \`vendor\`, \`candidate\`, \`partner\`, or \`followup\`, apply these tests:
+Many emails disguise themselves as real relationships. Before assigning \`vendor\`, \`candidate\`, \`agency\`, \`client\`, or \`followup\`, apply these tests:
 
 **It's \`cold-outreach\` (noise), NOT a real relationship, if:**
-- The sender is pitching their own product or service — design agencies, compliance firms, content/copy writers, dev shops, freelancers, trademark services, company closure/winding-down services, hiring platforms, etc. — even if they reference your company by name, your YC batch, or offer something "free" or "exclusive for YC founders."
+- The sender is pitching their own product or service: agencies, job boards, assessment tools, sourcing databases, freelance sourcers, HR consultants, background-check vendors, or hiring platforms, even if they reference Jobraker Recruiter, your company, or a live role by name.
 - The thread consists entirely of the same sender following up on their own unanswered messages. A real followup requires prior two-way engagement.
-- A student, job-seeker, freelancer, or founder cold-emails asking for your time, feedback, or offering free work/trials. These are NOT \`candidate\` — they are \`cold-outreach\`.
+- A job-seeker, freelancer, or agency sends a generic blast asking for your time, feedback, or consideration with no open role fit. These are NOT \`candidate\`; they are \`cold-outreach\` unless there is role-specific signal or prior engagement.
 - Someone invites you to an event you didn't sign up for, especially if the email has marketing formatting (tracking links, unsubscribe footers, HTML banners). This is \`promotion\`, not \`event\`.
 
 **It IS a real relationship (not noise) if:**
 - You (the inbox owner) are a participant in the thread (you sent a reply, or someone on your team did).
-- The sender is from a company you are already paying, or they are providing a service under contract (e.g., your law firm, your accountant, your cloud provider support).
+- The sender is from a company you are already paying, or they are providing a recruiting service under contract (e.g., your job board, background-check provider, assessment vendor, agency, or calendar/interview tool support).
 - The sender was introduced to you by someone you know (warm intro present in the thread).
-- The sender references a specific ongoing engagement with concrete details — e.g., they are your assigned compliance assessor for an audit you initiated, or they are following up after a call you participated in. This is NOT the same as a generic "I noticed your company uses X" pitch.
+- The sender references a specific ongoing recruiting engagement with concrete details, e.g., a named candidate, live role, interview loop, background check, agency search, or follow-up after a call you participated in. This is NOT the same as a generic "I noticed you are hiring" pitch.
 
 **Key heuristic:** If every message in the thread is FROM the same external person and the inbox owner never replied, it's almost certainly cold outreach — regardless of how personalized it sounds. Label it \`cold-outreach\`.
 
 # Routine Operations & Finance (Often Missed as Noise)
 
-These emails involve real relationships (team, vendor) and real topics (finance) but are **noise** because the transaction is complete and no decision remains. They MUST get a filter tag even though they also have relationship/topic tags:
+These emails involve real relationships (team, vendor, agency, client) and real operational topics, but are **noise** because the transaction is complete and no hiring decision remains. They MUST get a filter tag even though they also have relationship/topic tags:
 
 - **Salary/payroll confirmations**: "Total salary disbursement is INR X, transfer initiated" → \`filter: ['receipt']\`
 - **Tax payment acknowledgements**: Income tax challan confirmations, TDS workings sent for processing → \`filter: ['receipt']\`
@@ -135,7 +135,7 @@ System-generated messages that require no decision:
 
 # Meeting vs Scheduling (Critical Distinction)
 
-- **topic: meeting** (CREATE) — A calendar invite or scheduling email for a real meeting with a **named person** you have a relationship with: an investor, customer, partner, candidate, advisor, team member. Examples: "Invitation: Zoom: Jobraker Recruiter Labs <> Dalton Caldwell", "YC between Peer Richelsen and Arjun", "Jobraker Recruiter <> Smash Capital". The key signal is a specific person or company in the subject/body.
+- **topic: meeting** (CREATE) - A calendar invite or scheduling email for a real recruiting meeting with a **named person** you have a relationship with: a candidate, hiring manager, interviewer, referrer, agency partner, client, or teammate. Examples: "Interview: Teni Ogunleye <> Product Design Panel", "Hiring intake: Backend Engineer search", "Agency sync: Senior Designer shortlist". The key signal is a specific person, role, candidate, or hiring context in the subject/body.
 - **filter: scheduling** (SKIP) — Automated reminders and scheduling tool notifications with **no named person or meaningful context**: "Reminder: your meeting is about to start", "Our meeting in an hour", generic ChiliPiper/Calendly confirmations. These are system-generated noise.
 
 **Rule of thumb:** If the email names who you're meeting with, it's \`topic: meeting\`. If it's just a system ping about a time slot, it's \`filter: scheduling\`.
@@ -144,10 +144,10 @@ System-generated messages that require no decision:
 
 These are noise even from a vendor you recognize or a platform you use:
 
-- **Industry reports**: "Report: $1.2T in combined enterprise AI value" → \`filter: ['newsletter']\`
-- **Webinar/workshop invitations**: "Register for our knowledge sessions", "5 Slots Left. Pitch Tomorrow." → \`filter: ['promotion']\`
-- **Product tips and tutorials**: "Discover more with your free account" → \`filter: ['newsletter']\`
-- **Startup program marketing**: "Reminder - Register for AI Architecture sessions" → \`filter: ['promotion']\`
+- **Industry reports**: "2026 talent market benchmarks for senior designers" -> \`filter: ['newsletter']\`
+- **Webinar/workshop invitations**: "Register for our AI sourcing masterclass" -> \`filter: ['promotion']\`
+- **Product tips and tutorials**: "Discover more candidate enrichment workflows in your free account" -> \`filter: ['newsletter']\`
+- **Recruiting program marketing**: "Reminder - register for our hiring operations roundtable" -> \`filter: ['promotion']\`
 
 **Exception:** If a tool your team actively uses is expiring and you need to make an upgrade/cancellation decision, that is NOT noise — it requires action.
 
@@ -165,10 +165,10 @@ Do not put topic or relationship tags into the filter array. If an email is an e
 ---
 labels:
   relationship:
-    - investor
+    - candidate
   topics:
-    - fundraising
-    - finance
+    - interview
+    - offer
   type: intro
   filter:
     - []

@@ -1431,6 +1431,10 @@ export interface BgTasksViewProps {
      * sidebar twice after navigating away inside the view).
      */
     slugVersion?: number
+    /**
+     * Bump this counter to open the "New task" dialog from global app chrome.
+     */
+    newTaskRequestVersion?: number
 }
 
 function formatLastRanLabel(iso: string | null | undefined): string {
@@ -1438,7 +1442,13 @@ function formatLastRanLabel(iso: string | null | undefined): string {
     return formatRelativeTime(iso) || 'Never'
 }
 
-export function BgTasksView({ onCreateWithCopilot, onEditWithCopilot, initialSlug, slugVersion }: BgTasksViewProps = {}) {
+export function BgTasksView({
+    onCreateWithCopilot,
+    onEditWithCopilot,
+    initialSlug,
+    slugVersion,
+    newTaskRequestVersion,
+}: BgTasksViewProps = {}) {
     const [items, setItems] = useState<BackgroundTaskSummary[]>([])
     const [selectedSlug, setSelectedSlug] = useState<string | null>(initialSlug ?? null)
     useEffect(() => {
@@ -1447,6 +1457,11 @@ export function BgTasksView({ onCreateWithCopilot, onEditWithCopilot, initialSlu
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [showNewDialog, setShowNewDialog] = useState(false)
+    useEffect(() => {
+        if (newTaskRequestVersion && newTaskRequestVersion > 0) {
+            setShowNewDialog(true)
+        }
+    }, [newTaskRequestVersion])
     // Per-row spinners while the corresponding IPC is in flight — same pattern
     // as `LiveNotesView` uses for its toggle / stop buttons.
     const [updatingSlugs, setUpdatingSlugs] = useState<Set<string>>(new Set())

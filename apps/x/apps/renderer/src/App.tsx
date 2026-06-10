@@ -5,11 +5,10 @@ import { RunEvent, ListRunsResponse } from '@x/shared/src/runs.js';
 import type { LanguageModelUsage, ToolUIPart } from 'ai';
 import './App.css'
 import z from 'zod';
-import { CheckIcon, LoaderIcon, ChevronLeftIcon, ChevronRightIcon, Plus, HistoryIcon, Loader2, Mic, Square } from 'lucide-react';
+import { CheckIcon, LoaderIcon, ChevronLeftIcon, ChevronRightIcon, Plus, HistoryIcon, Loader2, Mic, Square, PanelLeftIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/markdown-editor';
 import { ChatSidebar } from './components/chat-sidebar';
-import { ChatHeader } from './components/chat-header';
 import { RecruiterScreens, type RecruiterScreenId } from './components/recruiter';
 import { ChatAssistantRow } from './components/chat-assistant-row';
 import { ChatEmptyState } from './components/chat-empty-state';
@@ -186,7 +185,7 @@ const graphPalette = [
 ]
 
 const MACOS_TRAFFIC_LIGHTS_RESERVED_PX = 16 + 12 * 3 + 8 * 2
-const TITLEBAR_BUTTON_PX = 32
+const TITLEBAR_BUTTON_PX = 180
 const TITLEBAR_BUTTON_GAP_PX = 4
 const TITLEBAR_HEADER_GAP_PX = 8
 const TITLEBAR_TOGGLE_MARGIN_LEFT_PX = 12
@@ -204,6 +203,8 @@ const KNOWLEDGE_VIEW_TAB_PATH = '__jobraker-recruiter_knowledge_view__'
 const CHAT_HISTORY_TAB_PATH = '__jobraker-recruiter_chat_history__'
 const HOME_TAB_PATH = '__jobraker-recruiter_home__'
 const BASES_DEFAULT_TAB_PATH = '__jobraker-recruiter_bases_default__'
+const CHAT_TAB_PATH = '__jobraker-recruiter_chat__'
+
 
 const clampNumber = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
@@ -341,6 +342,8 @@ const isKnowledgeViewTabPath = (path: string) => path === KNOWLEDGE_VIEW_TAB_PAT
 const isChatHistoryTabPath = (path: string) => path === CHAT_HISTORY_TAB_PATH
 const isHomeTabPath = (path: string) => path === HOME_TAB_PATH
 const isBaseFilePath = (path: string) => path.endsWith('.base') || path === BASES_DEFAULT_TAB_PATH
+const isChatTabPath = (path: string) => path === CHAT_TAB_PATH
+
 
 const getSuggestedTopicTargetFolder = (category?: string) => {
   const normalized = category?.trim().toLowerCase()
@@ -598,7 +601,7 @@ type ViewState =
   | { type: 'chat-history' }
   | { type: 'home' }
   | { type: 'bg-tasks' }
-  | { type: 'recruiter'; screen: RecruiterScreen }
+  | { type: 'recruiter'; screen: RecruiterScreen; candidateId?: string | null; initialAction?: 'add-candidate' | 'add-role' | null }
 
 function viewStatesEqual(a: ViewState, b: ViewState): boolean {
   if (a.type !== b.type) return false
@@ -607,7 +610,7 @@ function viewStatesEqual(a: ViewState, b: ViewState): boolean {
   if (a.type === 'task' && b.type === 'task') return a.name === b.name
   if (a.type === 'workspace' && b.type === 'workspace') return (a.path ?? '') === (b.path ?? '')
   if (a.type === 'knowledge-view' && b.type === 'knowledge-view') return (a.folderPath ?? '') === (b.folderPath ?? '')
-  if (a.type === 'recruiter' && b.type === 'recruiter') return a.screen === b.screen
+  if (a.type === 'recruiter' && b.type === 'recruiter') return a.screen === b.screen && a.candidateId === b.candidateId && a.initialAction === b.initialAction
   return true // both graph
 }
 
@@ -684,8 +687,9 @@ function ContentHeader({
   canNavigateForward?: boolean
   collapsedLeftPaddingPx?: number
 }) {
-  const { state } = useSidebar()
+  const { state, toggleSidebar } = useSidebar()
   const isCollapsed = state === "collapsed"
+  const isMac = isMacPlatform()
   return (
     <header
       className="jobraker-recruiter-titlebar titlebar-drag-region flex h-12 shrink-0 items-center overflow-hidden border-b"
@@ -695,6 +699,28 @@ function ContentHeader({
         transition: 'padding-left 200ms linear',
       }}
     >
+      {isCollapsed ? (
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="titlebar-no-drag fixed top-2 z-50 flex h-8 w-[180px] items-center justify-between gap-2.5 px-2.5 rounded-lg border border-white/10 bg-background/85 text-foreground shadow-[0_0_20px_rgba(45,255,28,0.12)] backdrop-blur-xl transition hover:border-brand/30 hover:bg-brand/10 group"
+          style={{
+            left: isMac ? `${MACOS_TRAFFIC_LIGHTS_RESERVED_PX + 12}px` : '12px'
+          }}
+          aria-label="Show sidebar"
+          title="Show sidebar"
+        >
+          <img
+            src="/logo-only.png"
+            alt="Jobraker Recruiter"
+            className="size-5 rounded object-cover brand-glow shrink-0"
+          />
+          <span className="text-xs font-bold tracking-tight truncate flex-1 text-left select-none ml-1">
+            Jobraker <span className="text-brand">Recruiter</span>
+          </span>
+          <PanelLeftIcon className="size-4 shrink-0 text-muted-foreground group-hover:text-brand transition-colors" />
+        </button>
+      ) : null}
       {onNavigateBack && onNavigateForward ? (
         <div className="jobraker-titlebar-nav titlebar-no-drag flex shrink-0 items-center gap-1 pr-2">
           <button
@@ -755,9 +781,9 @@ function App() {
   // Lives in ViewState so folder drill-down participates in back/forward history.
   const [knowledgeViewFolderPath, setKnowledgeViewFolderPath] = useState<string | null>(null)
   const [isChatHistoryOpen, setIsChatHistoryOpen] = useState(false)
-  // Dedicated recruiter dashboards (Roles / Candidates / Pipeline / Analytics).
-  // Rendered as a full-pane overlay inside the main inset; null = inactive.
   const [recruiterScreen, setRecruiterScreen] = useState<RecruiterScreen | null>(null)
+  const [recruiterSelectedCandidateId, setRecruiterSelectedCandidateId] = useState<string | null>(null)
+  const [recruiterInitialAction, setRecruiterInitialAction] = useState<'add-candidate' | 'add-role' | null>(null)
   // Default landing view: Home in the middle with the chat docked on the right.
   const [isHomeOpen, setIsHomeOpen] = useState(true)
   const [emailInitialThreadId, setEmailInitialThreadId] = useState<string | null>(null)
@@ -905,7 +931,7 @@ function App() {
       window.ipc.invoke('oauth:getState', null),
     ]).then(([config, oauthState]) => {
       const jobrakerRecruiterConnected = oauthState.config?.['jobraker-recruiter']?.connected ?? false
-      const hasVoice = !!config.deepgram || jobrakerRecruiterConnected
+      const hasVoice = !!config.elevenlabs || jobrakerRecruiterConnected
       setVoiceAvailable(hasVoice)
       setTtsAvailable(!!config.elevenlabs || jobrakerRecruiterConnected)
       // Pre-cache auth details so mic click skips IPC round-trips
@@ -920,10 +946,17 @@ function App() {
 
   useEffect(() => {
     refreshVoiceAvailability()
-    const cleanup = window.ipc.on('oauth:didConnect', () => {
+    const cleanupOAuth = window.ipc.on('oauth:didConnect', () => {
       refreshVoiceAvailability()
     })
-    return cleanup
+    const handleConnectorsUpdated = () => {
+      refreshVoiceAvailability()
+    }
+    window.addEventListener('connectors:updated', handleConnectorsUpdated)
+    return () => {
+      cleanupOAuth()
+      window.removeEventListener('connectors:updated', handleConnectorsUpdated)
+    }
   }, [refreshVoiceAvailability])
 
   // One-time Composio→native Google migration check. Runs on mount and again
@@ -1165,6 +1198,11 @@ function App() {
     if (isKnowledgeViewTabPath(tab.path)) return 'Notes'
     if (isChatHistoryTabPath(tab.path)) return 'Chat history'
     if (isHomeTabPath(tab.path)) return 'Home'
+    if (isChatTabPath(tab.path)) {
+      const activeTab = chatTabsRef.current.find((t) => t.id === activeChatTabIdRef.current)
+      return activeTab ? getChatTabTitle(activeTab) : 'Chat'
+    }
+
     const recruiterTitle = getRecruiterTabTitle(tab.path)
     if (recruiterTitle) return recruiterTitle
     if (tab.path === BASES_DEFAULT_TAB_PATH) return 'Bases'
@@ -2098,8 +2136,6 @@ function App() {
     const activeRunId = runIdRef.current
     const isActiveRun = event.runId === activeRunId
 
-    console.log('Run event:', event.type, event)
-
     switch (event.type) {
       case 'run-processing-start':
         setProcessingRunIds(prev => {
@@ -2962,10 +2998,18 @@ function App() {
     if (isRightPaneMaximized) {
       setIsRightPaneMaximized(false)
     }
+    if (isChatTabPath(tab.path)) {
+      setSelectedPath(null)
+      setIsGraphOpen(false)
+      setIsSuggestedTopicsOpen(false)
+      setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
+      return
+    }
     if (isGraphTabPath(tab.path)) {
       setSelectedPath(null)
       setIsGraphOpen(true)
       setIsSuggestedTopicsOpen(false)
+
       setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
       return
     }
@@ -3106,7 +3150,8 @@ function App() {
 
   const closeFileTab = useCallback((tabId: string) => {
     const closingTab = fileTabs.find(t => t.id === tabId)
-    if (closingTab && !isGraphTabPath(closingTab.path) && !isSuggestedTopicsTabPath(closingTab.path) && !isLiveNotesTabPath(closingTab.path) && !isBgTasksTabPath(closingTab.path) && !isEmailTabPath(closingTab.path) && !isWorkspaceTabPath(closingTab.path) && !isKnowledgeViewTabPath(closingTab.path) && !isChatHistoryTabPath(closingTab.path) && !isHomeTabPath(closingTab.path) && !isRecruiterTabPath(closingTab.path) && !isBaseFilePath(closingTab.path)) {
+    if (closingTab && !isGraphTabPath(closingTab.path) && !isSuggestedTopicsTabPath(closingTab.path) && !isLiveNotesTabPath(closingTab.path) && !isBgTasksTabPath(closingTab.path) && !isEmailTabPath(closingTab.path) && !isWorkspaceTabPath(closingTab.path) && !isKnowledgeViewTabPath(closingTab.path) && !isChatHistoryTabPath(closingTab.path) && !isHomeTabPath(closingTab.path) && !isRecruiterTabPath(closingTab.path) && !isBaseFilePath(closingTab.path) && !isChatTabPath(closingTab.path)) {
+
       removeEditorCacheForPath(closingTab.path)
       initialContentByPathRef.current.delete(closingTab.path)
       untitledRenameReadyPathsRef.current.delete(closingTab.path)
@@ -3115,6 +3160,7 @@ function App() {
         editorPathRef.current = null
       }
     }
+
     if (closingTab && isBaseFilePath(closingTab.path)) {
       setBaseConfigByPath((prev) => {
         const next = { ...prev }
@@ -3239,6 +3285,12 @@ function App() {
           setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false)
           setRecruiterScreen(null)
           setIsHomeOpen(true)
+        } else if (isChatTabPath(newActiveTab.path)) {
+          setSelectedPath(null)
+          setIsGraphOpen(false)
+          setIsSuggestedTopicsOpen(false)
+          setIsMeetingsOpen(false); setIsLiveNotesOpen(false); setIsBgTasksOpen(false); setIsEmailOpen(false); setIsWorkspaceOpen(false); setIsKnowledgeViewOpen(false); setIsChatHistoryOpen(false); setIsHomeOpen(false); setRecruiterScreen(null)
+
         } else if (isRecruiterTabPath(newActiveTab.path)) {
           setSelectedPath(null)
           setIsGraphOpen(false)
@@ -3548,8 +3600,9 @@ function App() {
 
     if (activeFileTabId) {
       const activeTab = fileTabs.find((tab) => tab.id === activeFileTabId)
-      if (activeTab && !isGraphTabPath(activeTab.path) && !isBaseFilePath(activeTab.path)) {
+      if (activeTab && !isGraphTabPath(activeTab.path) && !isBaseFilePath(activeTab.path) && !isChatTabPath(activeTab.path)) {
         setFileTabs((prev) => prev.map((tab) => (
+
           tab.id === activeFileTabId ? { ...tab, path } : tab
         )))
         // Rebinds this tab to a different note path: reset editor session to clear undo history.
@@ -3676,6 +3729,18 @@ function App() {
     setActiveFileTabId(id)
   }, [fileTabs])
 
+  const ensureChatFileTab = useCallback(() => {
+    const existing = fileTabs.find((tab) => isChatTabPath(tab.path))
+    if (existing) {
+      setActiveFileTabId(existing.id)
+      return
+    }
+    const id = newFileTabId()
+    setFileTabs((prev) => [...prev, { id, path: CHAT_TAB_PATH }])
+    setActiveFileTabId(id)
+  }, [fileTabs])
+
+
   const ensureRecruiterFileTab = useCallback((screen: RecruiterScreen) => {
     const path = getRecruiterTabPath(screen)
     const existing = fileTabs.find((tab) => tab.path === path)
@@ -3720,11 +3785,16 @@ function App() {
     void navigateToViewRef.current({ type: 'meetings' })
   }, [])
 
-  const openRecruiterScreen = useCallback((screen: RecruiterScreen) => {
-    void navigateToViewRef.current({ type: 'recruiter', screen })
+  const openRecruiterScreen = useCallback((screen: RecruiterScreen, candidateId?: string | null, initialAction?: 'add-candidate' | 'add-role' | null) => {
+    void navigateToViewRef.current({ type: 'recruiter', screen, candidateId, initialAction })
   }, [])
 
   const applyViewState = useCallback(async (view: ViewState) => {
+    // Reset recruiter-specific temporary parameters on any view change
+    if (view.type !== 'recruiter') {
+      setRecruiterSelectedCandidateId(null)
+      setRecruiterInitialAction(null)
+    }
     switch (view.type) {
       case 'file':
         setSelectedBackgroundTask(null)
@@ -3792,7 +3862,8 @@ function App() {
         setIsWorkspaceOpen(false)
         setIsKnowledgeViewOpen(false)
         setIsChatHistoryOpen(false)
-      setIsHomeOpen(false)
+        setIsHomeOpen(false)
+        setRecruiterScreen(null)
         ensureMeetingsFileTab()
         return
       case 'live-notes':
@@ -3809,7 +3880,7 @@ function App() {
         setIsWorkspaceOpen(false)
         setIsKnowledgeViewOpen(false)
         setIsChatHistoryOpen(false)
-      setIsHomeOpen(false)
+        setIsHomeOpen(false)
         setRecruiterScreen(null)
         setIsLiveNotesOpen(true)
         ensureLiveNotesFileTab()
@@ -3850,6 +3921,8 @@ function App() {
         setIsChatHistoryOpen(false)
         setIsHomeOpen(false)
         setRecruiterScreen(view.screen)
+        setRecruiterSelectedCandidateId(view.candidateId ?? null)
+        setRecruiterInitialAction(view.initialAction ?? null)
         ensureRecruiterFileTab(view.screen)
         return
       case 'email':
@@ -3867,7 +3940,8 @@ function App() {
         setIsWorkspaceOpen(false)
         setIsKnowledgeViewOpen(false)
         setIsChatHistoryOpen(false)
-      setIsHomeOpen(false)
+        setIsHomeOpen(false)
+        setRecruiterScreen(null)
         ensureEmailFileTab()
         return
       case 'workspace':
@@ -3885,7 +3959,8 @@ function App() {
         setIsWorkspaceOpen(true)
         setIsKnowledgeViewOpen(false)
         setIsChatHistoryOpen(false)
-      setIsHomeOpen(false)
+        setIsHomeOpen(false)
+        setRecruiterScreen(null)
         setWorkspaceInitialPath(view.path ?? null)
         ensureWorkspaceFileTab()
         return
@@ -3905,7 +3980,8 @@ function App() {
         setIsKnowledgeViewOpen(true)
         setKnowledgeViewFolderPath(view.folderPath ?? null)
         setIsChatHistoryOpen(false)
-      setIsHomeOpen(false)
+        setIsHomeOpen(false)
+        setRecruiterScreen(null)
         ensureKnowledgeViewFileTab()
         return
       case 'chat-history':
@@ -3922,7 +3998,9 @@ function App() {
         setIsEmailOpen(false)
         setIsWorkspaceOpen(false)
         setIsKnowledgeViewOpen(false)
-        setIsChatHistoryOpen(true); setIsHomeOpen(false)
+        setIsChatHistoryOpen(true)
+        setIsHomeOpen(false)
+        setRecruiterScreen(null)
         ensureChatHistoryFileTab()
         return
       case 'home':
@@ -3941,6 +4019,7 @@ function App() {
         setIsKnowledgeViewOpen(false)
         setIsChatHistoryOpen(false)
         setIsHomeOpen(true)
+        setRecruiterScreen(null)
         ensureHomeFileTab()
         return
       case 'chat':
@@ -3969,9 +4048,11 @@ function App() {
         } else {
           handleNewChat()
         }
+        ensureChatFileTab()
         return
     }
-  }, [ensureEmailFileTab, ensureMeetingsFileTab, ensureLiveNotesFileTab, ensureBgTasksFileTab, ensureRecruiterFileTab, ensureFileTabForPath, ensureGraphFileTab, ensureSuggestedTopicsFileTab, ensureWorkspaceFileTab, ensureKnowledgeViewFileTab, ensureChatHistoryFileTab, ensureHomeFileTab, handleNewChat, isRightPaneMaximized, loadRun])
+  }, [ensureEmailFileTab, ensureMeetingsFileTab, ensureLiveNotesFileTab, ensureBgTasksFileTab, ensureRecruiterFileTab, ensureFileTabForPath, ensureGraphFileTab, ensureSuggestedTopicsFileTab, ensureWorkspaceFileTab, ensureKnowledgeViewFileTab, ensureChatHistoryFileTab, ensureHomeFileTab, ensureChatFileTab, handleNewChat, isRightPaneMaximized, loadRun])
+
 
   const navigateToView = useCallback(async (nextView: ViewState) => {
     const current = currentViewState
@@ -4817,6 +4898,9 @@ function App() {
     pendingCalendarEventRef.current = undefined
     setRecordingMeetingSource(calEvent?.source ?? null)
     const notePath = await meetingTranscription.start(calEvent)
+    if (!notePath) {
+      setRecordingMeetingSource(null)
+    }
     if (notePath) {
       meetingNotePathRef.current = notePath
       await handleVoiceNoteCreated(notePath)
@@ -5388,7 +5472,7 @@ function App() {
                 canNavigateForward={canNavigateForward}
                 collapsedLeftPaddingPx={collapsedLeftPaddingPx}
               >
-                {!isFullScreenChat && fileTabs.length >= 1 ? (
+                {fileTabs.length >= 1 ? (
                   <TabBar
                     tabs={fileTabs}
                     activeTabId={activeFileTabId ?? ''}
@@ -5401,19 +5485,8 @@ function App() {
                       || isEmailOpen || isWorkspaceOpen || isKnowledgeViewOpen || isChatHistoryOpen || isHomeOpen
                       || recruiterScreen != null
                       || (selectedPath != null && isBaseFilePath(selectedPath))
+                      || isFullScreenChat
                     )}
-                  />
-                ) : isFullScreenChat ? (
-                  <ChatHeader
-                    activeTitle={(() => {
-                      const activeTab = chatTabs.find((t) => t.id === activeChatTabId)
-                      return activeTab ? getChatTabTitle(activeTab) : 'New chat'
-                    })()}
-                    onNewChatTab={handleNewChatTab}
-                    recentRuns={runs}
-                    activeRunId={runId}
-                    onSelectRun={(rid) => void navigateToView({ type: 'chat', runId: rid })}
-                    onOpenChatHistory={() => void navigateToView({ type: 'chat-history' })}
                   />
                 ) : (
                   <TabBar
@@ -5426,6 +5499,7 @@ function App() {
                     onCloseTab={closeChatTab}
                   />
                 )}
+
                 {selectedPath && selectedPath.endsWith('.md') && (
                   <div className="flex items-center gap-1 text-xs text-muted-foreground self-center shrink-0 pl-2">
                     {isSaving ? (
@@ -5562,7 +5636,7 @@ function App() {
                       if (prompt) setPresetMessage(prompt)
                       handleNewChatTab()
                     }}
-                    onOpenRecruiterScreen={(screen) => openRecruiterScreen(screen)}
+                    onOpenRecruiterScreen={(screen, candidateId, initialAction) => openRecruiterScreen(screen, candidateId, initialAction)}
                     onOpenSearch={() => setIsSearchOpen(true)}
                   />
                 </div>
@@ -5570,7 +5644,9 @@ function App() {
                 <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                   <RecruiterScreens
                     screen={recruiterScreen}
-                    onNavigate={(screen: RecruiterScreenId) => openRecruiterScreen(screen)}
+                    selectedCandidateId={recruiterSelectedCandidateId}
+                    initialAction={recruiterInitialAction}
+                    onNavigate={(screen: RecruiterScreenId, candidateId, initialAction) => openRecruiterScreen(screen, candidateId, initialAction)}
                     onAskCopilot={(prompt) => {
                       submitFromPalette(prompt, null)
                     }}

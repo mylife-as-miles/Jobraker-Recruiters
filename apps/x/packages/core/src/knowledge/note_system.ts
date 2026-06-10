@@ -52,7 +52,7 @@ const DEFAULT_NOTE_TYPE_DEFINITIONS: NoteTypeDefinition[] = [
 ## Info
 **Type:** {company|team|institution|other}
 **Industry:** {industry or leave blank}
-**Relationship:** {customer|prospect|partner|competitor|vendor|other}
+**Relationship:** {candidate|hiring-manager|interviewer|referrer|agency|client|team|executive|vendor|talent-community|candidate-support|other}
 **Domain:** {primary email domain}
 **Aliases:** {comma-separated: short names, abbreviations}
 **First met:** {YYYY-MM-DD}
@@ -99,7 +99,7 @@ const DEFAULT_NOTE_TYPE_DEFINITIONS: NoteTypeDefinition[] = [
 - [[People/{Person}]] — {role}
 
 ## Organizations
-- [[Organizations/{Org}]] — {customer|partner|etc.}
+- [[Organizations/{Org}]] — {client|agency|vendor|team|etc.}
 
 ## Related
 - [[Topics/{Topic}]] — {relationship}

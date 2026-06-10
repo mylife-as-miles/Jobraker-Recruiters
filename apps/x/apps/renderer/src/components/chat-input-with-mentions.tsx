@@ -408,6 +408,8 @@ function ChatInputInner({
       setSearchAvailable(available)
     }
     checkSearch()
+    window.addEventListener('connectors:updated', checkSearch)
+    return () => window.removeEventListener('connectors:updated', checkSearch)
   }, [isActive, isJobrakerRecruiterConnected])
 
   // Selecting a model affects only the *next* run created from this tab.
