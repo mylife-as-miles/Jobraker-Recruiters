@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import posthog from 'posthog-js'
-import { identifyUser, resetAnalyticsIdentity } from '@/lib/analytics'
+import { identifyUser, isAnalyticsEnabled, resetAnalyticsIdentity } from '@/lib/analytics'
 
 /**
  * Identifies the user in PostHog when signed into JobrakerRecruiter,
@@ -10,6 +10,8 @@ import { identifyUser, resetAnalyticsIdentity } from '@/lib/analytics'
 export function useAnalyticsIdentity() {
   // On mount: check current OAuth state and identify if signed in
   useEffect(() => {
+    if (!isAnalyticsEnabled()) return
+
     async function init() {
       try {
         const result = await window.ipc.invoke('oauth:getState', null)
@@ -58,6 +60,8 @@ export function useAnalyticsIdentity() {
 
   // Listen for OAuth connect/disconnect events to update identity
   useEffect(() => {
+    if (!isAnalyticsEnabled()) return
+
     const cleanup = window.ipc.on('oauth:didConnect', (event) => {
       if (event.provider !== 'jobraker-recruiter') {
         // Other providers: just toggle the connection flag
