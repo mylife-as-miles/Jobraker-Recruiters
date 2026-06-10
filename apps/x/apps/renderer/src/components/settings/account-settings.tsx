@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Loader2, User, CreditCard, LogOut, ExternalLink } from "lucide-react"
+import { Loader2, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -14,64 +14,37 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Separator } from "@/components/ui/separator"
-import { useBilling } from "@/hooks/useBilling"
 import { toast } from "sonner"
-import type { BillingUsageBucket } from "@x/shared/dist/billing.js"
+import { googleDisplayName } from "@/lib/google-profile"
 
 interface AccountSettingsProps {
   dialogOpen: boolean
 }
 
-function formatPlanName(plan: string | null | undefined) {
-  if (!plan) return 'No Plan'
-  return `${plan.charAt(0).toUpperCase()}${plan.slice(1)} Plan`
-}
-
-function CreditUsageBar({ label, bucket, helper }: {
-  label: string
-  bucket: BillingUsageBucket
-  helper?: string
-}) {
-  const pct = bucket.sanctionedCredits > 0
-    ? Math.min(100, Math.max(0, Math.round((bucket.usedCredits / bucket.sanctionedCredits) * 100)))
-    : 0
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          {helper ? <p className="text-[11px] text-muted-foreground">{helper}</p> : null}
-        </div>
-        <p className="shrink-0 text-xs font-medium tabular-nums">
-          {pct}%
-        </p>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  )
-}
-
 export function AccountSettings({ dialogOpen }: AccountSettingsProps) {
-  const [isJobrakerRecruiterConnected, setIsJobrakerRecruiterConnected] = useState(false)
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false)
+  const [googleProfileName, setGoogleProfileName] = useState<string | null>(null)
+  const [googleProfileImage, setGoogleProfileImage] = useState<string | null>(null)
+  const [googleProfileEmail, setGoogleProfileEmail] = useState<string | null>(null)
+
   const [connectionLoading, setConnectionLoading] = useState(true)
   const [disconnecting, setDisconnecting] = useState(false)
   const [connecting, setConnecting] = useState(false)
-  const [appUrl, setAppUrl] = useState<string | null>(null)
-  const { billing, isLoading: billingLoading } = useBilling(isJobrakerRecruiterConnected)
-  const hasPaidSubscription = billing?.subscriptionPlan === 'starter' || billing?.subscriptionPlan === 'pro'
 
   const checkConnection = useCallback(async () => {
     try {
       setConnectionLoading(true)
       const result = await window.ipc.invoke('oauth:getState', null)
-      const connected = result.config?.['jobraker-recruiter']?.connected ?? false
-      setIsJobrakerRecruiterConnected(connected)
+      const config = result.config || {}
+      
+      const googleConfig = config['google'] as any
+      const googleConnected = googleConfig?.connected ?? false
+      setIsGoogleConnected(googleConnected)
+      setGoogleProfileName(googleConfig?.profileName ?? null)
+      setGoogleProfileImage(googleConfig?.profileImage ?? null)
+      setGoogleProfileEmail(googleConfig?.profileEmail ?? null)
     } catch {
-      setIsJobrakerRecruiterConnected(false)
+      setIsGoogleConnected(false)
     } finally {
       setConnectionLoading(false)
     }
@@ -84,52 +57,44 @@ export function AccountSettings({ dialogOpen }: AccountSettingsProps) {
   }, [dialogOpen, checkConnection])
 
   useEffect(() => {
-    if (isJobrakerRecruiterConnected) {
-      window.ipc.invoke('account:getJobrakerRecruiter', null)
-        .then((account) => setAppUrl(account.config?.appUrl ?? null))
-        .catch(() => {})
-    }
-  }, [isJobrakerRecruiterConnected])
-
-  useEffect(() => {
     const cleanup = window.ipc.on('oauth:didConnect', (event) => {
-      if (event.provider === 'jobraker-recruiter') {
-        setIsJobrakerRecruiterConnected(event.success)
+      checkConnection()
+      if (event.provider === 'google') {
         setConnecting(false)
         if (event.success) {
-          toast.success('Logged in to Jobraker Recruiter')
+          toast.success('Google account connected')
         }
       }
     })
     return cleanup
-  }, [])
+  }, [checkConnection])
 
-  const handleConnect = useCallback(async () => {
+  const handleConnectGoogle = useCallback(async () => {
     try {
       setConnecting(true)
-      const result = await window.ipc.invoke('oauth:connect', { provider: 'jobraker-recruiter' })
+      const result = await window.ipc.invoke('oauth:connect', { provider: 'google' })
       if (!result.success) {
-        toast.error(result.error || 'Failed to log in to Jobraker Recruiter')
+        toast.error(result.error || 'Failed to connect Google Account')
         setConnecting(false)
       }
     } catch {
-      toast.error('Failed to log in to Jobraker Recruiter')
+      toast.error('Failed to connect Google Account')
       setConnecting(false)
     }
   }, [])
 
-  const handleDisconnect = useCallback(async () => {
+  const handleDisconnectGoogle = useCallback(async () => {
     try {
       setDisconnecting(true)
-      const result = await window.ipc.invoke('oauth:disconnect', { provider: 'jobraker-recruiter' })
+      const result = await window.ipc.invoke('oauth:disconnect', { provider: 'google' })
       if (result.success) {
-        setIsJobrakerRecruiterConnected(false)
-        toast.success('Logged out of Jobraker Recruiter')
+        setIsGoogleConnected(false)
+        toast.success('Google account disconnected')
       } else {
-        toast.error('Failed to log out of Jobraker Recruiter')
+        toast.error('Failed to disconnect Google Account')
       }
     } catch {
-      toast.error('Failed to log out of Jobraker Recruiter')
+      toast.error('Failed to disconnect Google Account')
     } finally {
       setDisconnecting(false)
     }
@@ -143,157 +108,81 @@ export function AccountSettings({ dialogOpen }: AccountSettingsProps) {
     )
   }
 
-  if (!isJobrakerRecruiterConnected) {
+  if (!isGoogleConnected) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-4">
         <div className="flex size-14 items-center justify-center rounded-full bg-muted">
           <User className="size-7 text-muted-foreground" />
         </div>
         <div className="text-center space-y-1">
-          <p className="text-sm font-medium">Not logged in</p>
-          <p className="text-xs text-muted-foreground">Log in to your Jobraker Recruiter account to access premium features</p>
+          <p className="text-sm font-medium">No account connected</p>
+          <p className="text-xs text-muted-foreground">Connect your Google account via OAuth to personalize your profile and access integrations</p>
         </div>
-        <Button onClick={handleConnect} disabled={connecting}>
+        <Button onClick={handleConnectGoogle} disabled={connecting}>
           {connecting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-          Log in to Jobraker Recruiter
+          Connect Google Account
         </Button>
       </div>
     )
   }
 
+  const displayName = googleDisplayName(googleProfileName, googleProfileEmail)
+
   return (
     <div className="space-y-6">
       {/* Profile Section */}
       <div className="space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
-            <User className="size-6 text-primary" />
-          </div>
-          <div className="space-y-0.5">
-            <p className="text-sm font-medium">
-              {billing?.userEmail ?? 'Loading...'}
-            </p>
-            <p className="text-xs text-muted-foreground">Jobraker Recruiter Account</p>
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Plan Section */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <CreditCard className="size-4 text-muted-foreground" />
-          <h4 className="text-sm font-medium">Plan</h4>
-        </div>
-
-        {billingLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-3 animate-spin" />
-            Loading plan details...
-          </div>
-        ) : billing ? (
-          <div className="rounded-lg border p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium capitalize">
-                  {formatPlanName(billing.subscriptionPlan)}
-                </p>
-                {billing.subscriptionStatus === 'trialing' && billing.trialExpiresAt ? (() => {
-                  const days = Math.max(0, Math.ceil((new Date(billing.trialExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-                  return (
-                    <p className="text-xs text-muted-foreground">
-                      Trial · {days === 0 ? 'expires today' : days === 1 ? '1 day left' : `${days} days left`}
-                    </p>
-                  )
-                })() : billing.subscriptionStatus ? (
-                  <p className="text-xs text-muted-foreground capitalize">{billing.subscriptionStatus}</p>
-                ) : null}
-                {!billing.subscriptionPlan && (
-                  <p className="text-xs text-muted-foreground">Subscribe to access AI features</p>
-                )}
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-card/25 p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 overflow-hidden border border-border/60">
+              {googleProfileImage ? (
+                <img
+                  src={googleProfileImage}
+                  alt={displayName}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <User className="size-6 text-primary" />
+              )}
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold text-foreground">
+                {displayName}
+              </p>
+              <p className="text-xs text-muted-foreground">{googleProfileEmail}</p>
+              <div className="inline-flex items-center gap-1 rounded bg-brand/10 px-1.5 py-0.5 text-[10px] font-medium text-brand">
+                <span className="h-1 w-1 rounded-full bg-brand" />
+                Primary Identity (Google OAuth)
               </div>
-              <Button variant="outline" size="sm" onClick={() => appUrl && window.open(`${appUrl}?intent=upgrade`)}>
-                {!billing.subscriptionPlan ? 'Subscribe' : billing.subscriptionPlan === 'free' ? 'Upgrade' : 'Change plan'}
-              </Button>
-            </div>
-            <div className="space-y-3 border-t pt-3">
-              <CreditUsageBar label="Plan usage" bucket={billing.monthly} />
-              <CreditUsageBar
-                label="Daily use"
-                bucket={billing.daily}
-                helper="Daily usage resets at 00:00 UTC"
-              />
             </div>
           </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">Unable to load plan details</p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Payment Section */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <CreditCard className="size-4 text-muted-foreground" />
-          <h4 className="text-sm font-medium">Payment</h4>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Manage invoices, payment methods, and billing details.
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!hasPaidSubscription}
-          onClick={() => appUrl && window.open(appUrl)}
-          className="gap-1.5"
-        >
-          <ExternalLink className="size-3" />
-          Manage in Stripe
-        </Button>
-        {!hasPaidSubscription && (
-          <p className="text-[11px] text-muted-foreground">Upgrade to a paid plan first</p>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Log Out Section */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <LogOut className="size-4 text-muted-foreground" />
-          <h4 className="text-sm font-medium">Log Out</h4>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Logging out will remove access to synced data and Jobraker Recruiter-provided models.
-        </p>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-              Log Out
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Log out of your Jobraker Recruiter account?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will remove access to synced data and Jobraker Recruiter-provided models. You can log back in at any time.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDisconnect}
-                disabled={disconnecting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {disconnecting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20 hover:border-destructive/40">
                 Log Out
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Disconnect Google Account?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will log you out of your primary identity. You can connect it back at any time.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDisconnectGoogle}
+                  disabled={disconnecting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {disconnecting ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+                  Disconnect
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </div>
   )
