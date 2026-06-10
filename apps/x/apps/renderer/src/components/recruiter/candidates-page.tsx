@@ -1,9 +1,7 @@
 import * as React from 'react'
-import { toast } from 'sonner'
 import {
   Bookmark,
   Briefcase,
-  ChevronDown,
   Filter,
   Mail,
   MoreHorizontal,
@@ -13,15 +11,22 @@ import {
   X,
   BarChart3,
   FileText,
+  Plus,
+  Loader2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   CANDIDATE_KPIS,
-  CANDIDATES,
+  ROLES,
   type Candidate,
   type CandidateStage,
+  type Role,
+  type CompanyStage,
+  type GrowthTrajectory,
+  type VestingStatus,
 } from './data'
-import { loadRecruiterState, saveRecruiterState } from './storage'
+import { loadRecruiterState } from './storage'
 import {
   AnimatedNumber,
   Avatar,
@@ -51,6 +56,9 @@ const STAGE_STYLES: Record<CandidateStage, string> = {
 const PAGE_SIZES = [5, 10, 25]
 
 type CandidatesPageProps = {
+  candidatesList: Candidate[]
+  selectedRoleId: string | null
+  onClearRoleFilter: () => void
   onAskCopilot?: (prompt: string) => void
   onNavigatePipeline?: () => void
   onOpenSearch?: () => void
@@ -58,78 +66,97 @@ type CandidatesPageProps = {
   onTakeMeetingNotes?: () => void
   onOpenAgents?: () => void
   onOpenEmail?: (threadId?: string) => void
-  onOpenMeetings?: () => void
+  onStageChange: (id: string, stage: CandidateStage) => void
+  onRemoveCandidate: (id: string) => void
+  onAddCandidate: () => void
+  onEditCandidate: (c: Candidate) => void
+  onOpenOutreachModal: (c: Candidate) => void
+  onOpenScheduleModal: (c: Candidate) => void
+  selectedCandidateId?: string | null
+  onUpdateCandidate?: (c: Candidate) => void
 }
 
 export function CandidatesPage({
+  candidatesList,
+  selectedRoleId,
+  onClearRoleFilter,
   onAskCopilot,
   onNavigatePipeline,
   onOpenSearch,
   onOpenChat,
   onTakeMeetingNotes,
   onOpenAgents,
-  onOpenEmail,
-  onOpenMeetings,
+  onStageChange,
+  onRemoveCandidate,
+  onAddCandidate,
+  onEditCandidate,
+  onOpenOutreachModal,
+  onOpenScheduleModal,
+  selectedCandidateId,
+  onUpdateCandidate,
 }: CandidatesPageProps) {
   const loading = useFakeLoading(680)
   const [search, setSearch] = React.useState('')
   const [stageFilter, setStageFilter] = React.useState<CandidateStage | 'All'>('All')
+  const [companyStageFilter, setCompanyStageFilter] = React.useState<CompanyStage | 'All'>('All')
+  const [growthFilter, setGrowthFilter] = React.useState<GrowthTrajectory | 'All'>('All')
+  const [vestingFilter, setVestingFilter] = React.useState<VestingStatus | 'All'>('All')
+
   const [page, setPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(5)
   const [selectedId, setSelectedId] = React.useState<string | null>('c1')
-  const [candidatesList] = React.useState<Candidate[]>(() =>
-    loadRecruiterState('candidates', CANDIDATES)
-  )
   const [checked, setChecked] = React.useState<Set<string>>(() => new Set(['c1']))
-  const [stages, setStages] = React.useState<Record<string, CandidateStage>>(() =>
-    loadRecruiterState(
-      'candidate-stages',
-      Object.fromEntries(candidatesList.map((c) => [c.id, c.stage])) as Record<string, CandidateStage>,
-    ),
-  )
-  const [notes, setNotes] = React.useState<Record<string, string>>(() =>
-    loadRecruiterState(
-      'candidate-notes',
-      Object.fromEntries(candidatesList.filter((c) => c.note).map((c) => [c.id, c.note!])) as Record<string, string>,
-    ),
-  )
   const [editingNote, setEditingNote] = React.useState(false)
   const [activeMenuId, setActiveMenuId] = React.useState<string | null>(null)
 
-  React.useEffect(() => {
-    saveRecruiterState('candidate-stages', stages)
-  }, [stages])
-
-  React.useEffect(() => {
-    saveRecruiterState('candidate-notes', notes)
-  }, [notes])
+  // Resolve role title for filtering
+  const rolesList = React.useMemo(() => loadRecruiterState<Role[]>('roles', ROLES), [])
+  const selectedRoleTitle = React.useMemo(() => {
+    if (!selectedRoleId) return null
+    return rolesList.find((r) => r.id === selectedRoleId)?.title ?? null
+  }, [selectedRoleId, rolesList])
 
   const candidates = React.useMemo(() => {
     const q = search.trim().toLowerCase()
-    return candidatesList.map((c) => ({ ...c, stage: stages[c.id] ?? c.stage }))
-      .filter((c) => {
-        if (stageFilter !== 'All' && c.stage !== stageFilter) return false
-        if (!q) return true
-        return (
-          c.name.toLowerCase().includes(q)
-          || c.title.toLowerCase().includes(q)
-          || c.location.toLowerCase().includes(q)
-          || c.skills.some((s) => s.toLowerCase().includes(q))
-        )
-      })
-  }, [candidatesList, search, stageFilter, stages])
+
+    return candidatesList.filter((c) => {
+      if (selectedRoleTitle && c.title !== selectedRoleTitle) return false
+      if (stageFilter !== 'All' && c.stage !== stageFilter) return false
+      if (companyStageFilter !== 'All' && !c.companyStages.includes(companyStageFilter)) return false
+      if (growthFilter !== 'All' && c.growthTrajectory !== growthFilter) return false
+      if (vestingFilter !== 'All' && c.vestingStatus !== vestingFilter) return false
+
+      // Regular search query
+      if (q) {
+        const match = c.name.toLowerCase().includes(q) ||
+                      c.title.toLowerCase().includes(q) ||
+                      c.location.toLowerCase().includes(q) ||
+                      c.skills.some((s) => s.toLowerCase().includes(q))
+        if (!match) return false
+      }
+
+      return true
+    })
+  }, [candidatesList, search, stageFilter, selectedRoleTitle, companyStageFilter, growthFilter, vestingFilter])
 
   const totalPages = Math.max(1, Math.ceil(candidates.length / pageSize))
   const pageItems = candidates.slice((page - 1) * pageSize, page * pageSize)
   const selected = candidates.find((c) => c.id === selectedId) ?? pageItems[0] ?? null
 
   React.useEffect(() => {
+    if (selectedCandidateId) {
+      setSelectedId(selectedCandidateId)
+      const index = candidates.findIndex((c) => c.id === selectedCandidateId)
+      if (index !== -1) {
+        const pageIdx = Math.ceil((index + 1) / pageSize)
+        setPage(pageIdx)
+      }
+    }
+  }, [selectedCandidateId, candidates, pageSize])
+
+  React.useEffect(() => {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
-
-  const updateStage = (id: string, stage: CandidateStage) => {
-    setStages((prev) => ({ ...prev, [id]: stage }))
-  }
 
   if (loading) {
     return (
@@ -163,10 +190,10 @@ export function CandidatesPage({
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-3 px-6 lg:grid-cols-4">
           {[
-            { label: 'Total Candidates', value: CANDIDATE_KPIS.total, delta: CANDIDATE_KPIS.totalDeltaPct, icon: Briefcase },
-            { label: 'Shortlisted', value: CANDIDATE_KPIS.shortlisted, delta: CANDIDATE_KPIS.shortlistedDeltaPct, icon: Bookmark },
-            { label: 'In Review', value: CANDIDATE_KPIS.inReview, delta: CANDIDATE_KPIS.inReviewDeltaPct, icon: User },
-            { label: 'Avg Match Score', value: CANDIDATE_KPIS.avgMatch, delta: CANDIDATE_KPIS.avgMatchDeltaPct, icon: BarChart3, suffix: '%' },
+            { label: 'Total Candidates', value: candidatesList.length, delta: CANDIDATE_KPIS.totalDeltaPct, icon: Briefcase },
+            { label: 'Shortlisted', value: candidatesList.filter(c => c.stage === 'Shortlisted').length, delta: CANDIDATE_KPIS.shortlistedDeltaPct, icon: Bookmark },
+            { label: 'In Review', value: candidatesList.filter(c => c.stage === 'In Review').length, delta: CANDIDATE_KPIS.inReviewDeltaPct, icon: User },
+            { label: 'Avg Match Score', value: candidatesList.length > 0 ? Math.round(candidatesList.reduce((sum, c) => sum + c.matchScore, 0) / candidatesList.length) : 0, delta: CANDIDATE_KPIS.avgMatchDeltaPct, icon: BarChart3, suffix: '%' },
           ].map((kpi, i) => (
             <Reveal key={kpi.label} delay={i * 0.05}>
               <div className="recruiter-kpi recruiter-card rounded-2xl border border-border/50 p-4">
@@ -192,22 +219,76 @@ export function CandidatesPage({
 
         {/* Filters */}
         <div className="mt-4 flex flex-wrap items-center gap-2 px-6">
-          {(['Role', 'Stage', 'Location', 'Experience', 'Source', 'Match score'] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              className="flex h-8 items-center gap-1 rounded-lg border border-border/50 bg-foreground/[0.03] px-2.5 text-[11px] text-muted-foreground transition hover:border-brand/30 hover:text-foreground"
-              onClick={() => {
-                if (f === 'Stage') setStageFilter((s) => (s === 'All' ? 'Shortlisted' : 'All'))
-              }}
-            >
-              {f === 'Stage' && stageFilter !== 'All' ? stageFilter : f}
-              <ChevronDown className="size-3" />
-            </button>
-          ))}
+          {selectedRoleTitle && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/10 px-2.5 py-1 text-[11px] text-brand">
+              <span className="font-semibold">Role: {selectedRoleTitle}</span>
+              <button
+                type="button"
+                onClick={onClearRoleFilter}
+                className="hover:text-white transition cursor-pointer"
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          )}
+
+          {/* Interactive Filters Dropdowns */}
+          <select
+            value={stageFilter}
+            onChange={(e) => { setStageFilter(e.target.value as CandidateStage | 'All'); setPage(1) }}
+            className="h-8 rounded-lg border border-border/50 bg-[#0c0d0d] px-2.5 text-[11px] text-muted-foreground outline-none hover:border-brand/30 focus:border-brand/40 cursor-pointer"
+          >
+            <option value="All">All Stages</option>
+            {(['New', 'Screening', 'In Review', 'Shortlisted', 'Interview', 'Offer', 'Hired'] as CandidateStage[]).map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+
+          <select
+            value={companyStageFilter}
+            onChange={(e) => { setCompanyStageFilter(e.target.value as CompanyStage | 'All'); setPage(1) }}
+            className="h-8 rounded-lg border border-border/50 bg-[#0c0d0d] px-2.5 text-[11px] text-muted-foreground outline-none hover:border-brand/30 focus:border-brand/40 cursor-pointer"
+          >
+            <option value="All">All Company Stages</option>
+            {(['Seed', 'Series A', 'Series B', 'Growth', 'Enterprise'] as CompanyStage[]).map((cs) => (
+              <option key={cs} value={cs}>{cs}</option>
+            ))}
+          </select>
+
+          <select
+            value={growthFilter}
+            onChange={(e) => { setGrowthFilter(e.target.value as GrowthTrajectory | 'All'); setPage(1) }}
+            className="h-8 rounded-lg border border-border/50 bg-[#0c0d0d] px-2.5 text-[11px] text-muted-foreground outline-none hover:border-brand/30 focus:border-brand/40 cursor-pointer"
+          >
+            <option value="All">All Trajectories</option>
+            {(['Fast', 'Moderate', 'Steady'] as GrowthTrajectory[]).map((gt) => (
+              <option key={gt} value={gt}>{gt} Growth</option>
+            ))}
+          </select>
+
+          <select
+            value={vestingFilter}
+            onChange={(e) => { setVestingFilter(e.target.value as VestingStatus | 'All'); setPage(1) }}
+            className="h-8 rounded-lg border border-border/50 bg-[#0c0d0d] px-2.5 text-[11px] text-muted-foreground outline-none hover:border-brand/30 focus:border-brand/40 cursor-pointer"
+          >
+            <option value="All">All Vesting Statuses</option>
+            {(['Fully Vested', 'Partially Vested', 'Unvested'] as VestingStatus[]).map((vs) => (
+              <option key={vs} value={vs}>{vs}</option>
+            ))}
+          </select>
+
           <button
             type="button"
-            className="ml-auto flex h-8 items-center gap-1.5 rounded-lg border border-border/50 px-2.5 text-[11px] text-muted-foreground hover:text-foreground"
+            onClick={onAddCandidate}
+            className="flex h-8 items-center gap-1 rounded-lg border border-brand/35 bg-brand/10 px-3 text-[11px] font-semibold text-brand transition hover:bg-brand hover:text-black cursor-pointer"
+          >
+            <Plus className="size-3.5" />
+            Add Candidate
+          </button>
+
+          <button
+            type="button"
+            className="ml-auto flex h-8 items-center gap-1.5 rounded-lg border border-border/50 px-2.5 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <Filter className="size-3.5" />
             Filters
@@ -224,15 +305,15 @@ export function CandidatesPage({
               action={
                 <button
                   type="button"
-                  onClick={() => { setSearch(''); setStageFilter('All') }}
-                  className="rounded-xl bg-brand px-4 py-2 text-xs font-semibold text-black"
+                  onClick={() => { setSearch(''); setStageFilter('All'); onClearRoleFilter() }}
+                  className="rounded-xl bg-brand px-4 py-2 text-xs font-semibold text-black cursor-pointer"
                 >
                   Clear filters
                 </button>
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-border/50">
+            <div className="overflow-hidden rounded-2xl border border-border/50 bg-[#050705]/20">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-border/40 bg-foreground/[0.02] text-muted-foreground">
@@ -266,12 +347,28 @@ export function CandidatesPage({
                               return next
                             })
                           }}
-                          className="size-3.5 rounded border-border accent-brand"
+                          className="size-3.5 rounded border-border accent-brand cursor-pointer"
                         />
                       </td>
                       <td className="p-3">
                         <div className="flex items-center gap-2.5">
-                          <Avatar name={c.name} size={32} />
+                          <div className="relative">
+                            <Avatar name={c.name} size={32} />
+                            {c.intentSignal !== 'Passive' && (
+                              <span className="absolute -bottom-0.5 -right-0.5 flex size-2">
+                                <span className={cn(
+                                  "absolute inline-flex h-full w-full rounded-full opacity-75",
+                                  c.intentSignal === 'Actively Sourcing' ? 'animate-ping bg-emerald-500' :
+                                  c.intentSignal === 'Recently Promoted' ? 'bg-amber-500' : 'bg-sky-500'
+                                )} />
+                                <span className={cn(
+                                  "relative inline-flex size-2 rounded-full",
+                                  c.intentSignal === 'Actively Sourcing' ? 'bg-emerald-500' :
+                                  c.intentSignal === 'Recently Promoted' ? 'bg-amber-500' : 'bg-sky-500'
+                                )} />
+                              </span>
+                            )}
+                          </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="font-semibold text-foreground">{c.name}</span>
@@ -281,9 +378,17 @@ export function CandidatesPage({
                                 </span>
                               )}
                             </div>
-                            <p className="truncate text-[11px] text-muted-foreground">
-                              {c.title} · {c.location}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{c.title}</p>
+                            <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
+                              <span>{c.location} · {c.experienceYears} yrs · </span>
+                              <div className="flex gap-0.5">
+                                {c.companyStages.map((stage) => (
+                                  <span key={stage} className="rounded bg-zinc-800/80 px-1 text-[9px] text-zinc-400">
+                                    {stage}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -302,7 +407,7 @@ export function CandidatesPage({
                         <button
                           type="button"
                           onClick={() => setActiveMenuId(activeMenuId === c.id ? null : c.id)}
-                          className="rounded-md p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+                          className="rounded-md p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground cursor-pointer"
                         >
                           <MoreHorizontal className="size-4" />
                         </button>
@@ -314,9 +419,9 @@ export function CandidatesPage({
                                 type="button"
                                 onClick={() => {
                                   setActiveMenuId(null)
-                                  onOpenEmail?.()
+                                  onOpenOutreachModal(c)
                                 }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white"
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white cursor-pointer"
                               >
                                 Send Email
                               </button>
@@ -324,9 +429,9 @@ export function CandidatesPage({
                                 type="button"
                                 onClick={() => {
                                   setActiveMenuId(null)
-                                  onOpenMeetings?.()
+                                  onOpenScheduleModal(c)
                                 }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white"
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white cursor-pointer"
                               >
                                 Schedule Interview
                               </button>
@@ -334,19 +439,19 @@ export function CandidatesPage({
                                 type="button"
                                 onClick={() => {
                                   setActiveMenuId(null)
-                                  onAskCopilot?.(`Help me edit the candidate profile for ${c.name}.`)
+                                  onEditCandidate(c)
                                 }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white"
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-zinc-800/60 transition-colors text-white cursor-pointer"
                               >
-                                Ask AI to Edit
+                                Edit Profile
                               </button>
                               <button
                                 type="button"
                                 onClick={() => {
                                   setActiveMenuId(null)
-                                  toast.success(`Candidate ${c.name} removed from active list.`)
+                                  onRemoveCandidate(c.id)
                                 }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-colors"
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold hover:bg-red-950/40 text-red-400 hover:text-red-300 transition-colors cursor-pointer"
                               >
                                 Remove Candidate
                               </button>
@@ -374,29 +479,28 @@ export function CandidatesPage({
                 type="button"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
-                className="rounded-lg border border-border/50 px-2 py-1 disabled:opacity-40"
+                className="rounded-lg border border-border/50 px-2 py-1 disabled:opacity-40 cursor-pointer"
               >
                 ‹
               </button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => i + 1).map((n) => (
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setPage(n)}
                   className={cn(
-                    'min-w-7 rounded-lg border px-2 py-1 tabular-nums',
+                    'min-w-7 rounded-lg border px-2 py-1 tabular-nums cursor-pointer',
                     page === n ? 'border-brand/40 bg-brand/15 text-brand' : 'border-border/50',
                   )}
                 >
                   {n}
                 </button>
               ))}
-              {totalPages > 5 && <span className="px-1">…</span>}
               <button
                 type="button"
                 disabled={page >= totalPages}
                 onClick={() => setPage((p) => p + 1)}
-                className="rounded-lg border border-border/50 px-2 py-1 disabled:opacity-40"
+                className="rounded-lg border border-border/50 px-2 py-1 disabled:opacity-40 cursor-pointer"
               >
                 ›
               </button>
@@ -404,10 +508,10 @@ export function CandidatesPage({
             <select
               value={pageSize}
               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-              className="rounded-lg border border-border/50 bg-transparent px-2 py-1"
+              className="rounded-lg border border-border/50 bg-transparent px-2 py-1 outline-none text-zinc-300"
             >
               {PAGE_SIZES.map((s) => (
-                <option key={s} value={s}>Show {s}</option>
+                <option key={s} value={s} className="bg-[#09090b]">Show {s}</option>
               ))}
             </select>
           </div>
@@ -427,23 +531,32 @@ export function CandidatesPage({
           >
             <CandidateDetailPanel
               candidate={selected}
-              note={notes[selected.id] ?? selected.note ?? ''}
+              note={selected.note ?? ''}
               editingNote={editingNote}
               onEditNote={() => setEditingNote(true)}
               onSaveNote={(text) => {
-                setNotes((prev) => ({ ...prev, [selected.id]: text }))
+                const updated = { ...selected, note: text }
+                if (onUpdateCandidate) {
+                  onUpdateCandidate(updated)
+                } else {
+                  onEditCandidate(updated)
+                }
                 setEditingNote(false)
               }}
               onClose={() => setSelectedId(null)}
-              onStageChange={(stage) => updateStage(selected.id, stage)}
+              onStageChange={(stage) => onStageChange(selected.id, stage)}
               onAskCopilot={onAskCopilot}
               onNavigatePipeline={onNavigatePipeline}
-              onOpenEmail={onOpenEmail}
-              onOpenMeetings={onOpenMeetings}
+              onEditProfileClick={() => onEditCandidate(selected)}
+              onOpenOutreachModal={onOpenOutreachModal}
+              onOpenScheduleModal={onOpenScheduleModal}
+              roles={rolesList}
+              onUpdateCandidate={onUpdateCandidate}
             />
           </motion.aside>
         )}
       </AnimatePresence>
+
     </div>
   )
 }
@@ -458,6 +571,11 @@ function CandidateDetailPanel({
   onStageChange,
   onAskCopilot,
   onNavigatePipeline,
+  onEditProfileClick,
+  onOpenOutreachModal,
+  onOpenScheduleModal,
+  roles = [],
+  onUpdateCandidate,
 }: {
   candidate: Candidate
   note: string
@@ -468,11 +586,54 @@ function CandidateDetailPanel({
   onStageChange: (stage: CandidateStage) => void
   onAskCopilot?: (prompt: string) => void
   onNavigatePipeline?: () => void
-  onOpenEmail?: (threadId?: string) => void
-  onOpenMeetings?: () => void
+  onEditProfileClick: () => void
+  onOpenOutreachModal: (c: Candidate) => void
+  onOpenScheduleModal: (c: Candidate) => void
+  roles?: Role[]
+  onUpdateCandidate?: (c: Candidate) => void
 }) {
   const [draft, setDraft] = React.useState(note)
   React.useEffect(() => setDraft(note), [note, candidate.id])
+
+  const [isGenerating, setIsGenerating] = React.useState(false)
+
+  const handleRegenerateAiAnalysis = async () => {
+    setIsGenerating(true)
+    try {
+      const targetRole = roles.find(r => r.title === candidate.title) || roles[0]
+      const roleContext = targetRole 
+        ? `Title: ${targetRole.title}\nDescription: ${targetRole.description}\nRequirements:\n${targetRole.requirements.join('\n')}`
+        : `Title: ${candidate.title}`
+
+      const res = await window.ipc.invoke('recruiter:generateLlm', {
+        systemPrompt: 'You are a senior technical recruiter and talent evaluator. Analyze the candidate details against the role requirements. Return a JSON object containing matchScore (number 1-100), startupFitScore (number 1-100), sourcingInsight (1-2 sentences), and startupFitInsight (1-2 sentences).',
+        prompt: `Analyze candidate ${candidate.name} for the role of ${candidate.title}.\nCandidate background:\nLocation: ${candidate.location}\nSkills: ${candidate.skills.join(', ')}\nHighlights: ${candidate.highlights.join('\n')}\nExperience: ${candidate.experienceYears} years\nStartup attributes: company stages: ${candidate.companyStages.join('/')}, growth trajectory: ${candidate.growthTrajectory}, vesting: ${candidate.vestingStatus}, intent: ${candidate.intentSignal}.\n\nRole requirements:\n${roleContext}\n\nRespond with ONLY a valid JSON object matching this schema:\n{\n  "matchScore": number,\n  "startupFitScore": number,\n  "sourcingInsight": "string",\n  "startupFitInsight": "string"\n}\nNo markdown formatting or extra text.`,
+      })
+
+      if (res.error) throw new Error(res.error)
+      let text = res.text || ''
+      text = text.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '').trim()
+      const data = JSON.parse(text)
+      
+      const updatedCandidate = {
+        ...candidate,
+        aiInsight: data.sourcingInsight || candidate.aiInsight,
+        startupFitInsight: data.startupFitInsight || candidate.startupFitInsight,
+        matchScore: data.matchScore ? Number(data.matchScore) : candidate.matchScore,
+        startupFitScore: data.startupFitScore ? Number(data.startupFitScore) : candidate.startupFitScore,
+      }
+
+      onUpdateCandidate?.(updatedCandidate)
+      toast.success('AI Insights regenerated successfully!')
+    } catch (err: any) {
+      console.error(err)
+      toast.error('Failed to regenerate AI insights', {
+        description: err?.message || String(err)
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   return (
     <>
@@ -494,9 +655,19 @@ function CandidateDetailPanel({
             </p>
           </div>
         </div>
-        <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-foreground/5">
-          <X className="size-4" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onEditProfileClick}
+            className="rounded-lg p-1 text-muted-foreground hover:bg-foreground/5 hover:text-white transition cursor-pointer"
+            title="Edit profile"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-foreground/5 cursor-pointer">
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
 
       <div className="mx-5 rounded-2xl border border-brand/25 bg-gradient-to-br from-brand/12 to-transparent p-4">
@@ -513,11 +684,41 @@ function CandidateDetailPanel({
         </div>
       </div>
 
+      {/* AI Startup Fit Summary Card */}
+      <div className="mx-5 mt-3 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-transparent p-4">
+        <div className="flex items-start gap-3">
+          <ScoreRing score={candidate.startupFitScore} size={52} />
+          <div>
+            <p className="text-sm font-bold text-violet-400">Startup Fit: {candidate.startupFitScore}%</p>
+            <div className="mt-1.5 flex flex-wrap gap-1 text-[10px]">
+              <span className={cn(
+                "px-1.5 py-0.5 rounded font-bold",
+                candidate.intentSignal === 'Actively Sourcing' ? 'bg-emerald-500/15 text-emerald-400' :
+                candidate.intentSignal === 'Recently Promoted' ? 'bg-amber-500/15 text-amber-400' :
+                candidate.intentSignal === 'High Engagement' ? 'bg-sky-500/15 text-sky-400' :
+                'bg-zinc-800 text-zinc-400'
+              )}>
+                {candidate.intentSignal}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-300 font-semibold">
+                {candidate.growthTrajectory} Growth
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                {candidate.vestingStatus}
+              </span>
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+              {candidate.startupFitInsight}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div className="p-5">
         <p className="text-xs font-semibold text-foreground">Top skills</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {candidate.skills.map((s) => (
-            <span key={s} className="rounded-lg border border-border/50 bg-foreground/[0.04] px-2 py-1 text-[10px] text-muted-foreground">
+            <span key={s} className="rounded-lg border border-border/50 bg-foreground/[0.04] px-2 py-1 text-[10px] text-zinc-300">
               {s}
             </span>
           ))}
@@ -539,19 +740,34 @@ function CandidateDetailPanel({
             AI Insights
           </p>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{candidate.aiInsight}</p>
-          <button
-            type="button"
-            onClick={() => onAskCopilot?.(`Give me a full analysis of candidate ${candidate.name} for the ${candidate.title} role.`)}
-            className="mt-2 text-[11px] font-medium text-brand hover:underline"
-          >
-            View full analysis
-          </button>
+          <div className="mt-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => onAskCopilot?.(`Give me a full analysis of candidate ${candidate.name} for the ${candidate.title} role.`)}
+              className="text-[11px] font-medium text-brand hover:underline cursor-pointer"
+            >
+              View full analysis
+            </button>
+            <button
+              type="button"
+              onClick={handleRegenerateAiAnalysis}
+              disabled={isGenerating}
+              className="flex items-center gap-1 text-[10px] font-semibold text-brand hover:underline cursor-pointer disabled:opacity-50"
+            >
+              {isGenerating ? (
+                <Loader2 className="size-3 animate-spin text-brand" />
+              ) : (
+                <Sparkles className="size-3 text-brand" />
+              )}
+              <span>Regenerate AI</span>
+            </button>
+          </div>
         </div>
 
         <div className="mt-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-foreground">Notes</p>
-            <button type="button" onClick={onEditNote} className="text-muted-foreground hover:text-foreground">
+            <button type="button" onClick={onEditNote} className="text-muted-foreground hover:text-foreground cursor-pointer">
               <Pencil className="size-3.5" />
             </button>
           </div>
@@ -560,7 +776,7 @@ function CandidateDetailPanel({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={() => onSaveNote(draft)}
-              className="mt-2 w-full resize-none rounded-xl border border-border/50 bg-foreground/[0.03] p-3 text-[11px] text-muted-foreground outline-none focus:border-brand/40"
+              className="mt-2 w-full resize-none rounded-xl border border-border/50 bg-foreground/[0.03] p-3 text-[11px] text-zinc-200 outline-none focus:border-brand/40"
               rows={3}
               autoFocus
             />
@@ -572,11 +788,11 @@ function CandidateDetailPanel({
         </div>
       </div>
 
-      <div className="mt-auto flex flex-col gap-2 border-t border-border/40 p-5">
+      <div className="mt-auto flex flex-col gap-2 border-t border-zinc-800 p-5">
         <button
           type="button"
           onClick={() => onStageChange('Shortlisted')}
-          className="flex h-10 items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-black transition hover:brightness-110"
+          className="flex h-10 items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-black transition hover:brightness-110 cursor-pointer"
         >
           <Bookmark className="size-4" />
           Shortlist
@@ -587,7 +803,7 @@ function CandidateDetailPanel({
             onStageChange('Interview')
             onNavigatePipeline?.()
           }}
-          className="flex h-10 items-center justify-center gap-2 rounded-xl border border-brand/40 text-sm font-semibold text-brand transition hover:bg-brand/10"
+          className="flex h-10 items-center justify-center gap-2 rounded-xl border border-brand/40 text-sm font-semibold text-brand transition hover:bg-brand/10 cursor-pointer"
         >
           <Briefcase className="size-4" />
           Move to Interview
@@ -595,24 +811,19 @@ function CandidateDetailPanel({
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => onAskCopilot?.(`Draft a personalized outreach email to ${candidate.name} for our ${candidate.title} opening.`)}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-brand/40"
+            onClick={() => onOpenOutreachModal(candidate)}
+            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-brand/40 cursor-pointer"
           >
             <Mail className="size-3.5" />
             Draft outreach
           </button>
           <button
             type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(`Name: ${candidate.name}\nEmail: ${candidate.email}\nRole: ${candidate.title}\nLocation: ${candidate.location}`);
-              toast.success(`CV Loaded: ${candidate.name}`, {
-                description: `Copied contact details for ${candidate.name} to clipboard.`,
-              });
-            }}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-brand/40"
+            onClick={() => onOpenScheduleModal(candidate)}
+            className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-border/50 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-brand/40 cursor-pointer"
           >
             <FileText className="size-3.5" />
-            View resume
+            Schedule Interview
           </button>
         </div>
       </div>

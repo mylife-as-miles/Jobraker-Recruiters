@@ -1,7 +1,6 @@
 import * as React from 'react'
 import { toast } from 'sonner'
 import {
-  Bookmark,
   Briefcase,
   MapPin,
   Clock,
@@ -11,8 +10,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
-import { ROLES, PIPELINE_STAGES, type Role } from './data'
-import { loadRecruiterState, saveRecruiterState } from './storage'
+import { PIPELINE_STAGES, type Role, type Candidate, type PipelineStage } from './data'
 import {
   AnimatedNumber,
   Delta,
@@ -35,8 +33,9 @@ const STATUS_STYLES: Record<Role['status'], string> = {
 }
 
 type RolesPageProps = {
+  roles: Role[]
+  candidates: Candidate[]
   onNavigatePipeline?: () => void
-  onNavigateCandidates?: () => void
   onAskCopilot?: (prompt: string) => void
   onOpenSearch?: () => void
   onOpenChat?: (prompt?: string) => void
@@ -44,55 +43,46 @@ type RolesPageProps = {
   onOpenAgents?: () => void
   onOpenEmail?: (threadId?: string) => void
   onOpenMeetings?: () => void
+  onToggleFavorite: (id: string) => void
+  onSelectRoleFilter: (roleId: string) => void
+  onCreateRole: () => void
+  onEditRole: (role: Role) => void
 }
 
 export function RolesPage({
+  roles,
+  candidates,
   onNavigatePipeline,
-  onNavigateCandidates,
   onAskCopilot,
   onOpenSearch,
   onOpenChat,
   onTakeMeetingNotes,
   onOpenAgents,
+  onToggleFavorite,
+  onSelectRoleFilter,
+  onCreateRole,
+  onEditRole,
 }: RolesPageProps) {
   const loading = useFakeLoading(660)
   const [search, setSearch] = React.useState('')
-  const [selectedId, setSelectedId] = React.useState<string>(ROLES[0]?.id ?? '')
-  const [favorites, setFavorites] = React.useState<Set<string>>(() => {
-    const saved = loadRecruiterState<string[] | null>('role-favorites', null)
-    if (saved) return new Set(saved)
-    return new Set(ROLES.filter((r) => r.favorite).map((r) => r.id))
-  })
-
-  React.useEffect(() => {
-    saveRecruiterState('role-favorites', [...favorites])
-  }, [favorites])
+  const [selectedId, setSelectedId] = React.useState<string>(roles[0]?.id ?? '')
 
   const filtered = React.useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return ROLES
-    return ROLES.filter(
+    if (!q) return roles
+    return roles.filter(
       (r) =>
-        r.title.toLowerCase().includes(q)
-        || r.department.toLowerCase().includes(q)
-        || r.location.toLowerCase().includes(q),
+        r.title.toLowerCase().includes(q) ||
+        r.department.toLowerCase().includes(q) ||
+        r.location.toLowerCase().includes(q)
     )
-  }, [search])
+  }, [search, roles])
 
   const selected = filtered.find((r) => r.id === selectedId) ?? filtered[0] ?? null
 
   React.useEffect(() => {
     if (selected && selected.id !== selectedId) setSelectedId(selected.id)
   }, [selected, selectedId])
-
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   if (loading) {
     return (
@@ -122,10 +112,20 @@ export function RolesPage({
         onOpenChat={onOpenChat}
         onTakeMeetingNotes={onTakeMeetingNotes}
         onOpenAgents={onOpenAgents}
+        rightExtra={
+          <button
+            type="button"
+            onClick={onCreateRole}
+            className="flex h-10 items-center gap-1.5 rounded-xl border border-brand/35 bg-brand/10 px-4 text-sm font-semibold text-brand transition hover:bg-brand hover:text-black cursor-pointer"
+          >
+            <Plus className="size-4" />
+            <span>Create Role</span>
+          </button>
+        }
       />
 
       <div className="flex min-h-0 flex-1">
-        {/* Role list — mirrors Jobraker JobPage master pane */}
+        {/* Role list */}
         <div className="recruiter-scroll w-full max-w-md shrink-0 overflow-auto border-r border-border/50 lg:w-[380px]">
           {filtered.length === 0 ? (
             <div className="p-4">
@@ -136,8 +136,8 @@ export function RolesPage({
                 action={
                   <button
                     type="button"
-                    onClick={() => onAskCopilot?.("Help me create a new job role template.")}
-                    className="rounded-xl bg-brand px-4 py-2 text-xs font-semibold text-black hover:brightness-110"
+                    onClick={onCreateRole}
+                    className="rounded-xl bg-brand px-4 py-2 text-xs font-semibold text-black hover:brightness-110 cursor-pointer"
                   >
                     <Plus className="mr-1 inline size-3.5" />
                     Create role
@@ -147,56 +147,60 @@ export function RolesPage({
             </div>
           ) : (
             <ul className="space-y-2 p-3">
-              {filtered.map((role, i) => (
-                <Reveal key={role.id} delay={i * 0.04}>
-                  <li>
-                    <button
-                      type="button"
-                      data-selected={selected?.id === role.id}
-                      onClick={() => setSelectedId(role.id)}
-                      className={cn(
-                        'recruiter-row w-full rounded-2xl border border-border/50 p-4 text-left transition',
-                        selected?.id === role.id && 'border-brand/35 bg-brand/8',
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={cn('rounded-md border px-1.5 py-0.5 text-[9px] font-semibold', STATUS_STYLES[role.status])}>
-                              {role.status}
-                            </span>
-                            {favorites.has(role.id) && (
-                              <Star className="size-3 fill-brand text-brand" />
-                            )}
-                          </div>
-                          <p className="mt-1 font-semibold text-foreground">{role.title}</p>
-                          <p className="text-[11px] text-muted-foreground">{role.department} · {role.location}</p>
-                        </div>
-                        <ScoreRing score={role.qualityScore} size={36} />
-                      </div>
-                      <div className="mt-3 flex items-center gap-3 text-[10px] text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Users className="size-3" />
-                          {role.applicants} applicants
-                        </span>
-                        {role.newApplicants > 0 && (
-                          <span className="font-semibold text-brand">+{role.newApplicants} new</span>
+              {filtered.map((role, i) => {
+                const roleApplicants = candidates.filter((c) => c.title === role.title)
+                const newCount = roleApplicants.filter((c) => c.stage === 'New').length
+                return (
+                  <Reveal key={role.id} delay={i * 0.04}>
+                    <li>
+                      <button
+                        type="button"
+                        data-selected={selected?.id === role.id}
+                        onClick={() => setSelectedId(role.id)}
+                        className={cn(
+                          'recruiter-row w-full rounded-2xl border border-border/50 p-4 text-left transition cursor-pointer',
+                          selected?.id === role.id && 'border-brand/35 bg-brand/8',
                         )}
-                        <span className="flex items-center gap-1">
-                          <Clock className="size-3" />
-                          {role.postedAgo}
-                        </span>
-                      </div>
-                    </button>
-                  </li>
-                </Reveal>
-              ))}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={cn('rounded-md border px-1.5 py-0.5 text-[9px] font-semibold', STATUS_STYLES[role.status])}>
+                                {role.status}
+                              </span>
+                              {role.favorite && (
+                                <Star className="size-3 fill-brand text-brand" />
+                              )}
+                            </div>
+                            <p className="mt-1 font-semibold text-foreground">{role.title}</p>
+                            <p className="text-[11px] text-muted-foreground">{role.department} · {role.location}</p>
+                          </div>
+                          <ScoreRing score={role.qualityScore} size={36} />
+                        </div>
+                        <div className="mt-3 flex items-center gap-3 text-[10px] text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Users className="size-3" />
+                            {roleApplicants.length} applicants
+                          </span>
+                          {newCount > 0 && (
+                            <span className="font-semibold text-brand">+{newCount} new</span>
+                          )}
+                          <span className="flex items-center gap-1">
+                            <Clock className="size-3" />
+                            {role.postedAgo}
+                          </span>
+                        </div>
+                      </button>
+                    </li>
+                  </Reveal>
+                )
+              })}
             </ul>
           )}
         </div>
 
         {/* Role detail */}
-        <div className="recruiter-scroll hidden min-w-0 flex-1 overflow-auto lg:block">
+        <div className="recruiter-scroll hidden min-w-0 flex-1 overflow-auto lg:block bg-[#050705]/10">
           <AnimatePresence mode="wait">
             {selected ? (
               <motion.div
@@ -209,10 +213,12 @@ export function RolesPage({
               >
                 <RoleDetail
                   role={selected}
-                  isFavorite={favorites.has(selected.id)}
-                  onToggleFavorite={() => toggleFavorite(selected.id)}
+                  candidates={candidates}
+                  isFavorite={!!selected.favorite}
+                  onToggleFavorite={() => onToggleFavorite(selected.id)}
                   onOpenPipeline={onNavigatePipeline}
-                  onOpenCandidates={onNavigateCandidates}
+                  onBrowseCandidates={() => onSelectRoleFilter(selected.id)}
+                  onEditRole={() => onEditRole(selected)}
                   onAskCopilot={onAskCopilot}
                 />
               </motion.div>
@@ -232,20 +238,54 @@ export function RolesPage({
 
 function RoleDetail({
   role,
+  candidates,
   isFavorite,
   onToggleFavorite,
   onOpenPipeline,
-  onOpenCandidates,
+  onBrowseCandidates,
+  onEditRole,
   onAskCopilot,
 }: {
   role: Role
+  candidates: Candidate[]
   isFavorite: boolean
   onToggleFavorite: () => void
   onOpenPipeline?: () => void
-  onOpenCandidates?: () => void
+  onBrowseCandidates: () => void
+  onEditRole: () => void
   onAskCopilot?: (prompt: string) => void
 }) {
-  const maxStage = Math.max(...role.stageCounts.map((s) => s.count), 1)
+  const applicants = React.useMemo(() => {
+    return candidates.filter((c) => c.title === role.title)
+  }, [candidates, role.title])
+
+  const stageCounts = React.useMemo(() => {
+    const counts: Record<PipelineStage, number> = {
+      Sourced: 0,
+      Contacted: 0,
+      Screening: 0,
+      Interview: 0,
+      Offer: 0,
+      Hired: 0,
+    }
+    applicants.forEach((c) => {
+      if (c.stage === 'New' || c.stage === 'Shortlisted') counts.Sourced++
+      else if (c.stage === 'In Review') counts.Contacted++
+      else if (c.stage === 'Screening') counts.Screening++
+      else if (c.stage === 'Interview') counts.Interview++
+      else if (c.stage === 'Offer') counts.Offer++
+      else if (c.stage === 'Hired') counts.Hired++
+    })
+    return counts
+  }, [applicants])
+
+  const maxStage = Math.max(...Object.values(stageCounts), 1)
+
+  const avgFit = React.useMemo(() => {
+    return applicants.length > 0
+      ? Math.round(applicants.reduce((acc, c) => acc + c.startupFitScore, 0) / applicants.length)
+      : null
+  }, [applicants])
 
   return (
     <>
@@ -269,17 +309,17 @@ function RoleDetail({
             type="button"
             onClick={onToggleFavorite}
             className={cn(
-              'flex size-10 items-center justify-center rounded-xl border transition',
+              'flex size-10 items-center justify-center rounded-xl border transition cursor-pointer',
               isFavorite ? 'border-brand/40 bg-brand/15 text-brand' : 'border-border/50 text-muted-foreground hover:text-foreground',
             )}
             aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           >
-            <Bookmark className={cn('size-4', isFavorite && 'fill-current')} />
+            <Star className={cn('size-4', isFavorite && 'fill-current')} />
           </button>
           <button
             type="button"
             onClick={onOpenPipeline}
-            className="flex h-10 items-center gap-1.5 rounded-xl bg-brand px-4 text-sm font-semibold text-black hover:brightness-110"
+            className="flex h-10 items-center gap-1.5 rounded-xl bg-brand px-4 text-sm font-semibold text-black hover:brightness-110 cursor-pointer"
           >
             View pipeline
             <ChevronRight className="size-4" />
@@ -288,10 +328,10 @@ function RoleDetail({
       </div>
 
       {/* Stage funnel */}
-      <SectionCard className="mt-6" title="Hiring funnel">
+      <SectionCard className="mt-6 bg-[#050705]/20" title="Hiring funnel">
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
           {PIPELINE_STAGES.map((stage) => {
-            const count = role.stageCounts.find((s) => s.stage === stage)?.count ?? 0
+            const count = stageCounts[stage]
             return (
               <button
                 key={stage}
@@ -319,33 +359,63 @@ function RoleDetail({
         <div className="mt-4 flex flex-wrap gap-4 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1">
             <Users className="size-3.5 text-brand" />
-            <AnimatedNumber value={role.applicants} /> total applicants
+            <AnimatedNumber value={applicants.length} /> total applicants
           </span>
           <span className="flex items-center gap-1">
-            <Delta value={role.newApplicants} suffix="" />
+            <Delta value={applicants.filter(c => c.stage === 'New').length} suffix="" />
             new this week
           </span>
           <span>Quality score: <strong className="text-brand">{role.qualityScore}%</strong></span>
         </div>
       </SectionCard>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SectionCard title="About the role">
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <SectionCard className="bg-[#050705]/20 lg:col-span-1" title="About the role">
           <p className="text-sm leading-relaxed text-muted-foreground">{role.description}</p>
         </SectionCard>
-        <SectionCard title="Required skills">
+        <SectionCard className="bg-[#050705]/20 lg:col-span-1" title="Required skills">
           <div className="flex flex-wrap gap-1.5">
             {role.skills.map((s) => (
-              <span key={s} className="rounded-lg border border-border/50 bg-foreground/[0.04] px-2 py-1 text-[11px] text-muted-foreground">
+              <span key={s} className="rounded-lg border border-border/50 bg-foreground/[0.04] px-2 py-1 text-[11px] text-zinc-300">
                 {s}
               </span>
             ))}
           </div>
         </SectionCard>
+        <SectionCard className="bg-[#050705]/20 lg:col-span-1" title="Startup Target Profile">
+          <div className="space-y-3 text-xs">
+            <div>
+              <span className="text-zinc-500 font-semibold">Target Stages:</span>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {(role.title.includes('Senior') || role.title.includes('Staff') || role.title.includes('Lead')) ? (
+                  ['Series A', 'Series B', 'Growth'].map(s => (
+                    <span key={s} className="rounded bg-brand/10 border border-brand/20 px-1.5 py-0.5 text-[9px] font-bold text-brand leading-none">{s}</span>
+                  ))
+                ) : (
+                  ['Seed', 'Series A'].map(s => (
+                    <span key={s} className="rounded bg-brand/10 border border-brand/20 px-1.5 py-0.5 text-[9px] font-bold text-brand leading-none">{s}</span>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <span className="text-zinc-500 font-semibold">Growth Mindset:</span>
+              <p className="mt-1 text-[11px] font-semibold text-white">
+                {(role.title.includes('Senior') || role.title.includes('Staff') || role.title.includes('Lead')) ? 'High Velocity execution' : 'Agile builder mindset'}
+              </p>
+            </div>
+            {avgFit !== null && (
+              <div>
+                <span className="text-zinc-500 font-semibold">Applicants Avg Fit:</span>
+                <p className="mt-1 text-base font-bold text-[#1dff00]">{avgFit}% Match</p>
+              </div>
+            )}
+          </div>
+        </SectionCard>
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <SectionCard title="Responsibilities">
+        <SectionCard className="bg-[#050705]/20" title="Responsibilities">
           <ul className="space-y-2">
             {role.responsibilities.map((r) => (
               <li key={r} className="flex gap-2 text-sm text-muted-foreground">
@@ -355,7 +425,7 @@ function RoleDetail({
             ))}
           </ul>
         </SectionCard>
-        <SectionCard title="Requirements">
+        <SectionCard className="bg-[#050705]/20" title="Requirements">
           <ul className="space-y-2">
             {role.requirements.map((r) => (
               <li key={r} className="flex gap-2 text-sm text-muted-foreground">
@@ -370,17 +440,24 @@ function RoleDetail({
       <div className="mt-6 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={onOpenCandidates}
-          className="rounded-xl border border-brand/35 bg-brand/10 px-4 py-2 text-xs font-semibold text-brand hover:bg-brand/15 hover:border-brand/40"
+          onClick={onBrowseCandidates}
+          className="rounded-xl border border-brand/35 bg-brand/10 px-4 py-2 text-xs font-semibold text-brand hover:bg-brand/15 hover:border-brand/40 transition cursor-pointer"
         >
           Browse candidates
         </button>
         <button
           type="button"
-          onClick={() => onAskCopilot?.(`Help me edit the job role template for ${role.title}.`)}
-          className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+          onClick={onEditRole}
+          className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-900 transition cursor-pointer"
         >
-          Edit role
+          Edit role details
+        </button>
+        <button
+          type="button"
+          onClick={() => onAskCopilot?.(`Help me refine the job role template for ${role.title} using AI.`)}
+          className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-900 transition cursor-pointer"
+        >
+          Refine with Copilot
         </button>
         <button
           type="button"
@@ -390,7 +467,7 @@ function RoleDetail({
               description: `The careers page URL for ${role.title} is now in your clipboard.`,
             })
           }}
-          className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+          className="rounded-xl border border-border/50 px-4 py-2 text-xs font-medium text-zinc-300 hover:text-white hover:bg-zinc-900 transition cursor-pointer"
         >
           Share posting
         </button>
