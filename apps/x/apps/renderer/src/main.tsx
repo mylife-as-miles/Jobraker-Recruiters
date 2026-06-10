@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { PostHogProvider } from 'posthog-js/react'
-import type { CaptureResult } from 'posthog-js'
 import { ThemeProvider } from '@/contexts/theme-context'
 import { configureAnalyticsContext } from './lib/analytics'
 
@@ -11,50 +10,45 @@ import { configureAnalyticsContext } from './lib/analytics'
 // PostHog distinct_id. Falls back to PostHog's auto-generated anonymous ID
 // if the IPC call fails (rare — main is always up before renderer).
 async function bootstrap() {
-  let installationId: string | undefined
+  const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY?.trim()
+
+  const app = (
+    <ThemeProvider defaultTheme="dark">
+      <App />
+    </ThemeProvider>
+  )
+
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      {posthogKey ? (
+        <PostHogProvider
+          apiKey={posthogKey}
+          options={{
+            api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+            defaults: '2025-11-30' as const,
+          }}
+        >
+          {app}
+        </PostHogProvider>
+      ) : (
+        app
+      )}
+    </StrictMode>,
+  )
+
   let apiUrl: string | undefined
   let appVersion: string | undefined
   try {
     const result = await window.ipc.invoke('analytics:bootstrap', null)
-    installationId = result.installationId
     apiUrl = result.apiUrl
     appVersion = result.appVersion
   } catch (err) {
     console.error('[Analytics] Failed to bootstrap from main:', err)
   }
 
-  configureAnalyticsContext({ apiUrl, appVersion })
-
-  const options = {
-    api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-    defaults: '2025-11-30' as const,
-    ...(installationId ? { bootstrap: { distinctID: installationId } } : {}),
-    before_send: (event: CaptureResult | null) => {
-      if (!event) return event
-      if (appVersion) {
-        event.properties = {
-          ...event.properties,
-          app_version: appVersion,
-        }
-      }
-      return event
-    },
-    loaded: () => {
-      configureAnalyticsContext({ apiUrl, appVersion })
-    },
+  if (posthogKey) {
+    configureAnalyticsContext({ apiUrl, appVersion })
   }
-
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <PostHogProvider apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY} options={options}>
-        <ThemeProvider defaultTheme="dark">
-          <App />
-        </ThemeProvider>
-      </PostHogProvider>
-    </StrictMode>,
-  )
-
-  // The loaded callback applies api_url/app_version once PostHog has initialized.
 }
 
 bootstrap()
