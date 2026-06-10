@@ -48,6 +48,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import {
@@ -68,18 +69,12 @@ import { toast } from "@/lib/toast"
 import { ServiceEvent } from "@x/shared/src/service-events.js"
 import z from "zod"
 import { ROLES } from "@/components/recruiter/data"
+import { googleDisplayName } from "@/lib/google-profile"
 
 // Profile shown in the sidebar account card. Edit these to change the
 // displayed recruiter identity (avatar initials are derived from the name).
 const PROFILE_NAME = "Miles Okafor"
 const PROFILE_ROLE = "Senior Recruiter"
-const PROFILE_INITIALS = PROFILE_NAME
-  .split(/\s+/)
-  .map((part) => part[0])
-  .filter(Boolean)
-  .slice(0, 2)
-  .join("")
-  .toUpperCase()
 
 interface TreeNode {
   path: string
@@ -322,36 +317,29 @@ function SyncStatusBar() {
 
   return (
     <>
-      {isCollapsed && isSyncing && (
-        <div
-          className="fixed bottom-4 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background shadow-sm"
-          style={{ left: "0.5rem" }}
-          aria-label="Syncing"
-        >
-          <LoaderIcon className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
-      )}
       <SidebarFooter className="jobraker-sidebar-footer border-t border-border/40 px-2 py-2">
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
             <button
               type="button"
               className={cn(
-                "flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-xs transition-colors hover:bg-foreground/5",
+                "flex items-center justify-between rounded-xl transition-colors hover:bg-foreground/5",
+                isCollapsed ? "mx-auto h-8 w-8 justify-center p-0" : "w-full px-2 py-1.5 text-xs",
                 hasServiceErrors && !isSyncing ? "text-red-600 dark:text-red-400" : "text-muted-foreground",
               )}
+              title={isCollapsed ? statusLabel : undefined}
             >
-              <span className="flex items-center gap-2 min-w-0">
+              <span className={cn("flex items-center min-w-0", isCollapsed ? "justify-center" : "gap-2")}>
                 {isSyncing ? (
-                  <LoaderIcon className="h-3 w-3 shrink-0 animate-spin text-brand" />
+                  <LoaderIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-brand" />
                 ) : hasServiceErrors ? (
-                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" />
                 ) : (
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
                 )}
-                <span className="truncate">{statusLabel}</span>
+                {!isCollapsed && <span className="truncate">{statusLabel}</span>}
               </span>
-              <ChevronRight className="h-3 w-3 shrink-0" />
+              {!isCollapsed && <ChevronRight className="h-3 w-3 shrink-0" />}
             </button>
           </PopoverTrigger>
           <PopoverContent
@@ -444,6 +432,23 @@ export function SidebarContentPanel({
   onToggleMeetingRecording,
   ...props
 }: SidebarContentPanelProps) {
+  const { state } = useSidebar()
+  const isCollapsed = state === "collapsed"
+
+  const [profileName, setProfileName] = useState(PROFILE_NAME)
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [profileEmail, setProfileEmail] = useState<string | null>(null)
+
+  const profileInitials = React.useMemo(() => {
+    return profileName
+      .split(/\s+/)
+      .map((part) => part[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase()
+  }, [profileName])
+
   const [hasOauthError, setHasOauthError] = useState(false)
   const [showOauthAlert, setShowOauthAlert] = useState(true)
   const [connectionsSettingsOpen, setConnectionsSettingsOpen] = useState(false)
@@ -597,6 +602,24 @@ export function SidebarContentPanel({
         const config = result.config || {}
         const hasError = Object.values(config).some((entry) => Boolean(entry?.error))
         const connected = config['jobraker-recruiter']?.connected ?? false
+        
+        // Extract Google profile if connected
+        const googleEntry = config['google'] as {
+          connected?: boolean
+          profileName?: string | null
+          profileImage?: string | null
+          profileEmail?: string | null
+        }
+        if (googleEntry?.connected) {
+          setProfileName(googleDisplayName(googleEntry.profileName, googleEntry.profileEmail, PROFILE_NAME))
+          setProfileImage(googleEntry.profileImage || null)
+          setProfileEmail(googleEntry.profileEmail || null)
+        } else {
+          setProfileName(PROFILE_NAME)
+          setProfileImage(null)
+          setProfileEmail(null)
+        }
+
         if (mounted) {
           setHasOauthError(hasError)
           setIsJobrakerRecruiterConnected(connected)
@@ -652,43 +675,69 @@ export function SidebarContentPanel({
         {/* Top spacer to clear the traffic lights + fixed toggle row */}
         <div className="h-8" />
         {/* Brand mark */}
-        <div className="titlebar-no-drag flex items-center gap-2.5 px-4 pb-1">
-          <img
-            src="/logo-only.png"
-            alt="Jobraker Recruiter"
-            className="size-7 shrink-0 rounded-lg object-cover brand-glow"
-          />
-          <span className="text-[17px] font-bold tracking-tight">
-            Jobraker <span className="text-brand">Recruiter</span>
-          </span>
+        <div className={cn("titlebar-no-drag flex items-center pb-1", isCollapsed ? "justify-center px-0" : "gap-2.5 px-4 justify-between")}>
+          {!isCollapsed && (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <img
+                src="/logo-only.png"
+                alt="Jobraker Recruiter"
+                className="size-7 shrink-0 rounded-lg object-cover brand-glow"
+              />
+              <span className="text-[17px] font-bold tracking-tight truncate">
+                Jobraker <span className="text-brand">Recruiter</span>
+              </span>
+            </div>
+          )}
+          <SidebarTrigger className="text-foreground/60 hover:text-foreground hover:bg-foreground/5 size-8" />
         </div>
         {/* Profile card */}
-        <div className="titlebar-no-drag px-3 pt-1">
+        <div className={cn("titlebar-no-drag pt-1", isCollapsed ? "px-0 flex justify-center" : "px-3")}>
           <SettingsDialog>
-            <button type="button" className="jobraker-sidebar-profile group w-full">
-              <span className="jobraker-sidebar-avatar">
-                {PROFILE_INITIALS}
+            <button
+              type="button"
+              className={cn(
+                "jobraker-sidebar-profile group",
+                isCollapsed ? "flex items-center justify-center p-0 border-0 bg-transparent" : "w-full"
+              )}
+            >
+              <span className="jobraker-sidebar-avatar flex items-center justify-center overflow-hidden">
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt={profileName}
+                    className="h-full w-full object-cover"
+                    onError={() => setProfileImage(null)}
+                  />
+                ) : (
+                  profileInitials
+                )}
                 <span className="jobraker-sidebar-avatar-dot" />
               </span>
-              <span className="flex min-w-0 flex-1 flex-col text-left leading-tight">
-                <span className="truncate text-sm font-semibold text-foreground">{PROFILE_NAME}</span>
-                <span className="truncate text-[11px] text-muted-foreground">{PROFILE_ROLE}</span>
-              </span>
-              <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground" />
+              {!isCollapsed && (
+                <>
+                  <span className="flex min-w-0 flex-1 flex-col text-left leading-tight">
+                    <span className="truncate text-sm font-semibold text-foreground">{profileName}</span>
+                    <span className="truncate text-[11px] text-muted-foreground">{profileEmail || PROFILE_ROLE}</span>
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground" />
+                </>
+              )}
             </button>
           </SettingsDialog>
         </div>
         {/* Quick actions */}
-        <div className="jobraker-recruiter-quick-actions titlebar-no-drag flex items-center gap-1.5 px-3">
-          {onNewChat && (
-            <ActionButton icon={SquarePen} label="New chat" onClick={onNewChat} />
-          )}
-          <ActionButton icon={FilePlus} label="New note" onClick={() => knowledgeActions.createNote()} />
-          <VoiceNoteButton onNoteCreated={onVoiceNoteCreated} variant="action" />
-          {onToggleBrowser && (
-            <ActionButton icon={Globe} label="Run browser task" onClick={onToggleBrowser} />
-          )}
-        </div>
+        {!isCollapsed && (
+          <div className="jobraker-recruiter-quick-actions titlebar-no-drag flex items-center gap-1.5 px-3">
+            {onNewChat && (
+              <ActionButton icon={SquarePen} label="New chat" onClick={onNewChat} />
+            )}
+            <ActionButton icon={FilePlus} label="New note" onClick={() => knowledgeActions.createNote()} />
+            <VoiceNoteButton onNoteCreated={onVoiceNoteCreated} variant="action" />
+            {onToggleBrowser && (
+              <ActionButton icon={Globe} label="Run browser task" onClick={onToggleBrowser} />
+            )}
+          </div>
+        )}
       </SidebarHeader>
       <SidebarContent className="px-2 py-4">
         {/* Primary navigation */}
@@ -696,13 +745,13 @@ export function SidebarContentPanel({
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeNav === 'home'} onClick={onOpenHome}>
+                <SidebarMenuButton isActive={activeNav === 'home'} onClick={onOpenHome} tooltip="Dashboard">
                   <LayoutDashboard className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Dashboard</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeNav === 'chat'} onClick={onOpenChat ?? onNewChat}>
+                <SidebarMenuButton isActive={activeNav === 'chat'} onClick={onOpenChat ?? onNewChat} tooltip="Chat">
                   <MessageSquare className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Chat</span>
                 </SidebarMenuButton>
@@ -711,6 +760,7 @@ export function SidebarContentPanel({
                 <SidebarMenuButton
                   isActive={activeNav === 'roles'}
                   onClick={onOpenRoles}
+                  tooltip="Roles"
                 >
                   <Briefcase className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Roles</span>
@@ -725,6 +775,7 @@ export function SidebarContentPanel({
                 <SidebarMenuButton
                   isActive={activeNav === 'candidates'}
                   onClick={onOpenCandidates}
+                  tooltip="Candidates"
                 >
                   <Users className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Candidates</span>
@@ -734,6 +785,7 @@ export function SidebarContentPanel({
                 <SidebarMenuButton
                   isActive={activeNav === 'email'}
                   onClick={() => onOpenEmail?.()}
+                  tooltip="Outreach"
                 >
                   <Send className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Outreach</span>
@@ -745,7 +797,7 @@ export function SidebarContentPanel({
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeNav === 'pipeline'} onClick={onOpenPipeline}>
+                <SidebarMenuButton isActive={activeNav === 'pipeline'} onClick={onOpenPipeline} tooltip="Pipeline">
                   <Workflow className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Pipeline</span>
                 </SidebarMenuButton>
@@ -754,11 +806,12 @@ export function SidebarContentPanel({
                 <SidebarMenuButton
                   isActive={activeNav === 'meetings'}
                   onClick={onOpenMeetings}
+                  tooltip="Meetings"
                 >
                   <Calendar className={cn('size-5 shrink-0', meetingIsRecording && 'text-red-500')} />
                   <span className="flex-1 truncate">Meetings</span>
                 </SidebarMenuButton>
-                {meetingIsRecording ? (
+                {!isCollapsed && (meetingIsRecording ? (
                   <div className="absolute inset-y-0 right-1 flex items-center gap-1.5">
                     <span className="relative flex size-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
@@ -821,36 +874,37 @@ export function SidebarContentPanel({
                       </Tooltip>
                     )}
                   </div>
-                ) : null}
+                ) : null)}
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={activeNav === 'agents'}
                   onClick={onOpenBgTasks}
+                  tooltip="AI Agents"
                 >
                   <Bot className="size-5 shrink-0" />
                   <span className="flex-1 truncate">AI Agents</span>
-                  <span className="jobraker-sidebar-badge-new shrink-0 self-center">New</span>
+                  {!isCollapsed && <span className="jobraker-sidebar-badge-new shrink-0 self-center">New</span>}
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton isActive={activeNav === 'analytics'} onClick={onOpenAnalytics}>
+                <SidebarMenuButton isActive={activeNav === 'analytics'} onClick={onOpenAnalytics} tooltip="Analytics">
                   <BarChart3 className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Analytics</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setConnectionsSettingsOpen(true)}>
+                <SidebarMenuButton onClick={() => setConnectionsSettingsOpen(true)} tooltip="Integrations">
                   <Plug className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Integrations</span>
-                  {hasOauthError && (
+                  {!isCollapsed && hasOauthError && (
                     <AlertTriangle className="size-3.5 shrink-0 self-center text-amber-500/90" />
                   )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SettingsDialog>
-                  <SidebarMenuButton>
+                  <SidebarMenuButton tooltip="Settings">
                     <Settings className="size-5 shrink-0" />
                     <span className="flex-1 truncate">Settings</span>
                   </SidebarMenuButton>
@@ -860,47 +914,51 @@ export function SidebarContentPanel({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="jobraker-sidebar-divider" />
+        {!isCollapsed && (
+          <>
+            <div className="jobraker-sidebar-divider" />
 
-        {/* Favorites */}
-        <SidebarGroup className="flex flex-col">
-          <SidebarGroupContent>
-            <button
-              type="button"
-              onClick={() => setQuickAccessExpanded((v) => !v)}
-              className="jobraker-sidebar-section-label mb-2 flex w-full items-center gap-1.5 px-3 py-0 text-left"
-            >
-              <ChevronRight className={cn('size-3 transition-transform', quickAccessExpanded && 'rotate-90')} />
-              <span className="flex-1">Favorites</span>
-            </button>
-            {quickAccessExpanded && (
-              quickAccessItems.length === 0 ? (
-                <div className="px-4 pb-2 text-[11.5px] italic text-muted-foreground">
-                  Pin roles and notes to see them here.
-                </div>
-              ) : (
-                <SidebarMenu>
-                  {quickAccessItems.map((item, index) => (
-                    <SidebarMenuItem key={item.key}>
-                      <SidebarMenuButton onClick={item.onClick} className="jobraker-sidebar-favorite">
-                        <span
-                          className={cn(
-                            'jobraker-sidebar-favorite-dot',
-                            index === 0 && 'jobraker-sidebar-favorite-dot--active',
-                          )}
-                        />
-                        <span className="flex-1 truncate">{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              )
-            )}
-          </SidebarGroupContent>
-        </SidebarGroup>
+            {/* Favorites */}
+            <SidebarGroup className="flex flex-col">
+              <SidebarGroupContent>
+                <button
+                  type="button"
+                  onClick={() => setQuickAccessExpanded((v) => !v)}
+                  className="jobraker-sidebar-section-label mb-2 flex w-full items-center gap-1.5 px-3 py-0 text-left"
+                >
+                  <ChevronRight className={cn('size-3 transition-transform', quickAccessExpanded && 'rotate-90')} />
+                  <span className="flex-1">Favorites</span>
+                </button>
+                {quickAccessExpanded && (
+                  quickAccessItems.length === 0 ? (
+                    <div className="px-4 pb-2 text-[11.5px] italic text-muted-foreground">
+                      Pin roles and notes to see them here.
+                    </div>
+                  ) : (
+                    <SidebarMenu>
+                      {quickAccessItems.map((item, index) => (
+                        <SidebarMenuItem key={item.key}>
+                          <SidebarMenuButton onClick={item.onClick} className="jobraker-sidebar-favorite">
+                            <span
+                              className={cn(
+                                'jobraker-sidebar-favorite-dot',
+                                index === 0 && 'jobraker-sidebar-favorite-dot--active',
+                              )}
+                            />
+                            <span className="flex-1 truncate">{item.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  )
+                )}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
       {/* Billing / upgrade CTA */}
-      {isJobrakerRecruiterConnected && billing ? (
+      {!isCollapsed && isJobrakerRecruiterConnected && billing ? (
         <div className="shrink-0 border-t border-border/40 bg-card/40 p-4">
           <button
             type="button"
@@ -936,7 +994,7 @@ export function SidebarContentPanel({
         </div>
       ) : null}
       {/* Bottom actions — reconnect prompt (Settings & Integrations live in nav) */}
-      {hasOauthError && (
+      {!isCollapsed && hasOauthError && (
         <div className="jobraker-sidebar-footer px-2 py-2">
           <AlertDialog open={showOauthAlert} onOpenChange={setShowOauthAlert}>
             <AlertDialogTrigger asChild>
@@ -1000,32 +1058,22 @@ export function SidebarContentPanel({
   )
 }
 
-async function transcribeWithDeepgram(audioBlob: Blob): Promise<string | null> {
+async function transcribeWithScribe(audioBlob: Blob): Promise<string | null> {
   try {
-    const configResult = await window.ipc.invoke('workspace:readFile', {
-      path: 'config/deepgram.json',
-      encoding: 'utf8',
-    })
-    const { apiKey } = JSON.parse(configResult.data) as { apiKey: string }
-    if (!apiKey) throw new Error('No apiKey in deepgram.json')
-
-    const response = await fetch(
-      'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Token ${apiKey}`,
-          'Content-Type': audioBlob.type,
-        },
-        body: audioBlob,
-      },
+    const arrayBuffer = await audioBlob.arrayBuffer()
+    const base64 = btoa(
+      new Uint8Array(arrayBuffer).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        '',
+      ),
     )
-
-    if (!response.ok) throw new Error(`Deepgram API error: ${response.status}`)
-    const result = await response.json()
-    return result.results?.channels?.[0]?.alternatives?.[0]?.transcript ?? null
+    const result = await window.ipc.invoke('elevenlabs:transcribeAudio', {
+      audioBase64: base64,
+      mimeType: audioBlob.type || 'audio/webm',
+    })
+    return result.text?.trim() || null
   } catch (err) {
-    console.error('Deepgram transcription failed:', err)
+    console.error('ElevenLabs Scribe transcription failed:', err)
     return null
   }
 }
@@ -1033,7 +1081,7 @@ async function transcribeWithDeepgram(audioBlob: Blob): Promise<string | null> {
 // Voice Note Recording Button
 export function VoiceNoteButton({ onNoteCreated, variant = 'icon' }: { onNoteCreated?: (path: string) => void; variant?: 'icon' | 'action' }) {
   const [isRecording, setIsRecording] = React.useState(false)
-  const [hasDeepgramKey, setHasDeepgramKey] = React.useState(false)
+  const [hasElevenLabsKey, setHasElevenLabsKey] = React.useState(false)
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null)
   const chunksRef = React.useRef<Blob[]>([])
   const notePathRef = React.useRef<string | null>(null)
@@ -1044,15 +1092,16 @@ export function VoiceNoteButton({ onNoteCreated, variant = 'icon' }: { onNoteCre
   React.useEffect(() => { onNoteCreatedRef.current = onNoteCreated }, [onNoteCreated])
 
   React.useEffect(() => {
-    window.ipc.invoke('workspace:readFile', {
-      path: 'config/deepgram.json',
-      encoding: 'utf8',
-    }).then((result: { data: string }) => {
-      const { apiKey } = JSON.parse(result.data) as { apiKey: string }
-      setHasDeepgramKey(!!apiKey)
-    }).catch(() => {
-      setHasDeepgramKey(false)
-    })
+    const load = () => {
+      window.ipc.invoke('voice:getConfig', null).then((config) => {
+        setHasElevenLabsKey(!!config.elevenlabs)
+      }).catch(() => {
+        setHasElevenLabsKey(false)
+      })
+    }
+    load()
+    window.addEventListener('connectors:updated', load)
+    return () => window.removeEventListener('connectors:updated', load)
   }, [])
 
   const startRecording = async () => {
@@ -1161,7 +1210,7 @@ path: ${currentRelativePath}
         }
 
         // Transcribe and update the note with the transcript
-        const transcript = await transcribeWithDeepgram(blob)
+        const transcript = await transcribeWithScribe(blob)
         if (currentNotePath && currentRelativePath) {
           const finalContent = transcript
             ? `---
@@ -1220,7 +1269,7 @@ path: ${currentRelativePath}
     setIsRecording(false)
   }
 
-  if (!hasDeepgramKey) return null
+  if (!hasElevenLabsKey) return null
 
   const actionClass = "flex h-9 flex-1 items-center justify-center rounded-xl border border-border/60 bg-foreground/5 text-foreground/60 transition-all hover:border-brand/30 hover:bg-brand/10 hover:text-brand"
   const iconClass = "rounded-xl p-1.5 text-foreground/60 transition-all hover:border-brand/30 hover:bg-brand/10 hover:text-brand"
