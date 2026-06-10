@@ -13,6 +13,8 @@ import { useOnboardingState } from "./use-onboarding-state"
 import { StepIndicator } from "./step-indicator"
 import { WelcomeStep } from "./steps/welcome-step"
 import { LlmSetupStep } from "./steps/llm-setup-step"
+import { GoogleOauthSetupStep } from "./steps/google-oauth-setup-step"
+import { CoreConnectionsStep } from "./steps/core-connections-step"
 import { ConnectAccountsStep } from "./steps/connect-accounts-step"
 import { CompletionStep } from "./steps/completion-step"
 
@@ -31,8 +33,12 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
       case 1:
         return <LlmSetupStep state={state} />
       case 2:
-        return <ConnectAccountsStep state={state} />
+        return <GoogleOauthSetupStep state={state} />
       case 3:
+        return <CoreConnectionsStep state={state} />
+      case 4:
+        return <ConnectAccountsStep state={state} />
+      case 5:
         return <CompletionStep state={state} />
     }
   }, [state.currentStep, state])

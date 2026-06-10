@@ -6,9 +6,13 @@ export interface ProviderState {
   isConnected: boolean
   isLoading: boolean
   isConnecting: boolean
+  profileName?: string | null
+  profileImage?: string | null
+  profileEmail?: string | null
+  clientId?: string | null
 }
 
-export type Step = 0 | 1 | 2 | 3
+export type Step = 0 | 1 | 2 | 3 | 4 | 5
 
 export type OnboardingPath = 'jobraker-recruiter' | 'byok' | null
 
@@ -374,8 +378,8 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
   }, [startGoogleCalendarConnect])
 
   // New step flow:
-  // Jobraker Recruiter path: 0 (welcome) → 2 (connect) → 3 (done)
-  // BYOK path: 0 (welcome) → 1 (llm setup) → 2 (connect) → 3 (done)
+  // Jobraker Recruiter path: 0 (welcome) → 2 (google setup) → 3 (core services) → 4 (connect other) → 5 (done)
+  // BYOK path: 0 (welcome) → 1 (llm setup) → 2 (google setup) → 3 (core services) → 4 (connect other) → 5 (done)
   const handleNext = useCallback(() => {
     if (currentStep === 0) {
       if (onboardingPath === 'byok') {
@@ -387,6 +391,10 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
       setCurrentStep(2)
     } else if (currentStep === 2) {
       setCurrentStep(3)
+    } else if (currentStep === 3) {
+      setCurrentStep(4)
+    } else if (currentStep === 4) {
+      setCurrentStep(5)
     }
   }, [currentStep, onboardingPath])
 
@@ -397,9 +405,14 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
     } else if (currentStep === 2) {
       if (onboardingPath === 'jobraker-recruiter') {
         setCurrentStep(0)
+        setOnboardingPath(null)
       } else {
         setCurrentStep(1)
       }
+    } else if (currentStep === 3) {
+      setCurrentStep(2)
+    } else if (currentStep === 4) {
+      setCurrentStep(3)
     }
   }, [currentStep, onboardingPath])
 
@@ -468,10 +481,15 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
       const result = await window.ipc.invoke('oauth:getState', null)
       const config = result.config || {}
       for (const provider of providers) {
+        const entry = config[provider] as any
         newStates[provider] = {
-          isConnected: config[provider]?.connected ?? false,
+          isConnected: entry?.connected ?? false,
           isLoading: false,
           isConnecting: false,
+          profileName: entry?.profileName ?? null,
+          profileImage: entry?.profileImage ?? null,
+          profileEmail: entry?.profileEmail ?? null,
+          clientId: entry?.clientId ?? null,
         }
       }
     } catch (error) {
@@ -503,11 +521,15 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
       setProviderStates(prev => ({
         ...prev,
         [provider]: {
+          ...prev[provider],
           isConnected: success,
           isLoading: false,
           isConnecting: false,
         }
       }))
+      
+      // Re-fetch all statuses to capture updated profile details
+      refreshAllStatuses()
     })
 
     return cleanup
