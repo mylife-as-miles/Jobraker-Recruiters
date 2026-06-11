@@ -1,26 +1,7 @@
-<a href="https://youtu.be/ir1zGiwD0lo?si=ndZpQUMpLCFiBn87" target="_blank" rel="noopener noreferrer">
-  <img width="100%" alt="Jobraker Recruiter Dashboard Overview" src="https://github.com/user-attachments/assets/fc463b99-01b3-401c-b4a4-044dad480901" />
-</a>
-
 <h1 align="center">Jobraker Recruiter</h1>
 
 <p align="center">
   <strong>AI recruiting for lean teams — source, screen, and outreach without the headcount.</strong>
-</p>
-
-<p align="center">
-  <a href="https://jobraker-recruiters.vercel.app/" target="_blank" rel="noopener">
-    <img alt="Website" src="https://img.shields.io/badge/Website-10b981?labelColor=10b981&logo=window&logoColor=white">
-  </a>
-  <a href="https://discord.gg/wajrgmJQ6b" target="_blank" rel="noopener">
-    <img alt="Discord" src="https://img.shields.io/badge/Discord-5865F2?logo=discord&logoColor=white&labelColor=5865F2">
-  </a>
-  <a href="https://x.com/intent/user?screen_name=jobraker-recruiterhq" target="_blank" rel="noopener">
-    <img alt="Twitter" src="https://img.shields.io/twitter/follow/jobraker-recruiterhq?style=social">
-  </a>
-  <a href="https://trendshift.io/repositories/13609" target="blank">
-    <img src="https://trendshift.io/api/badge/repositories/13609" alt="jobraker-recruiter/jobraker-recruiter | Trendshift" height="20"/>
-  </a>
 </p>
 
 ---
