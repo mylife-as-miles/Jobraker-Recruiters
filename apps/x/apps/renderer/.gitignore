@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Desktop installers are too large for GitHub; host via releases or CDN
+public/downloads/*.zip
+
