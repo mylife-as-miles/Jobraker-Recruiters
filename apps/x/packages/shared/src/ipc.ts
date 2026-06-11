@@ -218,6 +218,12 @@ const ipcSchemas = {
       result: z.unknown(),
     }),
   },
+  'mcp:resetServers': {
+    req: z.null(),
+    res: z.object({
+      success: z.boolean(),
+    }),
+  },
   'runs:create': {
     req: CreateRunOptions,
     res: Run,
