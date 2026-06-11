@@ -601,13 +601,19 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
   // Connect to a provider
   const handleConnect = useCallback(async (provider: string) => {
     if (provider === 'google') {
-      // Signed-in users use the jobraker-recruiter (managed-credentials) flow: opens
-      // the webapp in the browser, no BYOK modal. Falls back to BYOK modal
-      // for not-signed-in users. (Mirrors useConnectors.handleConnect.)
       const isSignedIntoJobrakerRecruiter = providerStates.jobrakerRecruiter?.isConnected ?? false
       if (isSignedIntoJobrakerRecruiter) {
         await startConnect('google')
         return
+      }
+      try {
+        const result = await window.ipc.invoke('oauth:getState', null)
+        if (result.config?.google?.clientId) {
+          await startConnect('google')
+          return
+        }
+      } catch {
+        // Fall through to BYOK modal
       }
       setGoogleClientIdOpen(true)
       return

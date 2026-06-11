@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useState, useEffect, useCallback } from "react"
-import { Loader2, Mic, Mail, Calendar, CheckCircle2, ArrowLeft, MessageSquare } from "lucide-react"
+import { Loader2, Mic, Mail, Calendar, CheckCircle2, ArrowLeft, MessageSquare, Search } from "lucide-react"
 
 import {
   Dialog,
@@ -107,6 +107,15 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   const [googleCalendarConnected, setGoogleCalendarConnected] = useState(false)
   const [googleCalendarLoading, setGoogleCalendarLoading] = useState(true)
   const [googleCalendarConnecting, setGoogleCalendarConnecting] = useState(false)
+
+  // Elastic Search state
+  const [elasticConfigured, setElasticConfigured] = useState(false)
+  const [elasticKibanaUrl, setElasticKibanaUrl] = useState("")
+  const [elasticApiKey, setElasticApiKey] = useState("")
+  const [elasticSpace, setElasticSpace] = useState("default")
+  const [elasticEnabled, setElasticEnabled] = useState(false)
+  const [elasticSaving, setElasticSaving] = useState(false)
+  const [showElasticForm, setShowElasticForm] = useState(false)
 
   const updateProviderConfig = useCallback(
     (provider: LlmProviderFlavor, updates: Partial<{ apiKey: string; baseURL: string; model: string; knowledgeGraphModel: string; meetingNotesModel: string; liveNoteAgentModel: string }>) => {
@@ -471,6 +480,30 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     }
   }, [activeConfig.apiKey, activeConfig.baseURL, activeConfig.model, canTest, llmProvider, handleNext])
 
+  // Load Elastic configuration
+  const loadElastic = useCallback(async () => {
+    try {
+      const res = await window.ipc.invoke("workspace:readFile", { path: "config/elastic.json", encoding: "utf8" })
+      if (res && res.data) {
+        const config = JSON.parse(res.data)
+        const kibanaUrl = typeof config?.kibanaUrl === "string" ? config.kibanaUrl.trim() : ""
+        const apiKey = typeof config?.apiKey === "string" ? config.apiKey.trim() : ""
+        const space = typeof config?.space === "string" ? config.space.trim() : "default"
+        const enabled = typeof config?.enabled === "boolean" ? config.enabled : false
+
+        setElasticKibanaUrl(kibanaUrl)
+        setElasticApiKey(apiKey)
+        setElasticSpace(space)
+        setElasticEnabled(enabled)
+        setElasticConfigured(Boolean(kibanaUrl && apiKey))
+      } else {
+        setElasticConfigured(false)
+      }
+    } catch {
+      setElasticConfigured(false)
+    }
+  }, [])
+
   // Check connection status for all providers
   const refreshAllStatuses = useCallback(async () => {
     // Refresh Granola
@@ -520,10 +553,13 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
   // Refresh statuses when modal opens or providers list changes
   useEffect(() => {
-    if (open && providers.length > 0) {
-      refreshAllStatuses()
+    if (open) {
+      void loadElastic()
+      if (providers.length > 0) {
+        refreshAllStatuses()
+      }
     }
-  }, [open, providers, refreshAllStatuses])
+  }, [open, providers, refreshAllStatuses, loadElastic])
 
   // Listen for OAuth completion events (state updates only — toasts handled by ConnectorsPopover)
   useEffect(() => {
@@ -899,6 +935,226 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
       )}
     </div>
   )
+
+
+  const handleSaveElastic = async () => {
+    const kibanaUrlTrimmed = elasticKibanaUrl.trim()
+    const apiKeyTrimmed = elasticApiKey.trim()
+    const spaceTrimmed = elasticSpace.trim() || "default"
+
+    if (!kibanaUrlTrimmed || !apiKeyTrimmed) {
+      toast.error("Kibana URL and Elastic API Key are required")
+      return
+    }
+
+    setElasticSaving(true)
+    try {
+      const res = await window.ipc.invoke("workspace:readFile", { path: "config/elastic.json", encoding: "utf8" })
+      const existing = res?.data ? JSON.parse(res.data) : {}
+      const existingIndices = Array.isArray(existing?.indices)
+        ? existing.indices
+        : ["jobraker-workspaces", "jobraker-knowledge", "jobraker-bases", "jobraker-graph", "jobraker-candidates", "jobraker-recruiting-*"]
+
+      const newConfig = {
+        ...existing,
+        enabled: elasticEnabled,
+        kibanaUrl: kibanaUrlTrimmed,
+        apiKey: apiKeyTrimmed,
+        space: spaceTrimmed,
+        indices: existingIndices,
+      }
+
+      await window.ipc.invoke("workspace:writeFile", {
+        path: "config/elastic.json",
+        data: `${JSON.stringify(newConfig, null, 2)}\n`,
+      })
+      await window.ipc.invoke("mcp:resetServers", null)
+
+      setElasticConfigured(true)
+      setShowElasticForm(false)
+      window.dispatchEvent(new Event("connectors:updated"))
+      toast.success("Elastic Search config saved")
+    } catch {
+      toast.error("Failed to save Elastic Search config")
+    } finally {
+      setElasticSaving(false)
+    }
+  }
+
+  const handleToggleElastic = async (checked: boolean) => {
+    setElasticEnabled(checked)
+    if (elasticConfigured) {
+      setElasticSaving(true)
+      try {
+        const res = await window.ipc.invoke("workspace:readFile", { path: "config/elastic.json", encoding: "utf8" })
+        const existing = res?.data ? JSON.parse(res.data) : {}
+        const newConfig = {
+          ...existing,
+          enabled: checked,
+        }
+        await window.ipc.invoke("workspace:writeFile", {
+          path: "config/elastic.json",
+          data: `${JSON.stringify(newConfig, null, 2)}\n`,
+        })
+        await window.ipc.invoke("mcp:resetServers", null)
+        window.dispatchEvent(new Event("connectors:updated"))
+        toast.success(checked ? "Elastic Search enabled" : "Elastic Search disabled")
+      } catch {
+        toast.error("Failed to update Elastic Search status")
+      } finally {
+        setElasticSaving(false)
+      }
+    }
+  }
+
+  const handleClearElastic = async () => {
+    setElasticSaving(true)
+    try {
+      await window.ipc.invoke("workspace:writeFile", {
+        path: "config/elastic.json",
+        data: "{}\n",
+      })
+      await window.ipc.invoke("mcp:resetServers", null)
+      setElasticConfigured(false)
+      setElasticKibanaUrl("")
+      setElasticApiKey("")
+      setElasticSpace("default")
+      setElasticEnabled(false)
+      window.dispatchEvent(new Event("connectors:updated"))
+      toast.success("Elastic Search disconnected")
+    } catch {
+      toast.error("Failed to remove Elastic Search config")
+    } finally {
+      setElasticSaving(false)
+    }
+  }
+
+  const renderElasticRow = () => {
+    return (
+      <div className="rounded-md border p-3 bg-muted/20">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex size-10 items-center justify-center rounded-md bg-muted">
+              <Search className="size-5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-medium truncate">Elastic Search</span>
+              {elasticConfigured ? (
+                <span className="text-xs text-muted-foreground truncate">
+                  Kibana: {elasticKibanaUrl}
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground truncate">
+                  Semantic search & candidate matching
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="shrink-0 flex items-center gap-2">
+            {elasticSaving && (
+              <Loader2 className="size-3 animate-spin text-muted-foreground" />
+            )}
+            {elasticConfigured ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowElasticForm(!showElasticForm)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors mr-1"
+                >
+                  Edit
+                </button>
+                <Switch
+                  checked={elasticEnabled}
+                  onCheckedChange={handleToggleElastic}
+                  disabled={elasticSaving}
+                />
+              </div>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowElasticForm(true)}
+                disabled={elasticSaving}
+              >
+                Configure
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {showElasticForm && (
+          <div className="mt-4 border-t pt-4 space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Kibana URL</label>
+              <Input
+                type="text"
+                value={elasticKibanaUrl}
+                onChange={(e) => setElasticKibanaUrl(e.target.value)}
+                placeholder="https://your-deployment.kb.your-region.elastic-cloud.com"
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Elastic API Key</label>
+              <Input
+                type="password"
+                value={elasticApiKey}
+                onChange={(e) => setElasticApiKey(e.target.value)}
+                placeholder="Paste your Elastic API key"
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Kibana Space (Optional)</label>
+              <Input
+                type="text"
+                value={elasticSpace}
+                onChange={(e) => setElasticSpace(e.target.value)}
+                placeholder="default"
+                className="h-9"
+              />
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span className="text-xs font-medium text-muted-foreground">Enable integration</span>
+              <Switch
+                checked={elasticEnabled}
+                onCheckedChange={setElasticEnabled}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              {elasticConfigured && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void handleClearElastic()
+                    setShowElasticForm(false)
+                  }}
+                  className="text-destructive hover:bg-destructive/10"
+                >
+                  Disconnect
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowElasticForm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveElastic}
+                disabled={!elasticKibanaUrl.trim() || !elasticApiKey.trim() || elasticSaving}
+                size="sm"
+              >
+                {elasticSaving ? <Loader2 className="size-4 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // Step 0: Sign in to Jobraker Recruiter (with BYOK option)
   const renderSignInStep = () => {
@@ -1327,6 +1583,14 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
               </div>
               {renderSlackRow()}
             </div>
+
+            {/* Search & Retrieval Section */}
+            <div className="space-y-2">
+              <div className="px-3">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Search & Retrieval</span>
+              </div>
+              {renderElasticRow()}
+            </div>
           </>
         )}
       </div>
@@ -1350,7 +1614,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
   // Step 4: Completion
   const renderCompletionStep = () => {
-    const hasConnections = connectedProviders.length > 0 || granolaEnabled || slackEnabled || gmailConnected || googleCalendarConnected
+    const hasConnections = connectedProviders.length > 0 || granolaEnabled || slackEnabled || gmailConnected || googleCalendarConnected || (elasticConfigured && elasticEnabled)
 
     return (
       <div className="flex flex-col items-center text-center">
@@ -1407,6 +1671,12 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CheckCircle2 className="size-4 text-green-600" />
                     <span>Slack (Team communication)</span>
+                  </div>
+                )}
+                {elasticConfigured && elasticEnabled && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="size-4 text-green-600" />
+                    <span>Elastic Search (Semantic retrieval)</span>
                   </div>
                 )}
               </div>
