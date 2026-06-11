@@ -46,6 +46,7 @@ import {
   SkeletonCard,
   useFakeLoading,
   RECRUITER_EASE,
+  EmptyState,
 } from './shared'
 import { PageTransition } from '@/components/premium-states'
 
@@ -90,7 +91,32 @@ export function AnalyticsPage({
   const [dropdownOpen, setDropdownOpen] = React.useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false)
 
-  // Dynamic calculations for KPIs
+  const notifications = React.useMemo(() => {
+    const items = []
+    
+    // 1. Alert for candidates in Interview stage
+    candidates.filter(c => c.stage === 'Interview').slice(0, 2).forEach((c) => {
+      items.push({
+        id: `notif-int-${c.id}`,
+        title: `${c.name} interview scheduled`,
+        body: `Interview setup for ${c.title}`,
+        onClick: () => onNavigate?.('candidates', c.id),
+      })
+    })
+
+    // 2. Alert for candidates in Offer stage
+    candidates.filter(c => c.stage === 'Offer').slice(0, 2).forEach((c) => {
+      items.push({
+        id: `notif-off-${c.id}`,
+        title: `${c.name} offer pending`,
+        body: `Awaiting response from candidate`,
+        onClick: () => onNavigate?.('candidates', c.id),
+      })
+    })
+
+    return items
+  }, [candidates, onNavigate])
+
   const calculatedKpis = React.useMemo<Kpi[]>(() => {
     const openRolesCount = roles.filter(r => r.status === 'Open' || r.status === 'Interviewing').length
     const interviewCount = candidates.filter(c => c.stage === 'Interview').length
@@ -99,12 +125,12 @@ export function AnalyticsPage({
     
     const offerAcceptance = (offerCount + hiredCount) > 0 
       ? Math.round((hiredCount / (offerCount + hiredCount)) * 100) 
-      : 86
+      : 0
 
     const activeResponseCount = candidates.filter(c => c.intentSignal === 'Actively Sourcing' || c.intentSignal === 'High Engagement').length
-    const responseRate = candidates.length > 0 ? Math.round((activeResponseCount / candidates.length) * 1000) / 10 : 34.2
+    const responseRate = candidates.length > 0 ? Math.round((activeResponseCount / candidates.length) * 1000) / 10 : 0
 
-    const avgDays = roles.length > 0 ? Math.round(roles.reduce((acc, r) => acc + (r.qualityScore ? Math.round(r.qualityScore * 0.38) : 28), 0) / roles.length) : 32
+    const avgDays = roles.length > 0 ? Math.round(roles.reduce((acc, r) => acc + (r.qualityScore ? Math.round(r.qualityScore * 0.38) : 28), 0) / roles.length) : 0
 
     return [
       { label: 'Open Roles', value: String(openRolesCount), deltaLabel: '2 vs prior month', trend: 'up', icon: 'roles' },
@@ -206,6 +232,34 @@ export function AnalyticsPage({
     )
   }
 
+  if (roles.length === 0 && candidates.length === 0) {
+    return (
+      <PageTransition className="recruiter-scroll flex h-full flex-col overflow-auto p-6 bg-background">
+        <header className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Analytics</h1>
+          <p className="text-sm text-muted-foreground">Data-driven insights to optimize your recruiting.</p>
+        </header>
+        <div className="flex flex-1 items-center justify-center min-h-[400px]">
+          <EmptyState
+            icon={<TrendingUp className="size-6" />}
+            title="No hiring analytics available"
+            body="Create job roles and add candidates to see hiring funnel, source performance, and recruitment trends."
+            action={
+              <button
+                type="button"
+                onClick={() => onNavigate?.('roles', null, 'add-role')}
+                className="flex h-10 items-center gap-1.5 rounded-xl bg-brand px-4 text-sm font-semibold text-black transition hover:brightness-110 cursor-pointer"
+              >
+                <Plus className="size-4" />
+                <span>Create Role</span>
+              </button>
+            }
+          />
+        </div>
+      </PageTransition>
+    )
+  }
+
   return (
     <PageTransition className="analytics-shot recruiter-scroll flex h-full min-h-0 flex-col overflow-auto px-6 pb-8 pt-5 text-white">
       <header className="analytics-topbar">
@@ -242,7 +296,9 @@ export function AnalyticsPage({
                 aria-label="Notifications"
               >
                 <Bell className="size-4" />
-                <span>3</span>
+                {notifications.length > 0 && (
+                  <span>{notifications.length}</span>
+                )}
               </button>
               {isNotificationsOpen && (
                 <>
@@ -251,37 +307,26 @@ export function AnalyticsPage({
                     <div className="border-b border-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-400">
                       Notifications
                     </div>
-                    <div className="py-1 divide-y divide-zinc-900">
-                      <button
-                        onClick={() => {
-                          setIsNotificationsOpen(false)
-                          onOpenEmail?.()
-                        }}
-                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
-                      >
-                        <span className="font-semibold text-zinc-200">New reply from Michael O.</span>
-                        <span className="text-[10px] text-zinc-500">LinkedIn outreach has a new message</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsNotificationsOpen(false)
-                          onNavigatePipeline?.()
-                        }}
-                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
-                      >
-                        <span className="font-semibold text-zinc-200">Teni Ogunleye responded</span>
-                        <span className="text-[10px] text-zinc-500">Agreed to a screening interview</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsNotificationsOpen(false)
-                          onOpenAgents?.()
-                        }}
-                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
-                      >
-                        <span className="font-semibold text-zinc-200">Sourcing completed</span>
-                        <span className="text-[10px] text-zinc-500">AI agent found 15 new designers</span>
-                      </button>
+                    <div className="py-1 divide-y divide-zinc-900 max-h-[300px] overflow-auto">
+                      {notifications.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-zinc-500">
+                          All caught up
+                        </div>
+                      ) : (
+                        notifications.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setIsNotificationsOpen(false)
+                              item.onClick()
+                            }}
+                            className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
+                          >
+                            <span className="font-semibold text-zinc-200">{item.title}</span>
+                            <span className="text-[10px] text-zinc-500">{item.body}</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>
