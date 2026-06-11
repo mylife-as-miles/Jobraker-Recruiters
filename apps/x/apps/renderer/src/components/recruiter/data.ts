@@ -126,6 +126,44 @@ export function initials(name: string): string {
     .toUpperCase()
 }
 
+/** Fill defaults for candidates loaded from storage or quick import (partial records). */
+export function normalizeCandidate(raw: Partial<Candidate> & Pick<Candidate, 'id' | 'name'>): Candidate {
+  return {
+    id: raw.id,
+    name: raw.name,
+    title: raw.title ?? 'Unknown Role',
+    location: raw.location ?? 'Remote',
+    experienceYears: raw.experienceYears ?? 0,
+    matchScore: raw.matchScore ?? 70,
+    stage: raw.stage ?? 'New',
+    source: raw.source ?? 'Quick Import',
+    lastActivity: raw.lastActivity ?? 'Just now',
+    fit: raw.fit ?? null,
+    skills: raw.skills ?? [],
+    highlights: raw.highlights ?? [],
+    aiInsight: raw.aiInsight ?? '',
+    note: raw.note ?? '',
+    email: raw.email ?? '',
+    companyStages: raw.companyStages ?? ['Seed'],
+    growthTrajectory: raw.growthTrajectory ?? 'Moderate',
+    vestingStatus: raw.vestingStatus ?? 'Unvested',
+    intentSignal: raw.intentSignal ?? 'Passive',
+    startupFitScore: raw.startupFitScore ?? 70,
+    startupFitInsight: raw.startupFitInsight ?? '',
+    linkedinUrl: raw.linkedinUrl,
+    enrichedAt: raw.enrichedAt,
+    enrichmentSource: raw.enrichmentSource,
+    photoUrl: raw.photoUrl,
+    headline: raw.headline,
+    summary: raw.summary,
+    education: raw.education ?? [],
+    experience: raw.experience ?? [],
+    emails: raw.emails ?? [],
+    phones: raw.phones ?? [],
+    socialProfiles: raw.socialProfiles,
+  }
+}
+
 export function matchTone(score: number): { text: string; bg: string; ring: string } {
   if (score >= 85) return { text: '#1dff00', bg: 'rgba(29,255,0,0.12)', ring: 'rgba(29,255,0,0.45)' }
   if (score >= 65) return { text: '#f8d74a', bg: 'rgba(248,215,74,0.12)', ring: 'rgba(248,215,74,0.4)' }

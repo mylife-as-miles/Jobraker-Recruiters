@@ -14,6 +14,7 @@ import { getApiKey, setApiKey, enrichLinkedInProfile, type EnrichmentProvider } 
 import {
   CANDIDATES,
   ROLES,
+  normalizeCandidate,
   type Candidate,
   type Role,
   type CandidateStage,
@@ -46,7 +47,7 @@ function getInitialCandidates(): Candidate[] {
   const stages = loadRecruiterState<Record<string, CandidateStage>>('candidate-stages', {})
   const notes = loadRecruiterState<Record<string, string>>('candidate-notes', {})
   
-  return list.map((c) => ({
+  return list.map((c) => normalizeCandidate({
     ...c,
     stage: stages[c.id] ?? c.stage,
     note: notes[c.id] ?? c.note ?? '',
@@ -132,7 +133,7 @@ export function RecruiterScreens({
     const score = candidateData.matchScore ?? 80
     const fit = score >= 88 ? 'High fit' : score >= 75 ? 'Recommended' : null
     
-    const newCandidate: Candidate = {
+    const newCandidate = normalizeCandidate({
       id: newId,
       name: candidateData.name || 'Unnamed Candidate',
       title: candidateData.title || (roles[0]?.title ?? 'Senior Product Designer'),
@@ -143,11 +144,11 @@ export function RecruiterScreens({
       source: candidateData.source || 'LinkedIn',
       lastActivity: 'Just now',
       fit,
-      skills: candidateData.skills && candidateData.skills.length > 0 
-        ? candidateData.skills 
+      skills: candidateData.skills && candidateData.skills.length > 0
+        ? candidateData.skills
         : ['Product Design', 'Figma'],
-      highlights: candidateData.highlights && candidateData.highlights.length > 0 
-        ? candidateData.highlights 
+      highlights: candidateData.highlights && candidateData.highlights.length > 0
+        ? candidateData.highlights
         : ['Strong early-career portfolio'],
       aiInsight: candidateData.aiInsight || 'Promising applicant, fits role profile.',
       note: candidateData.note || '',
@@ -158,7 +159,8 @@ export function RecruiterScreens({
       intentSignal: candidateData.intentSignal || 'Passive',
       startupFitScore: candidateData.startupFitScore || 80,
       startupFitInsight: candidateData.startupFitInsight || 'Exhibits balanced growth potential.',
-    }
+      ...candidateData,
+    })
 
     setCandidates((prev) => [...prev, newCandidate])
     

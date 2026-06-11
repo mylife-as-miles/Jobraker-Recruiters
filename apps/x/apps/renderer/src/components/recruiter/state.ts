@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CANDIDATES, ROLES, type Candidate, type CandidateStage, type Role } from './data'
+import { CANDIDATES, ROLES, normalizeCandidate, type Candidate, type CandidateStage, type Role } from './data'
 import { loadRecruiterState, RECRUITER_STATE_EVENT } from './storage'
 
 const STORAGE_PREFIX = 'jobraker-recruiter-ui:'
@@ -8,7 +8,7 @@ export function loadMergedCandidates(): Candidate[] {
   const list = loadRecruiterState<Candidate[]>('candidates', CANDIDATES)
   const stages = loadRecruiterState<Record<string, CandidateStage>>('candidate-stages', {})
   const notes = loadRecruiterState<Record<string, string>>('candidate-notes', {})
-  return list.map((c) => ({
+  return list.map((c) => normalizeCandidate({
     ...c,
     stage: stages[c.id] ?? c.stage,
     note: notes[c.id] ?? c.note ?? '',
