@@ -1,13 +1,16 @@
 import * as React from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { X, Loader2, Check, Sparkles } from 'lucide-react'
+import { X, Loader2, Check, Sparkles, Info } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { AnalyticsPage } from './analytics-page'
 import { CandidatesPage } from './candidates-page'
 import { PipelinePage } from './pipeline-page'
 import { RolesPage } from './roles-page'
+import { SourcingPage } from './sourcing-page'
 import { RECRUITER_EASE } from './shared'
 import { loadRecruiterState, saveRecruiterState } from './storage'
+import { getApiKey, setApiKey, enrichLinkedInProfile, type EnrichmentProvider } from './enrichment'
 import {
   CANDIDATES,
   ROLES,
@@ -21,7 +24,7 @@ import {
   type IntentSignal,
 } from './data'
 
-export type RecruiterScreenId = 'roles' | 'candidates' | 'pipeline' | 'analytics'
+export type RecruiterScreenId = 'roles' | 'candidates' | 'pipeline' | 'analytics' | 'sourcing'
 
 export type RecruiterScreensProps = {
   screen: RecruiterScreenId
@@ -82,7 +85,7 @@ export function RecruiterScreens({
   
   // Modals state
   const [activeModal, setActiveModal] = React.useState<{
-    type: 'candidate-add' | 'candidate-edit' | 'role-add' | 'role-edit' | 'email-send' | 'interview-schedule'
+    type: 'candidate-add' | 'candidate-edit' | 'role-add' | 'role-edit' | 'email-send' | 'interview-schedule' | 'api-settings' | 'quick-import'
     data?: any
   } | null>(null)
 
@@ -349,6 +352,7 @@ export function RecruiterScreens({
               onOpenScheduleModal={(c) => setActiveModal({ type: 'interview-schedule', data: c })}
               selectedCandidateId={selectedCandidateId}
               onUpdateCandidate={handleUpdateCandidateDirect}
+              onOpenQuickImport={() => setActiveModal({ type: 'quick-import' })}
             />
           )}
           {screen === 'pipeline' && (
@@ -383,6 +387,21 @@ export function RecruiterScreens({
               onNavigate={onNavigate}
             />
           )}
+          {screen === 'sourcing' && (
+            <SourcingPage
+              candidates={candidates}
+              roles={roles}
+              onAddEnrichedCandidate={handleAddCandidate}
+              onNavigateCandidates={(cid) => onNavigate('candidates', cid)}
+              onAskCopilot={onAskCopilot}
+              onOpenSearch={onOpenSearch}
+              onOpenChat={onOpenChat}
+              onTakeMeetingNotes={onTakeMeetingNotes}
+              onOpenAgents={onOpenAgents}
+              onOpenApiSettings={() => setActiveModal({ type: 'api-settings' })}
+              onOpenQuickImport={() => setActiveModal({ type: 'quick-import' })}
+            />
+          )}
         </motion.div>
       </AnimatePresence>
 
@@ -396,7 +415,9 @@ export function RecruiterScreens({
               activeModal.type === 'role-add' ? 'Create Job Position' :
               activeModal.type === 'role-edit' ? 'Edit Job Position' :
               activeModal.type === 'email-send' ? 'Draft AI Outreach' :
-              activeModal.type === 'interview-schedule' ? 'Schedule Interview' : ''
+              activeModal.type === 'interview-schedule' ? 'Schedule Interview' :
+              activeModal.type === 'api-settings' ? 'Configure Sourcing APIs' :
+              activeModal.type === 'quick-import' ? 'Quick Import Candidate' : ''
             }
             onClose={() => setActiveModal(null)}
           >
@@ -441,6 +462,18 @@ export function RecruiterScreens({
                 candidate={activeModal.data}
                 roles={roles}
                 onSave={(details) => handleScheduleInterview(activeModal.data.id, details)}
+                onCancel={() => setActiveModal(null)}
+              />
+            )}
+            {activeModal.type === 'api-settings' && (
+              <ApiSettingsForm
+                onCancel={() => setActiveModal(null)}
+              />
+            )}
+            {activeModal.type === 'quick-import' && (
+              <QuickImportForm
+                roles={roles}
+                onSave={handleAddCandidate}
                 onCancel={() => setActiveModal(null)}
               />
             )}
@@ -1610,10 +1643,540 @@ function InterviewScheduleForm({
           type="submit"
           className="h-9 px-4 rounded-xl bg-brand text-black hover:brightness-110 transition font-bold cursor-pointer"
         >
-          Schedule Interview
+          Save Schedule & Guide
         </button>
       </div>
     </form>
+  )
+}
+
+function ApiSettingsForm({ onCancel }: { onCancel: () => void }) {
+  const [pdlKey, setPdlKey] = React.useState(() => getApiKey('pdl') || '')
+  const [enrichsoKey, setEnrichsoKey] = React.useState(() => getApiKey('enrich.so') || '')
+
+  // Elastic settings state
+  const [elasticEnabled, setElasticEnabled] = React.useState(false)
+  const [connectionType, setConnectionType] = React.useState<'kibana' | 'direct' | 'docker'>('kibana')
+  
+  // Kibana settings
+  const [kibanaUrl, setKibanaUrl] = React.useState('')
+  const [elasticApiKey, setElasticApiKey] = React.useState('')
+  const [kibanaSpace, setKibanaSpace] = React.useState('default')
+  
+  // Direct HTTP settings
+  const [mcpUrl, setMcpUrl] = React.useState('')
+  const [authHeader, setAuthHeader] = React.useState('')
+  
+  // Docker settings
+  const [elasticsearchUrl, setElasticsearchUrl] = React.useState('')
+  const [elasticsearchApiKey, setElasticsearchApiKey] = React.useState('')
+  const [dockerImage, setDockerImage] = React.useState('docker.elastic.co/mcp/elasticsearch')
+
+  // Indices
+  const [targetIndices, setTargetIndices] = React.useState(
+    'jobraker-workspaces, jobraker-knowledge, jobraker-bases, jobraker-graph, jobraker-candidates, jobraker-recruiting-*'
+  )
+
+  React.useEffect(() => {
+    const loadElasticConfig = async () => {
+      try {
+        const res = await window.ipc.invoke("workspace:readFile", { path: "config/elastic.json", encoding: "utf8" })
+        if (res && res.data) {
+          const config = JSON.parse(res.data)
+          setElasticEnabled(!!config.enabled)
+          
+          if (config.mcpUrl) {
+            setConnectionType('direct')
+            setMcpUrl(config.mcpUrl || '')
+            setAuthHeader(config.authHeader || '')
+          } else if (config.elasticsearchUrl) {
+            setConnectionType('docker')
+            setElasticsearchUrl(config.elasticsearchUrl || '')
+            setElasticsearchApiKey(config.elasticsearchApiKey || '')
+            setDockerImage(config.dockerImage || 'docker.elastic.co/mcp/elasticsearch')
+          } else {
+            setConnectionType('kibana')
+            setKibanaUrl(config.kibanaUrl || '')
+            setElasticApiKey(config.apiKey || '')
+            setKibanaSpace(config.space || 'default')
+          }
+          
+          if (Array.isArray(config.indices)) {
+            setTargetIndices(config.indices.join(', '))
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load elastic.json', err)
+      }
+    }
+    loadElasticConfig()
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Save enrichment API keys
+    setApiKey('pdl', pdlKey)
+    setApiKey('enrich.so', enrichsoKey)
+    
+    // Save Elastic configuration
+    const indicesArr = targetIndices
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      
+    const elasticConfig: any = {
+      enabled: elasticEnabled,
+      indices: indicesArr,
+    }
+    
+    if (connectionType === 'kibana') {
+      elasticConfig.kibanaUrl = kibanaUrl.trim()
+      elasticConfig.apiKey = elasticApiKey.trim()
+      elasticConfig.space = kibanaSpace.trim()
+    } else if (connectionType === 'direct') {
+      elasticConfig.mcpUrl = mcpUrl.trim()
+      elasticConfig.authHeader = authHeader.trim()
+    } else if (connectionType === 'docker') {
+      elasticConfig.elasticsearchUrl = elasticsearchUrl.trim()
+      elasticConfig.elasticsearchApiKey = elasticsearchApiKey.trim()
+      elasticConfig.dockerImage = dockerImage.trim()
+    }
+    
+    try {
+      await window.ipc.invoke("workspace:writeFile", {
+        path: "config/elastic.json",
+        data: JSON.stringify(elasticConfig, null, 2),
+      })
+      
+      // Reset active connections in main process
+      await window.ipc.invoke("mcp:resetServers", null)
+      
+      // Dispatch event to reload configuration in components
+      window.dispatchEvent(new Event("connectors:updated"))
+      
+      toast.success('API and Elastic Settings saved successfully!')
+      onCancel()
+    } catch (err: any) {
+      toast.error(`Failed to save settings: ${err.message || err}`)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col min-h-0 text-xs h-full">
+      <div className="flex-1 overflow-y-auto recruiter-scroll space-y-4 pr-1 pb-4">
+        {/* Help Banner */}
+        <div className="rounded-xl bg-brand/5 border border-brand/10 p-3.5 flex items-start gap-3">
+          <Info className="size-4.5 text-brand shrink-0 mt-0.5" />
+          <p className="text-[11px] text-zinc-300 leading-relaxed font-normal">
+            Configure keys and search connections below. If left blank or disabled, enrichment APIs run in a high-fidelity <strong>Mock Demo Mode</strong>, and search queries fall back to local file parsing.
+          </p>
+        </div>
+
+        {/* Sourcing Enrichment APIs */}
+        <div className="space-y-3">
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-b border-zinc-900 pb-1.5">
+            Profile Enrichment APIs
+          </h4>
+
+          <div>
+            <label className="block font-semibold mb-1 text-zinc-300">People Data Labs (PDL) API Key</label>
+            <input
+              type="password"
+              value={pdlKey}
+              onChange={(e) => setPdlKey(e.target.value)}
+              placeholder="Enter PDL API Key"
+              className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/45 text-white"
+            />
+            <span className="text-[10px] text-zinc-500 block mt-1">
+              Used as primary candidate profile enrichment. Get a key at <a href="https://peopledatalabs.com" target="_blank" rel="noreferrer" className="text-brand hover:underline">peopledatalabs.com</a>.
+            </span>
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1 text-zinc-300">Enrich.so API Key</label>
+            <input
+              type="password"
+              value={enrichsoKey}
+              onChange={(e) => setEnrichsoKey(e.target.value)}
+              placeholder="Enter Enrich.so API Key"
+              className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/45 text-white"
+            />
+            <span className="text-[10px] text-zinc-500 block mt-1">
+              Used as fallback email & profile enrichment. Get a key at <a href="https://enrich.so" target="_blank" rel="noreferrer" className="text-brand hover:underline">enrich.so</a>.
+            </span>
+          </div>
+        </div>
+
+        {/* Elastic Search AI Platform Section */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between border-b border-zinc-900 pb-1.5">
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+              Elastic Search AI Platform
+            </h4>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={elasticEnabled}
+                onChange={(e) => setElasticEnabled(e.target.checked)}
+                className="rounded border-zinc-800 text-brand bg-zinc-950 outline-none focus:ring-0 cursor-pointer"
+              />
+              <span className="text-[10px] font-bold text-zinc-300">Enable Search AI</span>
+            </label>
+          </div>
+
+          {elasticEnabled && (
+            <div className="space-y-3 bg-zinc-950/40 border border-zinc-900 rounded-xl p-3.5 mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+              <div>
+                <label className="block font-semibold mb-1 text-zinc-300">Connection Method</label>
+                <select
+                  value={connectionType}
+                  onChange={(e) => setConnectionType(e.target.value as any)}
+                  className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-2.5 outline-none focus:border-brand/40 text-white"
+                >
+                  <option value="kibana">Hosted Kibana Agent Builder (Recommended)</option>
+                  <option value="direct">Direct HTTP/SSE MCP Endpoint</option>
+                  <option value="docker">Local Elasticsearch stdio (Docker)</option>
+                </select>
+              </div>
+
+              {connectionType === 'kibana' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-semibold mb-1 text-zinc-300">Kibana URL</label>
+                    <input
+                      type="url"
+                      value={kibanaUrl}
+                      onChange={(e) => setKibanaUrl(e.target.value)}
+                      placeholder="https://your-deployment.kb.your-region.elastic-cloud.com"
+                      className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-semibold mb-1 text-zinc-300">Elastic API Key</label>
+                      <input
+                        type="password"
+                        value={elasticApiKey}
+                        onChange={(e) => setElasticApiKey(e.target.value)}
+                        placeholder="Elastic API Key"
+                        className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold mb-1 text-zinc-300">Space Name</label>
+                      <input
+                        type="text"
+                        value={kibanaSpace}
+                        onChange={(e) => setKibanaSpace(e.target.value)}
+                        placeholder="default"
+                        className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {connectionType === 'direct' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-semibold mb-1 text-zinc-300">Direct MCP URL</label>
+                    <input
+                      type="url"
+                      value={mcpUrl}
+                      onChange={(e) => setMcpUrl(e.target.value)}
+                      placeholder="https://your-domain.com/api/agent_builder/mcp"
+                      className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1 text-zinc-300">Authorization Header</label>
+                    <input
+                      type="text"
+                      value={authHeader}
+                      onChange={(e) => setAuthHeader(e.target.value)}
+                      placeholder="ApiKey your-api-key"
+                      className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {connectionType === 'docker' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-semibold mb-1 text-zinc-300">Elasticsearch URL</label>
+                    <input
+                      type="url"
+                      value={elasticsearchUrl}
+                      onChange={(e) => setElasticsearchUrl(e.target.value)}
+                      placeholder="https://your-elasticsearch-endpoint:9200"
+                      className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1 text-zinc-300">Elasticsearch API Key</label>
+                    <input
+                      type="password"
+                      value={elasticsearchApiKey}
+                      onChange={(e) => setElasticsearchApiKey(e.target.value)}
+                      placeholder="Elasticsearch API Key"
+                      className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1 text-zinc-300">Docker Image Fallback</label>
+                    <input
+                      type="text"
+                      value={dockerImage}
+                      onChange={(e) => setDockerImage(e.target.value)}
+                      placeholder="docker.elastic.co/mcp/elasticsearch"
+                      className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-semibold mb-1 text-zinc-300">Target Indices Patterns</label>
+                <input
+                  type="text"
+                  value={targetIndices}
+                  onChange={(e) => setTargetIndices(e.target.value)}
+                  placeholder="jobraker-workspaces, jobraker-candidates"
+                  className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white font-mono"
+                />
+                <span className="text-[10px] text-zinc-500 block mt-1">
+                  Comma-separated list of index names or wildcards.
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 border-t border-zinc-900 pt-4 shrink-0">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-9 px-4 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 transition font-semibold cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="h-9 px-4 rounded-xl bg-brand text-black hover:brightness-110 transition font-bold cursor-pointer"
+        >
+          Save Settings
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function QuickImportForm({
+  roles = [],
+  onSave,
+  onCancel,
+}: {
+  roles?: Role[]
+  onSave: (candidate: Partial<Candidate>) => void
+  onCancel: () => void
+}) {
+  const [url, setUrl] = React.useState('')
+  const [loading, setLoading] = React.useState(false)
+  const [provider, setProvider] = React.useState<EnrichmentProvider>('pdl')
+  const [enriched, setEnriched] = React.useState<Partial<Candidate> | null>(null)
+  
+  // Sourcing defaults
+  const [assignRoleId, setAssignRoleId] = React.useState<string>('none')
+  const [initialStage, setInitialStage] = React.useState<CandidateStage>('New')
+
+  const handleEnrich = async () => {
+    if (!url.trim()) {
+      toast.error('Please enter a LinkedIn profile link.')
+      return
+    }
+
+    setLoading(true)
+    setEnriched(null)
+
+    // Notify user if mock demo is running
+    const hasKey = getApiKey(provider)
+    if (!hasKey) {
+      toast.info('No API key configured. Running in mock demo mode.')
+    }
+
+    try {
+      const res = await enrichLinkedInProfile(url, provider)
+      if (res.success && res.candidate) {
+        setEnriched(res.candidate)
+        toast.success('Profile enriched successfully!')
+      } else {
+        toast.error(res.error || 'Failed to enrich profile.')
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'An error occurred during enrichment.')
+    } finally {
+      setUrl('')
+      setLoading(false)
+    }
+  }
+
+  const handleConfirm = () => {
+    if (!enriched) return
+
+    const assignedRole = roles.find((r) => r.id === assignRoleId)
+    const finalData: Partial<Candidate> = {
+      ...enriched,
+      stage: initialStage,
+      title: assignRoleId !== 'none' && assignedRole ? assignedRole.title : enriched.title,
+    }
+
+    onSave(finalData)
+  }
+
+  return (
+    <div className="space-y-4 text-xs">
+      {!enriched ? (
+        <div className="space-y-4">
+          <div>
+            <label className="block font-semibold mb-1 text-zinc-300">LinkedIn Profile Link</label>
+            <input
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://www.linkedin.com/in/username"
+              className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white font-mono"
+              disabled={loading}
+            />
+          </div>
+
+          <div className="flex rounded-lg border border-zinc-800 p-0.5 bg-black/40">
+            <button
+              type="button"
+              onClick={() => setProvider('pdl')}
+              className={cn(
+                "flex-1 rounded-md py-1.5 text-center text-[10px] font-bold transition-all cursor-pointer",
+                provider === 'pdl' ? "bg-brand text-black" : "text-zinc-400 hover:text-white"
+              )}
+              disabled={loading}
+            >
+              PDL (Primary)
+            </button>
+            <button
+              type="button"
+              onClick={() => setProvider('enrich.so')}
+              className={cn(
+                "flex-1 rounded-md py-1.5 text-center text-[10px] font-bold transition-all cursor-pointer",
+                provider === 'enrich.so' ? "bg-brand text-black" : "text-zinc-400 hover:text-white"
+              )}
+              disabled={loading}
+            >
+              Enrich.so
+            </button>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 pt-4 mt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="h-9 px-4 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 transition font-semibold cursor-pointer"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleEnrich}
+              className="h-9 px-4 rounded-xl bg-brand text-black hover:brightness-110 transition font-bold flex items-center gap-1.5 cursor-pointer"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span>Enriching...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-3.5" />
+                  <span>Enrich Profile</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Candidate Profile Card Preview */}
+          <div className="rounded-xl border border-zinc-800 bg-[#121214] p-4 flex items-start gap-4">
+            {enriched.photoUrl ? (
+              <img src={enriched.photoUrl} alt={enriched.name} className="size-14 rounded-lg object-cover border border-zinc-800" />
+            ) : (
+              <div className="size-14 rounded-lg bg-zinc-900 flex items-center justify-center font-bold text-zinc-500 text-lg">
+                {enriched.name?.charAt(0) || 'U'}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-bold text-white block truncate">{enriched.name}</span>
+              <span className="text-xs text-zinc-400 block truncate mt-0.5">{enriched.headline || enriched.title}</span>
+              <span className="text-[10px] text-zinc-500 block mt-1">📍 {enriched.location} • 💼 {enriched.experienceYears} Years Exp</span>
+            </div>
+            <div className="shrink-0 flex flex-col items-center justify-center p-1.5 rounded-lg border border-brand/20 bg-brand/5 min-w-10">
+              <span className="text-xs font-bold text-brand leading-none">{enriched.matchScore}</span>
+              <span className="text-[7px] text-zinc-500 mt-0.5 uppercase tracking-wider">Score</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold mb-1 text-zinc-300">Assign Open Role</label>
+              <select
+                value={assignRoleId}
+                onChange={(e) => setAssignRoleId(e.target.value)}
+                className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-2 outline-none focus:border-brand/40 text-white"
+              >
+                <option value="none">Use profile headline</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block font-semibold mb-1 text-zinc-300">Pipeline Stage</label>
+              <select
+                value={initialStage}
+                onChange={(e) => setInitialStage(e.target.value as CandidateStage)}
+                className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-2 outline-none focus:border-brand/40 text-white"
+              >
+                <option value="New">Sourced (New)</option>
+                <option value="Screening">Screening</option>
+                <option value="In Review">In Review</option>
+                <option value="Shortlisted">Shortlisted</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-zinc-800 pt-4 mt-2">
+            <button
+              type="button"
+              onClick={() => setEnriched(null)}
+              className="h-9 px-4 rounded-xl border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 transition font-semibold cursor-pointer"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="h-9 px-4 rounded-xl bg-brand text-black hover:brightness-110 transition font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <Check className="size-3.5" />
+              <span>Import Candidate</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1621,3 +2184,4 @@ export { AnalyticsPage } from './analytics-page'
 export { CandidatesPage } from './candidates-page'
 export { PipelinePage } from './pipeline-page'
 export { RolesPage } from './roles-page'
+export { SourcingPage } from './sourcing-page'
