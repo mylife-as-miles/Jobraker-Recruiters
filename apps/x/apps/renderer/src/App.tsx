@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/markdown-editor';
 import { ChatSidebar } from './components/chat-sidebar';
 import { RecruiterScreens, type RecruiterScreenId } from './components/recruiter';
+import { initializeRecruiterDbFromDisk, RECRUITER_DB_PATH, reloadRecruiterDbFromDisk } from './components/recruiter/storage';
 import { ChatAssistantRow } from './components/chat-assistant-row';
 import { ChatEmptyState } from './components/chat-empty-state';
 import { ChatInputWithMentions, type StagedAttachment } from './components/chat-input-with-mentions';
@@ -1462,8 +1463,14 @@ function App() {
   useEffect(() => {
     window.ipc.invoke('workspace:mkdir', { path: 'bases', recursive: true })
       .catch((err: unknown) => console.error('Failed to ensure bases directory:', err))
+    window.ipc.invoke('workspace:mkdir', { path: 'config', recursive: true })
+      .catch((err: unknown) => console.error('Failed to ensure config directory:', err))
     window.ipc.invoke('workspace:mkdir', { path: 'knowledge/Notes', recursive: true })
       .catch((err: unknown) => console.error('Failed to ensure Notes directory:', err))
+  }, [])
+
+  useEffect(() => {
+    void initializeRecruiterDbFromDisk()
   }, [])
 
   // Load initial tree
@@ -1486,6 +1493,10 @@ function App() {
         return []
       })()
       const selectedPathAtEvent = selectedPathRef.current
+
+      if (eventPaths.includes(RECRUITER_DB_PATH)) {
+        void reloadRecruiterDbFromDisk('agent')
+      }
 
       // Reload background tasks if agent-schedule.json changed
       if (
@@ -4235,9 +4246,65 @@ function App() {
         navigateToFile(result.path as string)
         break
       case 'open-view':
-        if (result.view === 'graph') void navigateToView({ type: 'graph' })
-        if (result.view === 'bases') {
-          void navigateToView({ type: 'file', path: BASES_DEFAULT_TAB_PATH })
+        switch (result.view) {
+          case 'graph':
+            void navigateToView({ type: 'graph' })
+            break
+          case 'bases':
+            void navigateToView({ type: 'file', path: BASES_DEFAULT_TAB_PATH })
+            break
+          case 'recruiter': {
+            const screen = typeof result.recruiterScreen === 'string'
+              ? result.recruiterScreen as RecruiterScreen
+              : 'candidates'
+            const initialAction = result.initialAction === 'add-candidate' || result.initialAction === 'add-role'
+              ? result.initialAction
+              : null
+            void navigateToView({
+              type: 'recruiter',
+              screen,
+              candidateId: typeof result.candidateId === 'string' ? result.candidateId : null,
+              initialAction,
+            })
+            break
+          }
+          case 'meetings':
+            void navigateToView({ type: 'meetings' })
+            break
+          case 'email':
+            void navigateToView({ type: 'email' })
+            break
+          case 'live-notes':
+            void navigateToView({ type: 'live-notes' })
+            break
+          case 'bg-tasks':
+            void navigateToView({ type: 'bg-tasks' })
+            break
+          case 'home':
+            void navigateToView({ type: 'home' })
+            break
+          case 'chat-history':
+            void navigateToView({ type: 'chat-history' })
+            break
+          case 'suggested-topics':
+            void navigateToView({ type: 'suggested-topics' })
+            break
+          case 'chat':
+            void navigateToView({ type: 'chat', runId: typeof result.runId === 'string' ? result.runId : null })
+            break
+          case 'workspace':
+            void navigateToView({ type: 'workspace', path: typeof result.folderPath === 'string' ? result.folderPath : undefined })
+            break
+          case 'knowledge-view':
+            void navigateToView({ type: 'knowledge-view', folderPath: typeof result.folderPath === 'string' ? result.folderPath : undefined })
+            break
+          case 'task':
+            if (typeof result.taskName === 'string' && result.taskName.length > 0) {
+              void navigateToView({ type: 'task', name: result.taskName })
+            } else if (typeof result.name === 'string' && result.name.length > 0) {
+              void navigateToView({ type: 'task', name: result.name })
+            }
+            break
         }
         break
       case 'update-base-view': {

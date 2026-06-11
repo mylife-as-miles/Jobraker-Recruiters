@@ -75,15 +75,19 @@ type AnalyticsPageProps = {
   onNavigate?: (screen: 'roles' | 'candidates' | 'pipeline' | 'analytics', candidateId?: string | null, initialAction?: 'add-candidate' | 'add-role' | null) => void
 }
 
+type AnalyticsNotification = {
+  id: string
+  title: string
+  body: string
+  onClick: () => void
+}
+
 export function AnalyticsPage({
   candidates,
   roles,
   onAskCopilot,
-  onNavigatePipeline,
   onOpenSearch,
   onOpenChat,
-  onOpenAgents,
-  onOpenEmail,
   onNavigate,
 }: AnalyticsPageProps) {
   const loading = useFakeLoading(720)
@@ -92,7 +96,7 @@ export function AnalyticsPage({
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false)
 
   const notifications = React.useMemo(() => {
-    const items = []
+    const items: AnalyticsNotification[] = []
     
     // 1. Alert for candidates in Interview stage
     candidates.filter(c => c.stage === 'Interview').slice(0, 2).forEach((c) => {

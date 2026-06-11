@@ -972,13 +972,34 @@ export const BuiltinTools: z.infer<typeof BuiltinToolsSchema> = {
     // ============================================================================
 
     'app-navigation': {
-        description: 'Control the app UI - navigate to notes, switch views, filter/search the knowledge base, and manage saved views.',
+        description: 'Control the app UI - navigate to notes, recruiter screens, workspace sections, chat/task views, filter/search the knowledge base, and manage saved views.',
         inputSchema: z.object({
             action: z.enum(["open-note", "open-view", "update-base-view", "get-base-state", "create-base"]).describe("The navigation action to perform"),
             // open-note
             path: z.string().optional().describe("Knowledge file path for open-note, e.g. knowledge/People/John.md"),
             // open-view
-            view: z.enum(["bases", "graph"]).optional().describe("Which view to open (for open-view action)"),
+            view: z.enum([
+                "bases",
+                "graph",
+                "recruiter",
+                "meetings",
+                "email",
+                "live-notes",
+                "bg-tasks",
+                "home",
+                "chat-history",
+                "suggested-topics",
+                "chat",
+                "workspace",
+                "knowledge-view",
+                "task",
+            ]).optional().describe("Which view to open (for open-view action)"),
+            recruiterScreen: z.enum(["roles", "candidates", "pipeline", "analytics", "sourcing"]).optional().describe("Recruiter screen to open when view is recruiter"),
+            candidateId: z.string().optional().describe("Candidate id to focus when opening recruiter candidate views"),
+            initialAction: z.enum(["add-candidate", "add-role"]).optional().describe("Optional recruiter modal/action to start after navigation"),
+            runId: z.string().optional().describe("Chat run id to open when view is chat"),
+            folderPath: z.string().optional().describe("Workspace or knowledge folder path for workspace/knowledge-view"),
+            taskName: z.string().optional().describe("Background task name/slug to open when view is task"),
             // update-base-view
             filters: z.object({
                 set: z.array(z.object({ category: z.string(), value: z.string() })).optional().describe("Replace all filters with these"),
@@ -1021,7 +1042,18 @@ export const BuiltinTools: z.infer<typeof BuiltinToolsSchema> = {
 
                 case 'open-view': {
                     const view = input.view as string;
-                    return { success: true, action: 'open-view', view };
+                    return {
+                        success: true,
+                        action: 'open-view',
+                        view,
+                        recruiterScreen: input.recruiterScreen,
+                        candidateId: input.candidateId,
+                        initialAction: input.initialAction,
+                        runId: input.runId,
+                        folderPath: input.folderPath,
+                        taskName: input.taskName,
+                        name: input.name,
+                    };
                 }
 
                 case 'update-base-view': {

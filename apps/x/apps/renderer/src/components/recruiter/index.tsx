@@ -9,7 +9,7 @@ import { PipelinePage } from './pipeline-page'
 import { RolesPage } from './roles-page'
 import { SourcingPage } from './sourcing-page'
 import { RECRUITER_EASE } from './shared'
-import { loadRecruiterState, saveRecruiterState } from './storage'
+import { loadRecruiterState, RECRUITER_STATE_EVENT, saveRecruiterState } from './storage'
 import { getApiKey, setApiKey, enrichLinkedInProfile, type EnrichmentProvider } from './enrichment'
 import {
   CANDIDATES,
@@ -97,6 +97,18 @@ export function RecruiterScreens({
       setActiveModal({ type: 'role-add' })
     }
   }, [initialAction])
+
+  React.useEffect(() => {
+    const handleRecruiterStateChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ key?: string }>).detail
+      if (detail?.key !== 'recruiter-db') return
+      setCandidates(getInitialCandidates())
+      setRoles(getInitialRoles())
+    }
+
+    window.addEventListener(RECRUITER_STATE_EVENT, handleRecruiterStateChange)
+    return () => window.removeEventListener(RECRUITER_STATE_EVENT, handleRecruiterStateChange)
+  }, [])
 
   // Sync state to localStorage on changes
   React.useEffect(() => {
