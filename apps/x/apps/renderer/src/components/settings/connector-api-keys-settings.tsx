@@ -1,11 +1,12 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { CheckCircle2, Globe, Loader2, Volume2 } from "lucide-react"
+import { CheckCircle2, Globe, Loader2, Volume2, Search } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -91,6 +92,14 @@ export function ConnectorApiKeysSettings({ dialogOpen }: ConnectorApiKeysSetting
   const [firecrawlSaving, setFirecrawlSaving] = useState(false)
   const [showFirecrawlInput, setShowFirecrawlInput] = useState(false)
 
+  const [elasticConfigured, setElasticConfigured] = useState(false)
+  const [elasticKibanaUrl, setElasticKibanaUrl] = useState("")
+  const [elasticApiKey, setElasticApiKey] = useState("")
+  const [elasticSpace, setElasticSpace] = useState("default")
+  const [elasticEnabled, setElasticEnabled] = useState(false)
+  const [elasticSaving, setElasticSaving] = useState(false)
+  const [showElasticInput, setShowElasticInput] = useState(false)
+
   const loadElevenLabsVoices = useCallback(async (apiKeyOverride?: string) => {
     setElevenLabsVoicesLoading(true)
     setElevenLabsVoicesError(null)
@@ -140,11 +149,27 @@ export function ConnectorApiKeysSettings({ dialogOpen }: ConnectorApiKeysSetting
     setShowFirecrawlInput(!apiKey)
   }, [])
 
+  const loadElastic = useCallback(async () => {
+    const config = await readConfigFile("config/elastic.json")
+    const kibanaUrl = typeof config?.kibanaUrl === "string" ? config.kibanaUrl.trim() : ""
+    const apiKey = typeof config?.apiKey === "string" ? config.apiKey.trim() : ""
+    const space = typeof config?.space === "string" ? config.space.trim() : "default"
+    const enabled = typeof config?.enabled === "boolean" ? config.enabled : false
+
+    setElasticKibanaUrl(kibanaUrl)
+    setElasticApiKey(apiKey)
+    setElasticSpace(space)
+    setElasticEnabled(enabled)
+    setElasticConfigured(Boolean(kibanaUrl && apiKey))
+    setShowElasticInput(!kibanaUrl || !apiKey)
+  }, [])
+
   useEffect(() => {
     if (!dialogOpen) return
     void loadElevenLabs()
     void loadFirecrawl()
-  }, [dialogOpen, loadElevenLabs, loadFirecrawl])
+    void loadElastic()
+  }, [dialogOpen, loadElevenLabs, loadFirecrawl, loadElastic])
 
   const handleSaveElevenLabs = async () => {
     const trimmed = elevenLabsInput.trim()
@@ -258,6 +283,90 @@ export function ConnectorApiKeysSettings({ dialogOpen }: ConnectorApiKeysSetting
       toast.error("Failed to remove Firecrawl API key")
     } finally {
       setFirecrawlSaving(false)
+    }
+  }
+
+  const handleSaveElastic = async () => {
+    const kibanaUrlTrimmed = elasticKibanaUrl.trim()
+    const apiKeyTrimmed = elasticApiKey.trim()
+    const spaceTrimmed = elasticSpace.trim() || "default"
+
+    if (!kibanaUrlTrimmed || !apiKeyTrimmed) {
+      toast.error("Kibana URL and Elastic API Key are required")
+      return
+    }
+
+    setElasticSaving(true)
+    try {
+      const existing = await readConfigFile("config/elastic.json")
+      const existingIndices = Array.isArray(existing?.indices)
+        ? existing.indices
+        : ["jobraker-workspaces", "jobraker-knowledge", "jobraker-bases", "jobraker-graph", "jobraker-candidates", "jobraker-recruiting-*"]
+
+      const newConfig = {
+        ...existing,
+        enabled: elasticEnabled,
+        kibanaUrl: kibanaUrlTrimmed,
+        apiKey: apiKeyTrimmed,
+        space: spaceTrimmed,
+        indices: existingIndices,
+      }
+
+      await writeConfigFile("config/elastic.json", newConfig)
+      await window.ipc.invoke("mcp:resetServers", null)
+
+      setElasticConfigured(true)
+      setShowElasticInput(false)
+      notifyConnectorsUpdated()
+      toast.success("Elastic Search config saved")
+    } catch {
+      toast.error("Failed to save Elastic Search config")
+    } finally {
+      setElasticSaving(false)
+    }
+  }
+
+  const handleToggleElastic = async (checked: boolean) => {
+    setElasticEnabled(checked)
+    if (elasticConfigured) {
+      setElasticSaving(true)
+      try {
+        const existing = await readConfigFile("config/elastic.json")
+        if (existing) {
+          const newConfig = {
+            ...existing,
+            enabled: checked,
+          }
+          await writeConfigFile("config/elastic.json", newConfig)
+          await window.ipc.invoke("mcp:resetServers", null)
+          notifyConnectorsUpdated()
+          toast.success(checked ? "Elastic Search enabled" : "Elastic Search disabled")
+        }
+      } catch {
+        toast.error("Failed to update Elastic Search status")
+      } finally {
+        setElasticSaving(false)
+      }
+    }
+  }
+
+  const handleClearElastic = async () => {
+    setElasticSaving(true)
+    try {
+      await writeConfigFile("config/elastic.json", {})
+      await window.ipc.invoke("mcp:resetServers", null)
+      setElasticConfigured(false)
+      setShowElasticInput(true)
+      setElasticKibanaUrl("")
+      setElasticApiKey("")
+      setElasticSpace("default")
+      setElasticEnabled(false)
+      notifyConnectorsUpdated()
+      toast.success("Elastic Search disconnected")
+    } catch {
+      toast.error("Failed to remove Elastic Search config")
+    } finally {
+      setElasticSaving(false)
     }
   }
 
@@ -457,6 +566,124 @@ export function ConnectorApiKeysSettings({ dialogOpen }: ConnectorApiKeysSetting
                   Cancel
                 </Button>
               )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Elastic Search */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex size-8 items-center justify-center rounded-md bg-muted">
+              <Search className="size-4" />
+            </div>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Elastic Search
+            </span>
+          </div>
+          {elasticConfigured && (
+            <div className="flex items-center gap-2 pr-3">
+              <span className="text-xs text-muted-foreground">Enabled</span>
+              <Switch
+                checked={elasticEnabled}
+                onCheckedChange={handleToggleElastic}
+                disabled={elasticSaving}
+              />
+            </div>
+          )}
+        </div>
+
+        {elasticConfigured && !showElasticInput ? (
+          <div className="space-y-3 rounded-md px-3 py-2">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-sm text-green-600">
+                <CheckCircle2 className="size-4" />
+                Configured {elasticEnabled ? "and enabled" : "but disabled"}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowElasticInput(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Change
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleClearElastic() }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+            <div className="text-xs text-muted-foreground truncate">
+              Kibana: <span className="font-mono">{elasticKibanaUrl}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3 px-3">
+            <p className="text-xs text-muted-foreground">
+              Powers semantic search, filtering, and evidence-backed candidate retrieval.
+            </p>
+            <div className="space-y-2.5">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Kibana URL</label>
+                <Input
+                  type="text"
+                  value={elasticKibanaUrl}
+                  onChange={(e) => setElasticKibanaUrl(e.target.value)}
+                  placeholder="https://your-deployment.kb.your-region.elastic-cloud.com"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Elastic API Key</label>
+                <Input
+                  type="password"
+                  value={elasticApiKey}
+                  onChange={(e) => setElasticApiKey(e.target.value)}
+                  placeholder="Paste your Elastic API key"
+                  className="h-9"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Kibana Space (Optional)</label>
+                <Input
+                  type="text"
+                  value={elasticSpace}
+                  onChange={(e) => setElasticSpace(e.target.value)}
+                  placeholder="default"
+                  className="h-9"
+                />
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs font-medium text-muted-foreground">Enable integration</span>
+                <Switch
+                  checked={elasticEnabled}
+                  onCheckedChange={setElasticEnabled}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                {elasticConfigured && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowElasticInput(false)
+                      void loadElastic()
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+                <Button
+                  onClick={() => { void handleSaveElastic() }}
+                  disabled={!elasticKibanaUrl.trim() || !elasticApiKey.trim() || elasticSaving}
+                  size="sm"
+                >
+                  {elasticSaving ? <Loader2 className="size-4 animate-spin" /> : "Save"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
