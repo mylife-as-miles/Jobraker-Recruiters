@@ -11,6 +11,7 @@ import z from "zod";
 import { getGatewayProvider } from "./gateway.js";
 import container from "../di/container.js";
 import { IModelConfigRepo } from "./repo.js";
+import { Gemini, LlmAgent, InMemoryRunner, stringifyContent } from "@google/adk";
 
 export const Provider = LlmProvider;
 export const ModelConfig = LlmModelConfig;
@@ -106,15 +107,41 @@ export async function generateRecruiterLlmText(
 ): Promise<string> {
     const repo = container.resolve<IModelConfigRepo>("modelConfigRepo");
     const config = await repo.getConfig();
-    const provider = createProvider(config.provider);
-    const model = provider.languageModel(config.model);
 
-    const result = await generateText({
-        model,
-        system: systemPrompt,
-        prompt,
-        temperature,
+    const apiKey = config.provider.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || process.env.GOOGLE_API_KEY;
+    const modelName = config.provider.flavor === "google" ? config.model : "gemini-2.5-flash";
+
+    const geminiModel = new Gemini({
+        apiKey,
+        model: modelName,
     });
-    return result.text.trim();
+
+    const agent = new LlmAgent({
+        name: "RecruiterCompanion",
+        model: geminiModel,
+        instruction: systemPrompt,
+        generateContentConfig: {
+            temperature: temperature,
+        },
+    });
+
+    const runner = new InMemoryRunner({
+        agent,
+        appName: "JobrakerRecruiter",
+    });
+
+    const events = runner.runEphemeral({
+        userId: "recruiter-default-user",
+        newMessage: { parts: [{ text: prompt }] },
+    });
+
+    let responseText = "";
+    for await (const event of events) {
+        if (event.errorMessage) {
+            throw new Error(event.errorMessage);
+        }
+        responseText += stringifyContent(event);
+    }
+    return responseText.trim();
 }
 
