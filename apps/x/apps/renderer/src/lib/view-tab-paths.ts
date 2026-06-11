@@ -4,6 +4,7 @@ export const RECRUITER_ROLES_TAB_PATH = '__jobraker-recruiter_roles__'
 export const RECRUITER_CANDIDATES_TAB_PATH = '__jobraker-recruiter_candidates__'
 export const RECRUITER_PIPELINE_TAB_PATH = '__jobraker-recruiter_pipeline__'
 export const RECRUITER_ANALYTICS_TAB_PATH = '__jobraker-recruiter_analytics__'
+export const RECRUITER_SOURCING_TAB_PATH = '__jobraker-recruiter_sourcing__'
 
 export function getRecruiterTabPath(screen: RecruiterScreenId): string {
   switch (screen) {
@@ -15,6 +16,8 @@ export function getRecruiterTabPath(screen: RecruiterScreenId): string {
       return RECRUITER_PIPELINE_TAB_PATH
     case 'analytics':
       return RECRUITER_ANALYTICS_TAB_PATH
+    case 'sourcing':
+      return RECRUITER_SOURCING_TAB_PATH
   }
 }
 
@@ -28,6 +31,8 @@ export function getRecruiterScreenFromTabPath(path: string): RecruiterScreenId |
       return 'pipeline'
     case RECRUITER_ANALYTICS_TAB_PATH:
       return 'analytics'
+    case RECRUITER_SOURCING_TAB_PATH:
+      return 'sourcing'
     default:
       return null
   }
@@ -47,6 +52,8 @@ export function getRecruiterTabTitle(path: string): string | null {
       return 'Pipeline'
     case RECRUITER_ANALYTICS_TAB_PATH:
       return 'Analytics'
+    case RECRUITER_SOURCING_TAB_PATH:
+      return 'Sourcing'
     default:
       return null
   }
