@@ -13,6 +13,7 @@ import {
   FileText,
   Plus,
   Loader2,
+  Linkedin,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
@@ -74,6 +75,7 @@ type CandidatesPageProps = {
   onOpenScheduleModal: (c: Candidate) => void
   selectedCandidateId?: string | null
   onUpdateCandidate?: (c: Candidate) => void
+  onOpenQuickImport?: () => void
 }
 
 export function CandidatesPage({
@@ -94,6 +96,7 @@ export function CandidatesPage({
   onOpenScheduleModal,
   selectedCandidateId,
   onUpdateCandidate,
+  onOpenQuickImport,
 }: CandidatesPageProps) {
   const loading = useFakeLoading(680)
   const [search, setSearch] = React.useState('')
@@ -167,6 +170,49 @@ export function CandidatesPage({
             {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
           <Skeleton className="mx-6 h-96 rounded-2xl" />
+        </div>
+      </div>
+    )
+  }
+
+  if (candidatesList.length === 0) {
+    return (
+      <div className="flex h-full flex-col overflow-hidden bg-background">
+        <RecruiterHeader
+          title="Candidates"
+          subtitle="Search, evaluate, and engage top talent."
+          searchPlaceholder="Search candidates..."
+          onOpenSearch={onOpenSearch}
+          onOpenChat={onOpenChat}
+          onTakeMeetingNotes={onTakeMeetingNotes}
+          onOpenAgents={onOpenAgents}
+        />
+        <div className="flex flex-1 items-center justify-center p-6">
+          <EmptyState
+            icon={<User className="size-6" />}
+            title="Your candidate database is empty"
+            body="Import candidates from LinkedIn, quick import details, or add them manually to start building your talent pool."
+            action={
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onOpenQuickImport}
+                  className="flex h-8 items-center gap-1.5 rounded-lg border border-zinc-800 bg-[#0c0d0d] px-3.5 text-xs font-semibold text-zinc-300 transition hover:bg-zinc-800 hover:text-white cursor-pointer"
+                >
+                  <Linkedin className="size-3.5 text-brand" />
+                  <span>Import LinkedIn</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onAddCandidate}
+                  className="flex h-8 items-center gap-1.5 rounded-lg bg-brand px-3.5 text-xs font-semibold text-black transition hover:brightness-110 cursor-pointer"
+                >
+                  <Plus className="size-3.5" />
+                  <span>Add Candidate</span>
+                </button>
+              </div>
+            }
+          />
         </div>
       </div>
     )
@@ -276,6 +322,15 @@ export function CandidatesPage({
               <option key={vs} value={vs}>{vs}</option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={onOpenQuickImport}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-zinc-800 bg-[#0c0d0d] px-3 text-[11px] font-semibold text-zinc-300 transition hover:bg-zinc-800/80 hover:text-white cursor-pointer"
+          >
+            <Linkedin className="size-3.5 text-brand" />
+            Import LinkedIn
+          </button>
 
           <button
             type="button"
