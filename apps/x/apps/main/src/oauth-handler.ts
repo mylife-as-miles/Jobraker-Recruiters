@@ -22,6 +22,27 @@ function buildRedirectUri(port: number): string {
   return `http://localhost:${port}/oauth/callback`;
 }
 
+/** API scopes that require a reconnect when missing from a stored grant. */
+const GOOGLE_MIGRATION_SCOPES = [
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/calendar.events.readonly',
+];
+
+async function resolveGoogleByokCredentials(
+  credentials: { clientId: string; clientSecret: string } | undefined,
+): Promise<{ clientId: string; clientSecret: string } | null> {
+  if (credentials?.clientId && credentials?.clientSecret) {
+    return credentials;
+  }
+  const oauthRepo = getOAuthRepo();
+  const stored = await oauthRepo.read('google');
+  if (stored.clientId && stored.clientSecret) {
+    console.log('[OAuth] Using stored Google BYOK credentials from oauth.json');
+    return { clientId: stored.clientId, clientSecret: stored.clientSecret };
+  }
+  return null;
+}
+
 /** Top-level openid-client messages that often wrap a more specific cause. */
 const OPAQUE_OAUTH_TOP_MESSAGES = new Set(['invalid response encountered']);
 
@@ -297,9 +318,13 @@ export async function connectProvider(provider: string, credentials?: { clientId
 
     const oauthRepo = getOAuthRepo();
     const providerConfig = await getProviderConfig(provider);
+    let googleCredentials = credentials;
 
     if (provider === 'google') {
-      if (!credentials?.clientId || !credentials?.clientSecret) {
+      const resolved = await resolveGoogleByokCredentials(credentials);
+      if (resolved) {
+        googleCredentials = resolved;
+      } else if (!credentials?.clientId || !credentials?.clientSecret) {
         // No credentials → jobraker-recruiter mode if the user is signed in to Jobraker Recruiter
         // (we use the company-owned Google client via the api + webapp).
         // Otherwise it's BYOK with missing creds → error.
@@ -377,9 +402,16 @@ export async function connectProvider(provider: string, credentials?: { clientId
           // before any local server runs); stamp mode: 'byok' so a future
           // refresh / reconnect can't get confused with a jobraker-recruiter entry.
           console.log(`[OAuth] Token exchange successful for ${provider}`);
+          if (provider === 'google' && !tokens.refresh_token) {
+            console.warn(
+              '[OAuth] Google token exchange did not return a refresh token. ' +
+              'The connection will expire in about an hour unless the user re-authorizes with consent.',
+            );
+          }
+
           await oauthRepo.upsert(provider, {
             tokens,
-            ...(credentials ? { clientId: credentials.clientId, clientSecret: credentials.clientSecret } : {}),
+            ...(googleCredentials ? { clientId: googleCredentials.clientId, clientSecret: googleCredentials.clientSecret } : {}),
             ...(provider === 'google' ? { mode: 'byok' as const } : {}),
             error: null,
             ...(googleProfile ? {
@@ -470,7 +502,7 @@ export async function connectProvider(provider: string, credentials?: { clientId
       }
 
       const redirectUri = buildRedirectUri(boundPort);
-      const config = await getProviderConfiguration(provider, redirectUri, credentials);
+      const config = await getProviderConfiguration(provider, redirectUri, googleCredentials ?? credentials);
 
       const { verifier: codeVerifier, challenge: codeChallenge } = await oauthClient.generatePKCE();
       state = oauthClient.generateState();
@@ -478,12 +510,24 @@ export async function connectProvider(provider: string, credentials?: { clientId
       const scopes = providerConfig.scopes || [];
       activeFlows.set(state, { codeVerifier, provider, config });
 
-      const authUrl = oauthClient.buildAuthorizationUrl(config, {
+      const authParams: Record<string, string> = {
         redirect_uri: redirectUri,
         scope: scopes.join(' '),
         code_challenge: codeChallenge,
         state,
-      });
+      };
+
+      // Google only returns a refresh_token with offline access + consent.
+      // Without it the connection dies after ~1 hour and the user must reconnect constantly.
+      if (provider === 'google') {
+        authParams.access_type = 'offline';
+        const existingGoogle = await oauthRepo.read('google');
+        if (!existingGoogle.tokens?.refresh_token) {
+          authParams.prompt = 'consent';
+        }
+      }
+
+      const authUrl = oauthClient.buildAuthorizationUrl(config, authParams);
 
       // Set timeout to clean up abandoned flows (2 minutes)
       const cleanupTimeout = setTimeout(() => {
@@ -637,13 +681,18 @@ export async function disconnectGoogleIfScopesStale(): Promise<void> {
       return;
     }
 
-    const providerConfig = await getProviderConfig('google');
-    const requiredScopes = providerConfig.scopes ?? [];
+    const requiredScopes = GOOGLE_MIGRATION_SCOPES;
     if (requiredScopes.length === 0) {
       return;
     }
 
-    const granted = new Set(connection.tokens.scopes ?? []);
+    const grantedList = connection.tokens.scopes ?? [];
+    if (grantedList.length === 0) {
+      // Legacy grants may not have persisted scopes — don't invalidate on every boot.
+      return;
+    }
+
+    const granted = new Set(grantedList);
     const missingScopes = requiredScopes.filter((scope) => !granted.has(scope));
     if (missingScopes.length === 0) {
       return;
