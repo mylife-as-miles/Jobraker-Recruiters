@@ -174,6 +174,7 @@ type SidebarContentPanelProps = {
   onOpenHome?: () => void
   onOpenRoles?: () => void
   onOpenCandidates?: () => void
+  onOpenSourcing?: () => void
   onOpenPipeline?: () => void
   onOpenAnalytics?: () => void
   onOpenChat?: () => void
@@ -181,7 +182,7 @@ type SidebarContentPanelProps = {
   onToggleBrowser?: () => void
   onVoiceNoteCreated?: (path: string) => void
   /** Which primary destination is currently active, for nav highlighting. */
-  activeNav?: 'home' | 'chat' | 'roles' | 'candidates' | 'pipeline' | 'analytics' | 'email' | 'meetings' | 'knowledge' | 'agents' | 'workspaces' | null
+  activeNav?: 'home' | 'chat' | 'roles' | 'candidates' | 'sourcing' | 'pipeline' | 'analytics' | 'email' | 'meetings' | 'knowledge' | 'agents' | 'workspaces' | null
   /** Live meeting recording state, so the recording row can show its indicator/stop. */
   meetingRecordingState?: 'idle' | 'connecting' | 'recording' | 'stopping'
   recordingMeetingSource?: string | null
@@ -420,6 +421,7 @@ export function SidebarContentPanel({
   onOpenHome,
   onOpenRoles,
   onOpenCandidates,
+  onOpenSourcing,
   onOpenPipeline,
   onOpenAnalytics,
   onOpenChat,
@@ -779,6 +781,16 @@ export function SidebarContentPanel({
                 >
                   <Users className="size-5 shrink-0" />
                   <span className="flex-1 truncate">Candidates</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={activeNav === 'sourcing'}
+                  onClick={onOpenSourcing}
+                  tooltip="Sourcing"
+                >
+                  <Globe className="size-5 shrink-0" />
+                  <span className="flex-1 truncate">Sourcing</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
