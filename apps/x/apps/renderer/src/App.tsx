@@ -584,7 +584,7 @@ const collectFilePaths = (nodes: TreeNode[]): string[] =>
   nodes.flatMap(n => n.kind === 'file' ? [n.path] : (n.children ? collectFilePaths(n.children) : []))
 
 /** Dedicated recruiter dashboard screens rendered as a full-pane overlay. */
-type RecruiterScreen = 'roles' | 'candidates' | 'pipeline' | 'analytics'
+type RecruiterScreen = 'roles' | 'candidates' | 'pipeline' | 'analytics' | 'sourcing'
 
 /** A snapshot of which view the user is on */
 type ViewState =
@@ -5425,6 +5425,7 @@ function App() {
               activeNav={
                 recruiterScreen === 'roles' ? 'roles'
                 : recruiterScreen === 'candidates' ? 'candidates'
+                : recruiterScreen === 'sourcing' ? 'sourcing'
                 : recruiterScreen === 'pipeline' ? 'pipeline'
                 : recruiterScreen === 'analytics' ? 'analytics'
                 : isHomeOpen ? 'home'
@@ -5436,6 +5437,7 @@ function App() {
               }
               onOpenRoles={() => openRecruiterScreen('roles')}
               onOpenCandidates={() => openRecruiterScreen('candidates')}
+              onOpenSourcing={() => openRecruiterScreen('sourcing')}
               onOpenPipeline={() => openRecruiterScreen('pipeline')}
               onOpenAnalytics={() => openRecruiterScreen('analytics')}
               onOpenMeetings={openMeetingsView}
