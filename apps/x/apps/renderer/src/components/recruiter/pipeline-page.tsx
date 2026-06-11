@@ -200,6 +200,38 @@ export function PipelinePage({
     )
   }
 
+  if (candidatesList.length === 0) {
+    return (
+      <div className="flex h-full flex-col overflow-hidden bg-background">
+        <RecruiterHeader
+          title="Pipeline"
+          subtitle="Visualize and manage your candidate flow."
+          searchPlaceholder="Search candidates..."
+          onOpenSearch={onOpenSearch}
+          onOpenChat={onOpenChat}
+          onTakeMeetingNotes={onTakeMeetingNotes}
+          onOpenAgents={onOpenAgents}
+        />
+        <div className="flex flex-1 items-center justify-center p-6">
+          <EmptyState
+            icon={<Trophy className="size-6" />}
+            title="No candidates in pipeline"
+            body="Add candidates to job roles to see them in your kanban board and track their progress."
+            action={
+              <button
+                type="button"
+                onClick={() => onNavigateCandidates?.()}
+                className="flex h-10 items-center gap-1.5 rounded-xl bg-brand px-4 text-sm font-semibold text-black transition hover:brightness-110 cursor-pointer"
+              >
+                <span>Go to Candidates</span>
+              </button>
+            }
+          />
+        </div>
+      </div>
+    )
+  }
+
   const totalCards = PIPELINE_STAGES.reduce((n, s) => n + (filteredBoard[s]?.length ?? 0), 0)
 
   return (
