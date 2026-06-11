@@ -16,6 +16,8 @@ import composioIntegrationSkill from "./composio-integration/skill.js";
 import liveNoteSkill from "./live-note/skill.js";
 import backgroundTaskSkill from "./background-task/skill.js";
 import notifyUserSkill from "./notify-user/skill.js";
+import elasticsearchOnboardingSkill from "./elasticsearch-onboarding/skill.js";
+import webSearchSkill from "./web-search/skill.js";
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const CATALOG_PREFIX = "src/application/assistant/skills";
@@ -36,6 +38,18 @@ type ResolvedSkill = {
 };
 
 const definitions: SkillDefinition[] = [
+  {
+    id: "elasticsearch-onboarding",
+    title: "Elasticsearch Onboarding",
+    summary: "Help developers new to Elasticsearch get from zero to a working search experience. Guide them through understanding their intent, mapping their data, and building a search experience with best practices baked in.",
+    content: elasticsearchOnboardingSkill,
+  },
+  {
+    id: "web-search",
+    title: "Web Search",
+    summary: "Search the web and scrape pages using Firecrawl-backed tools.",
+    content: webSearchSkill,
+  },
   {
     id: "create-presentations",
     title: "Create Presentations",
