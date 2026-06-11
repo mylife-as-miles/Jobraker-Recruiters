@@ -330,14 +330,19 @@ export function useConnectors(active: boolean) {
 
   const handleConnect = useCallback(async (provider: string) => {
     if (provider === 'google') {
-      // Signed-in users use the jobraker-recruiter (managed-credentials) flow: opens
-      // the webapp in the browser, no BYOK modal. Main process detects
-      // signed-in via isSignedIn() when oauth:connect arrives without creds.
-      // Falls back to the BYOK modal for not-signed-in users.
       const isSignedIntoJobrakerRecruiter = providerStates.jobrakerRecruiter?.isConnected ?? false
       if (isSignedIntoJobrakerRecruiter) {
         await startConnect('google')
         return
+      }
+      try {
+        const result = await window.ipc.invoke('oauth:getState', null)
+        if (result.config?.google?.clientId) {
+          await startConnect('google')
+          return
+        }
+      } catch {
+        // Fall through to BYOK modal
       }
       setGoogleClientIdDescription(undefined)
       setGoogleClientIdOpen(true)
@@ -354,9 +359,6 @@ export function useConnectors(active: boolean) {
     startConnect('google', { clientId, clientSecret })
   }, [startConnect])
 
-  // Reconnect flow used by the "Reconnect" button. Mirrors handleConnect's
-  // jobraker-recruiter-vs-BYOK branching for Google so signed-in users don't get the
-  // client-ID modal — they just re-run the managed-credentials browser flow.
   const handleReconnect = useCallback(async (provider: string) => {
     if (provider === 'google') {
       const isSignedIntoJobrakerRecruiter = providerStates.jobrakerRecruiter?.isConnected ?? false
@@ -364,8 +366,17 @@ export function useConnectors(active: boolean) {
         await startConnect('google')
         return
       }
+      try {
+        const result = await window.ipc.invoke('oauth:getState', null)
+        if (result.config?.google?.clientId) {
+          await startConnect('google')
+          return
+        }
+      } catch {
+        // Fall through to BYOK modal
+      }
       setGoogleClientIdDescription(
-        "To keep your Google account connected, please re-enter your client ID. You only need to do this once."
+        "Your Google client ID is saved — re-enter it only if you changed OAuth credentials in Google Cloud Console."
       )
       setGoogleClientIdOpen(true)
       return
