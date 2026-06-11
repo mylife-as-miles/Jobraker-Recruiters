@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  ArrowDown,
   ArrowUp,
   Bell,
   Bot,
@@ -15,6 +16,12 @@ import {
   Users,
 } from 'lucide-react'
 import { PageTransition, PremiumEmptyState, PremiumSkeleton, ScrollReveal } from '@/components/premium-states'
+import { type Candidate } from './recruiter/data'
+import { buildHomeMetrics, topMatchCandidates } from './recruiter/metrics'
+import { Avatar, ScoreRing } from './recruiter/shared'
+import { useRecruiterData } from './recruiter/state'
+import { loadMeetingEvents, type MeetingEvent } from '@/lib/calendar/meeting-events'
+import type { blocks } from '@x/shared'
 
 interface TreeNode {
   path: string
@@ -49,28 +56,6 @@ type HomeViewProps = {
 
 const TOP_MATCHES_LIMIT = 5
 
-const topMatches = [
-  { id: 'c1', name: 'Teni Ogunleye', role: 'Senior Product Designer', meta: 'Lagos, Nigeria - 4y exp', score: 96 },
-  { id: 'c2', name: 'Femi Okoro', role: 'Product Designer', meta: 'Remote - 5y exp', score: 92 },
-  { id: 'c3', name: 'Chinaza Uche', role: 'UX/UI Designer', meta: 'Lagos, Nigeria - 3y exp', score: 89 },
-  { id: 'c4', name: 'David Adeyemi', role: 'Product Designer', meta: 'Abuja, Nigeria - 6y exp', score: 87 },
-  { id: 'c7', name: 'Aisha Lawal', role: 'Product Designer', meta: 'Remote - 5y exp', score: 85 },
-  { id: 'c8', name: 'Daniel Kim', role: 'Product Designer', meta: 'Seoul, KR - 6y exp', score: 80 },
-]
-
-const pipeline = [
-  { label: 'Sourced', value: '128', icon: Users, tone: 'text-cyan-300' },
-  { label: 'Screening', value: '42', icon: FileText, tone: 'text-lime-300' },
-  { label: 'Interview', value: '18', icon: Send, tone: 'text-amber-300' },
-  { label: 'Offer', value: '6', icon: Briefcase, tone: 'text-lime-300' },
-]
-
-const fallbackAgents: TaskItem[] = [
-  { slug: 'sourcing-agent', name: 'Sourcing Agent', active: true, lastAttemptAt: 'Finding product designers in Lagos' },
-  { slug: 'outreach-agent', name: 'Outreach Agent', active: true, lastAttemptAt: 'Reaching out to top candidates' },
-  { slug: 'screening-agent', name: 'Screening Agent', active: true, lastAttemptAt: 'Reviewing resumes for 3 roles' },
-]
-
 function greeting() {
   const hour = new Date().getHours()
   if (hour < 12) return 'Good morning'
@@ -78,15 +63,52 @@ function greeting() {
   return 'Good evening'
 }
 
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+function CandidateAvatar({ candidate, size = 44 }: { candidate: Candidate; size?: number }) {
+  if (candidate.photoUrl) {
+    return (
+      <img
+        src={candidate.photoUrl}
+        alt=""
+        className="shrink-0 rounded-full border border-white/10 object-cover"
+        style={{ width: size, height: size }}
+      />
+    )
+  }
+  return <Avatar name={candidate.name} size={size} />
 }
 
+function formatInboxTime(value?: string): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMin = Math.round(diffMs / 60000)
+  if (diffMin < 1) return 'now'
+  if (diffMin < 60) return `${diffMin}m`
+  const sameDay = date.toDateString() === now.toDateString()
+  if (sameDay) return `${Math.round(diffMin / 60)}h`
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (date.toDateString() === yesterday.toDateString()) return 'Yest'
+  if (diffMs < 7 * 24 * 60 * 60 * 1000) return date.toLocaleDateString([], { weekday: 'short' })
+  if (date.getFullYear() === now.getFullYear()) return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' })
+}
+
+function extractAddress(fromStr?: string): string {
+  if (!fromStr) return ''
+  const match = fromStr.match(/<([^>]+)>/)
+  return match ? match[1].trim() : fromStr.trim()
+}
+
+function extractName(fromStr?: string): string {
+  if (!fromStr) return 'Unknown'
+  const match = fromStr.match(/^([^<]+)</)
+  if (match?.[1]) return match[1].replace(/^["']|["']$/g, '').trim()
+  const address = fromStr.match(/<?([^<>\s]+@[^<>\s]+)>?/)?.[1] ?? fromStr
+  return address.replace(/@.*/, '').replace(/[._+]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
 export function HomeView({
   bgTaskSummaries,
   onOpenEmail,
@@ -102,10 +124,154 @@ export function HomeView({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [isNewDropdownOpen, setIsNewDropdownOpen] = useState(false)
 
+  const { candidates, roles } = useRecruiterData()
+  const [realMeetings, setRealMeetings] = useState<MeetingEvent[]>([])
+  const [realInbox, setRealInbox] = useState<blocks.GmailThread[]>([])
+
+  useEffect(() => {
+    loadMeetingEvents({ upcomingDays: 2 })
+      .then((events) => {
+        setRealMeetings(events)
+      })
+      .catch((err) => {
+        console.error('Failed to load meeting events:', err)
+      })
+
+    window.ipc.invoke('gmail:getImportant', { limit: 5 })
+      .then((res) => {
+        setRealInbox(res.threads || [])
+      })
+      .catch((err) => {
+        console.error('Failed to load important emails:', err)
+      })
+  }, [])
+
   const activeAgents = useMemo(() => {
-    const liveAgents = bgTaskSummaries.filter((task) => task.active).slice(0, 3)
-    return liveAgents.length ? liveAgents : fallbackAgents
+    return bgTaskSummaries.filter((task) => task.active).slice(0, 3)
   }, [bgTaskSummaries])
+
+  const topMatches = useMemo(
+    () => topMatchCandidates(candidates, TOP_MATCHES_LIMIT),
+    [candidates],
+  )
+
+  const pipeline = useMemo(() => {
+    const sourced = candidates.filter(c => c.stage === 'New').length
+    const screening = candidates.filter(
+      c => c.stage === 'Screening' || c.stage === 'In Review' || c.stage === 'Shortlisted'
+    ).length
+    const interview = candidates.filter(c => c.stage === 'Interview').length
+    const offer = candidates.filter(c => c.stage === 'Offer' || c.stage === 'Hired').length
+
+    return [
+      { label: 'Sourced', value: String(sourced), icon: Users, tone: 'text-cyan-300' },
+      { label: 'Screening', value: String(screening), icon: FileText, tone: 'text-lime-300' },
+      { label: 'Interview', value: String(interview), icon: Send, tone: 'text-amber-300' },
+      { label: 'Offer', value: String(offer), icon: Briefcase, tone: 'text-lime-300' },
+    ]
+  }, [candidates])
+
+  const notifications = useMemo(() => {
+    const items = []
+    
+    // 1. Alert for active agents if any
+    const activeRunning = bgTaskSummaries.filter(t => t.active)
+    if (activeRunning.length > 0) {
+      items.push({
+        id: 'notif-agents',
+        title: 'Sourcing agent running',
+        body: `${activeRunning.length} AI agent(s) finding top candidates`,
+        onClick: () => onOpenAgents(),
+      })
+    }
+
+    // 2. Alert for candidates in Interview stage
+    candidates.filter(c => c.stage === 'Interview').slice(0, 2).forEach((c) => {
+      items.push({
+        id: `notif-int-${c.id}`,
+        title: `${c.name} interview scheduled`,
+        body: `Interview setup for ${c.title}`,
+        onClick: () => onOpenRecruiterScreen?.('candidates', c.id),
+      })
+    })
+
+    // 3. Alert for candidates in Offer stage
+    candidates.filter(c => c.stage === 'Offer').slice(0, 2).forEach((c) => {
+      items.push({
+        id: `notif-off-${c.id}`,
+        title: `${c.name} offer pending`,
+        body: `Awaiting response from candidate`,
+        onClick: () => onOpenRecruiterScreen?.('candidates', c.id),
+      })
+    })
+
+    return items
+  }, [candidates, bgTaskSummaries, onOpenRecruiterScreen, onOpenAgents])
+
+  const inboxItems = useMemo(() => {
+    return realInbox.map((thread) => {
+      const latest = thread.messages?.[thread.messages.length - 1] || thread
+      const fromStr = latest.from || thread.from || ''
+      const senderName = extractName(fromStr)
+      const senderEmail = extractAddress(fromStr).toLowerCase()
+      const subjectStr = latest.subject || thread.subject || '(No Subject)'
+      
+      const isLinkedIn = senderEmail.includes('linkedin.com') || senderName.toLowerCase().includes('linkedin')
+      
+      return {
+        id: thread.threadId,
+        type: isLinkedIn ? 'linkedin' : 'gmail',
+        sender: senderName,
+        subject: subjectStr,
+        time: formatInboxTime(latest.date || thread.date),
+      }
+    })
+  }, [realInbox])
+
+  const agendaEvents = useMemo(() => {
+    return realMeetings.map((event) => {
+      const start = event.start.getTime()
+      const end = event.end ? event.end.getTime() : start + 30 * 60 * 1000
+      const diffMin = Math.round((end - start) / 60000)
+      const durationStr = event.isAllDay
+        ? 'All day'
+        : diffMin >= 60
+        ? `${Math.round(diffMin / 60)}h`
+        : `${diffMin}m`
+
+      // Format time with meridiem e.g. "10:00 AM"
+      const timeStr = event.isAllDay
+        ? 'All day'
+        : event.start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
+      // Action: match to candidate name in summary if possible
+      const matchedCandidate = candidates.find((c) =>
+        event.summary.toLowerCase().includes(c.name.toLowerCase())
+      )
+
+      return {
+        id: event.id,
+        time: timeStr,
+        title: event.summary,
+        duration: durationStr,
+        action: () => {
+          if (matchedCandidate) {
+            onOpenRecruiterScreen?.('candidates', matchedCandidate.id)
+          } else {
+            onOpenMeetings()
+          }
+        },
+      }
+    })
+  }, [realMeetings, candidates, onOpenMeetings, onOpenRecruiterScreen])
+
+  const metrics = useMemo(() => {
+    const cards = buildHomeMetrics(candidates, roles)
+    return cards.map((card) => ({
+      ...card,
+      icon: card.label === 'Open Roles' ? Briefcase : card.label === 'Active Searches' ? Users : Send,
+    }))
+  }, [candidates, roles])
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setIsSettled(true), 220)
@@ -170,7 +336,11 @@ export function HomeView({
                 className="relative grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-[#050608] text-zinc-300 hover:text-white transition-colors cursor-pointer"
               >
                 <Bell className="h-4 w-4" />
-                <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#49ff16] text-[10px] font-bold text-black">3</span>
+                {notifications.length > 0 && (
+                  <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-[#49ff16] text-[10px] font-bold text-black animate-pulse">
+                    {notifications.length}
+                  </span>
+                )}
               </button>
               {isNotificationsOpen && (
                 <>
@@ -179,37 +349,26 @@ export function HomeView({
                     <div className="border-b border-zinc-800 px-3 py-2 text-xs font-semibold text-zinc-400">
                       Notifications
                     </div>
-                    <div className="py-1 divide-y divide-zinc-900">
-                      <button
-                        onClick={() => {
-                          setIsNotificationsOpen(false)
-                          onOpenEmail()
-                        }}
-                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
-                      >
-                        <span className="font-semibold text-zinc-200">New reply from Michael O.</span>
-                        <span className="text-[10px] text-zinc-500">LinkedIn outreach has a new message</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsNotificationsOpen(false)
-                          onOpenRecruiterScreen?.('candidates', 'c1')
-                        }}
-                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
-                      >
-                        <span className="font-semibold text-zinc-200">Teni Ogunleye responded</span>
-                        <span className="text-[10px] text-zinc-500">Agreed to a screening interview</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsNotificationsOpen(false)
-                          onOpenAgents()
-                        }}
-                        className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
-                      >
-                        <span className="font-semibold text-zinc-200">Sourcing completed</span>
-                        <span className="text-[10px] text-zinc-500">AI agent found 15 new designers</span>
-                      </button>
+                    <div className="py-1 divide-y divide-zinc-900 max-h-[300px] overflow-auto">
+                      {notifications.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-zinc-500">
+                          All caught up
+                        </div>
+                      ) : (
+                        notifications.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setIsNotificationsOpen(false)
+                              item.onClick()
+                            }}
+                            className="flex w-full flex-col gap-1 rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-800/60 transition cursor-pointer"
+                          >
+                            <span className="font-semibold text-zinc-200">{item.title}</span>
+                            <span className="text-[10px] text-zinc-500">{item.body}</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </div>
                 </>
@@ -294,11 +453,7 @@ export function HomeView({
           <>
             <ScrollReveal>
               <section className="grid grid-cols-3 gap-4">
-                {[
-                  { label: 'Open Roles', value: '12', sub: '2 vs last week', icon: Briefcase, screen: 'roles' as const },
-                  { label: 'Active Searches', value: '8', sub: '1 vs last week', icon: Users, screen: 'candidates' as const },
-                  { label: 'Response Rate', value: '24.6%', sub: '6.2pp vs last 7 days', icon: Send, screen: 'analytics' as const },
-                ].map((metric) => (
+                {metrics.map((metric) => (
                   <article
                     key={metric.label}
                     onClick={() => onOpenRecruiterScreen?.(metric.screen)}
@@ -309,11 +464,23 @@ export function HomeView({
                       <div>
                         <p className="text-sm text-zinc-400">{metric.label}</p>
                         <p className="mt-2 text-3xl font-light tracking-[-0.06em]">{metric.value}</p>
-                        <p className="mt-2 flex items-center gap-1 text-xs text-zinc-400">
-                          <ArrowUp className="h-3 w-3 text-[#4dff18]" />
-                          <span className="text-[#4dff18]">{metric.sub.split(' ')[0]}</span>
-                          {metric.sub.replace(metric.sub.split(' ')[0], '')}
-                        </p>
+                        <div className="mt-2 flex items-center gap-1 text-xs text-zinc-400">
+                          {metric.hasDelta ? (
+                            <>
+                              {metric.trend === 'down' ? (
+                                <ArrowDown className="h-3 w-3 text-red-400" />
+                              ) : (
+                                <ArrowUp className="h-3 w-3 text-[#4dff18]" />
+                              )}
+                              <span className={metric.trend === 'down' ? 'text-red-400' : 'text-[#4dff18]'}>
+                                {metric.deltaPrefix}
+                              </span>
+                              <span>{metric.deltaSuffix}</span>
+                            </>
+                          ) : (
+                            <span className="text-zinc-500">{metric.sub}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="grid h-16 w-16 place-items-center rounded-full border border-[#43ff15]/20 bg-[#42ff12]/10 text-[#52ff1f] shadow-[0_0_35px_rgba(66,255,18,0.24)]">
                         <metric.icon className="h-8 w-8" />
@@ -435,25 +602,23 @@ export function HomeView({
                         title="No matches yet"
                         description="Ask the AI Recruiter to source candidates and the strongest evidence-backed matches will appear here."
                       />
-                    ) : topMatches.slice(0, TOP_MATCHES_LIMIT).map((candidate) => (
-                      <button
-                        key={candidate.name}
-                        onClick={() => onOpenRecruiterScreen?.('candidates', candidate.id)}
-                        className="flex w-full items-center gap-4 text-left hover:bg-white/[0.03] p-1.5 rounded-xl transition cursor-pointer"
-                      >
-                        <div className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-gradient-to-br from-zinc-700 to-zinc-950 text-sm font-semibold">
-                          {initials(candidate.name)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-white">{candidate.name}</p>
-                          <p className="truncate text-xs text-zinc-400">{candidate.role}</p>
-                          <p className="truncate text-xs text-zinc-500">{candidate.meta}</p>
-                        </div>
-                        <div className="grid h-11 w-11 place-items-center rounded-full border border-[#4dff18] text-xs text-[#4dff18] shadow-[0_0_20px_rgba(77,255,24,0.12)]">
-                          {candidate.score}%
-                        </div>
-                      </button>
-                    ))}
+                    ) : (
+                      topMatches.map((candidate) => (
+                        <button
+                          key={candidate.id}
+                          onClick={() => onOpenRecruiterScreen?.('candidates', candidate.id)}
+                          className="flex w-full items-center gap-4 text-left hover:bg-white/[0.03] p-1.5 rounded-xl transition cursor-pointer"
+                        >
+                          <CandidateAvatar candidate={candidate} size={44} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-white">{candidate.name}</p>
+                            <p className="truncate text-xs text-zinc-400">{candidate.title}</p>
+                            <p className="truncate text-xs text-zinc-500">{`${candidate.location} · ${candidate.experienceYears}y exp`}</p>
+                          </div>
+                          <ScoreRing score={candidate.matchScore} size={44} />
+                        </button>
+                      ))
+                    )}
                   </div>
                 </article>
               </section>
@@ -471,18 +636,29 @@ export function HomeView({
                       View pipeline
                     </button>
                   </div>
-                  <div className="mt-8 grid grid-cols-4 gap-5">
-                    {pipeline.map((stage) => (
-                      <button
-                        key={stage.label}
-                        onClick={() => onOpenRecruiterScreen?.('pipeline')}
-                        className="space-y-4 text-left hover:bg-white/[0.02] p-1.5 rounded-xl transition cursor-pointer"
-                      >
-                        <p className="text-xs text-zinc-300">{stage.label}</p>
-                        <p className="text-2xl font-light tracking-[-0.05em]">{stage.value}</p>
-                        <stage.icon className={`h-5 w-5 ${stage.tone}`} />
-                      </button>
-                    ))}
+                  <div className="mt-8">
+                    {candidates.length === 0 ? (
+                      <PremiumEmptyState
+                        className="min-h-[120px] py-4"
+                        icon={<Briefcase className="h-5 w-5 text-zinc-500" />}
+                        title="Pipeline is empty"
+                        description="Define a job position and source talent to see candidates move through your pipeline."
+                      />
+                    ) : (
+                      <div className="grid grid-cols-4 gap-5">
+                        {pipeline.map((stage) => (
+                          <button
+                            key={stage.label}
+                            onClick={() => onOpenRecruiterScreen?.('pipeline')}
+                            className="space-y-4 text-left hover:bg-white/[0.02] p-1.5 rounded-xl transition cursor-pointer"
+                          >
+                            <p className="text-xs text-zinc-300">{stage.label}</p>
+                            <p className="text-2xl font-light tracking-[-0.05em]">{stage.value}</p>
+                            <stage.icon className={`h-5 w-5 ${stage.tone}`} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </article>
 
@@ -492,25 +668,34 @@ export function HomeView({
                     <button onClick={onOpenAgents} className="text-xs text-zinc-500 hover:text-[#4dff18] cursor-pointer">View all</button>
                   </div>
                   <div className="mt-4 divide-y divide-white/8">
-                    {activeAgents.map((agent, index) => (
-                      <button
-                        key={agent.slug}
-                        onClick={() => onOpenAgent(agent.slug)}
-                        className="flex w-full items-center gap-3 py-3 text-left cursor-pointer hover:bg-white/[0.02] px-1 rounded-lg transition"
-                      >
-                        <span className={`grid h-9 w-9 place-items-center rounded-full ${index === 0 ? 'bg-cyan-500/20 text-cyan-300' : index === 1 ? 'bg-lime-500/20 text-lime-300' : 'bg-amber-500/20 text-amber-300'}`}>
-                          <Bot className="h-4 w-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium text-white">{agent.name}</span>
-                          <span className="block truncate text-xs text-zinc-500">{agent.lastAttemptAt || agent.lastRunAt || 'Monitoring recruiter workflow'}</span>
-                        </span>
-                        <span className="flex items-center gap-1 text-xs text-[#4dff18]">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#4dff18]" />
-                          Running
-                        </span>
-                      </button>
-                    ))}
+                    {activeAgents.length === 0 ? (
+                      <PremiumEmptyState
+                        className="min-h-[140px] py-4"
+                        icon={<Bot className="h-5 w-5 text-zinc-500" />}
+                        title="No active agents"
+                        description="Launch a sourcing search or outreach agent to see progress here."
+                      />
+                    ) : (
+                      activeAgents.map((agent, index) => (
+                        <button
+                          key={agent.slug}
+                          onClick={() => onOpenAgent(agent.slug)}
+                          className="flex w-full items-center gap-3 py-3 text-left cursor-pointer hover:bg-white/[0.02] px-1 rounded-lg transition"
+                        >
+                          <span className={`grid h-9 w-9 place-items-center rounded-full ${index === 0 ? 'bg-cyan-500/20 text-cyan-300' : index === 1 ? 'bg-lime-500/20 text-lime-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                            <Bot className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-white">{agent.name}</span>
+                            <span className="block truncate text-xs text-zinc-500">{agent.lastAttemptAt || agent.lastRunAt || 'Monitoring recruiter workflow'}</span>
+                          </span>
+                          <span className="flex items-center gap-1 text-xs text-[#4dff18]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#4dff18]" />
+                            Running
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </article>
 
@@ -526,24 +711,26 @@ export function HomeView({
                       </button>
                     </div>
                     <div className="mt-4 space-y-4">
-                      {[
-                        { time: '10:00 AM', title: 'Design Team Standup', duration: '30m', action: () => onOpenMeetings() },
-                        { time: '11:30 AM', title: 'Interview: Teni Ogunleye', duration: '60m', action: () => onOpenRecruiterScreen?.('candidates', 'c1') },
-                        { time: '02:00 PM', title: 'Interview: David Adeyemi', duration: '45m', action: () => onOpenRecruiterScreen?.('candidates', 'c4') },
-                      ].map((event) => (
-                        <button
-                          key={event.title}
-                          onClick={event.action}
-                          className="flex w-full items-center gap-3 text-left hover:bg-white/[0.02] p-1 rounded-lg transition cursor-pointer"
-                        >
-                          <Calendar className="h-4 w-4 text-zinc-400" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[11px] text-zinc-500">{event.time}</p>
-                            <p className="truncate text-xs text-zinc-300">{event.title}</p>
-                          </div>
-                          <span className="text-[11px] text-zinc-500">{event.duration}</span>
-                        </button>
-                      ))}
+                      {agendaEvents.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-zinc-500">
+                          No upcoming events
+                        </div>
+                      ) : (
+                        agendaEvents.map((event) => (
+                          <button
+                            key={event.id || event.title}
+                            onClick={event.action}
+                            className="flex w-full items-center gap-3 text-left hover:bg-white/[0.02] p-1 rounded-lg transition cursor-pointer"
+                          >
+                            <Calendar className="h-4 w-4 text-zinc-400" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] text-zinc-500">{event.time}</p>
+                              <p className="truncate text-xs text-zinc-300">{event.title}</p>
+                            </div>
+                            <span className="text-[11px] text-zinc-500">{event.duration}</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                     <button
                       onClick={onOpenMeetings}
@@ -556,33 +743,39 @@ export function HomeView({
                   <article className="premium-lift rounded-xl border border-white/10 bg-[#07090b] p-5">
                     <div className="flex items-center gap-2 border-b border-white/8 pb-3">
                       <h2 className="text-lg font-medium tracking-[-0.03em]">Inbox</h2>
-                      <span className="grid h-5 w-5 place-items-center rounded-full bg-[#4dff18] text-[11px] font-bold text-black">2</span>
+                      {inboxItems.length > 0 && (
+                        <span className="grid h-5 w-5 place-items-center rounded-full bg-[#4dff18] text-[11px] font-bold text-black">
+                          {inboxItems.length}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-5 space-y-6">
-                      <button
-                        onClick={onOpenEmail}
-                        className="flex w-full gap-3 text-left hover:bg-white/[0.02] p-1 rounded-lg transition cursor-pointer"
-                      >
-                        <span className="grid h-7 w-7 place-items-center rounded bg-[#0a66c2] text-xs font-bold text-white shrink-0">in</span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-zinc-200">LinkedIn</p>
-                          <p className="truncate text-xs text-zinc-500">New reply from Michael O.</p>
+                      {inboxItems.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-zinc-500">
+                          Your inbox is empty
                         </div>
-                        <span className="text-[11px] text-zinc-500 shrink-0">2m</span>
-                      </button>
-                      <button
-                        onClick={onOpenEmail}
-                        className="flex w-full gap-3 text-left hover:bg-white/[0.02] p-1 rounded-lg transition cursor-pointer"
-                      >
-                        <span className="grid h-7 w-7 place-items-center rounded bg-white/10 text-[#ff4c4c] shrink-0">
-                          <Mail className="h-4 w-4" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-zinc-200">Gmail</p>
-                          <p className="truncate text-xs text-zinc-500">Re: Senior Product Designer role</p>
-                        </div>
-                        <span className="text-[11px] text-zinc-500 shrink-0">15m</span>
-                      </button>
+                      ) : (
+                        inboxItems.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={onOpenEmail}
+                            className="flex w-full gap-3 text-left hover:bg-white/[0.02] p-1 rounded-lg transition cursor-pointer"
+                          >
+                            {item.type === 'linkedin' ? (
+                              <span className="grid h-7 w-7 place-items-center rounded bg-[#0a66c2] text-xs font-bold text-white shrink-0">in</span>
+                            ) : (
+                              <span className="grid h-7 w-7 place-items-center rounded bg-white/10 text-[#ff4c4c] shrink-0">
+                                <Mail className="h-4 w-4" />
+                              </span>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-zinc-200">{item.type === 'linkedin' ? 'LinkedIn' : 'Gmail'}</p>
+                              <p className="truncate text-xs text-zinc-500">{item.sender}: {item.subject}</p>
+                            </div>
+                            <span className="text-[11px] text-zinc-500 shrink-0">{item.time}</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                     <button
                       onClick={onOpenEmail}
