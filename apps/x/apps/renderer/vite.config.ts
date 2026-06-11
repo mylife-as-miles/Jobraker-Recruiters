@@ -19,6 +19,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    // Streamdown lazy-loads a shiki code-block chunk; pre-bundle to avoid stale .vite/deps hashes.
+    include: ['streamdown', 'shiki'],
+  },
   build: {
     outDir: 'dist',
   },

@@ -82,6 +82,15 @@ export function RecruiterScreens({
   // Lifted state
   const [candidates, setCandidates] = React.useState<Candidate[]>(getInitialCandidates)
   const [roles, setRoles] = React.useState<Role[]>(getInitialRoles)
+
+  // Re-normalize once on mount so HMR / legacy localStorage records can't crash the tree.
+  React.useEffect(() => {
+    setCandidates((prev) => {
+      const normalized = prev.map((c) => normalizeCandidate(c))
+      const changed = normalized.some((c, i) => c !== prev[i])
+      return changed ? normalized : prev
+    })
+  }, [])
   const [selectedRoleId, setSelectedRoleId] = React.useState<string | null>(null)
   
   // Modals state

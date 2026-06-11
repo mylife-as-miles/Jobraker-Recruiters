@@ -10,6 +10,7 @@
     "core": "cd packages/core && npm run build",
     "preload": "cd apps/preload && npm run build",
     "deps": "npm run shared && npm run core && npm run preload",
+    "build:renderer": "npm run shared && cd apps/renderer && npm run build",
     "main": "wait-on http://localhost:5173 && cd apps/main && npm run build && npm run start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

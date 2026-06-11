@@ -437,7 +437,7 @@ export function CandidatesPage({
                             <div className="flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
                               <span>{c.location} · {c.experienceYears} yrs · </span>
                               <div className="flex gap-0.5">
-                                {c.companyStages.map((stage) => (
+                                {(c.companyStages ?? []).map((stage) => (
                                   <span key={stage} className="rounded bg-zinc-800/80 px-1 text-[9px] text-zinc-400">
                                     {stage}
                                   </span>
@@ -733,7 +733,7 @@ function CandidateDetailPanel({
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               <span className="font-semibold text-foreground">Why this is a great match</span>
               <br />
-              Strong alignment on {candidate.skills.slice(0, 3).join(', ')} with relevant experience in {candidate.title.toLowerCase()} roles.
+              Strong alignment on {(candidate.skills ?? []).slice(0, 3).join(', ')} with relevant experience in {candidate.title.toLowerCase()} roles.
             </p>
           </div>
         </div>
@@ -772,7 +772,7 @@ function CandidateDetailPanel({
       <div className="p-5">
         <p className="text-xs font-semibold text-foreground">Top skills</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {candidate.skills.map((s) => (
+          {(candidate.skills ?? []).map((s) => (
             <span key={s} className="rounded-lg border border-border/50 bg-foreground/[0.04] px-2 py-1 text-[10px] text-zinc-300">
               {s}
             </span>
@@ -781,7 +781,7 @@ function CandidateDetailPanel({
 
         <p className="mt-4 text-xs font-semibold text-foreground">Experience highlights</p>
         <ul className="mt-2 space-y-1.5">
-          {candidate.highlights.map((h) => (
+          {(candidate.highlights ?? []).map((h) => (
             <li key={h} className="flex gap-2 text-[11px] text-muted-foreground">
               <span className="text-brand">•</span>
               {h}
