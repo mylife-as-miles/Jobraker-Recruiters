@@ -527,6 +527,10 @@ export function setupIpcHandlers() {
     'mcp:executeTool': async (_event, args) => {
       return { result: await mcpCore.executeTool(args.serverName, args.toolName, args.input) };
     },
+    'mcp:resetServers': async () => {
+      await mcpCore.forceCloseAllMcpClients();
+      return { success: true };
+    },
     'runs:create': async (_event, args) => {
       return runsCore.createRun(args);
     },
