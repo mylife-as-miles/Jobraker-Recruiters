@@ -1668,7 +1668,7 @@ function ApiSettingsForm({ onCancel }: { onCancel: () => void }) {
 
   // Elastic settings state
   const [elasticEnabled, setElasticEnabled] = React.useState(false)
-  const [connectionType, setConnectionType] = React.useState<'kibana' | 'direct' | 'docker'>('kibana')
+  const [connectionType, setConnectionType] = React.useState<'kibana' | 'direct' | 'docker'>('docker')
   
   // Kibana settings
   const [kibanaUrl, setKibanaUrl] = React.useState('')
@@ -1846,9 +1846,9 @@ function ApiSettingsForm({ onCancel }: { onCancel: () => void }) {
                   onChange={(e) => setConnectionType(e.target.value as any)}
                   className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-2.5 outline-none focus:border-brand/40 text-white"
                 >
-                  <option value="kibana">Hosted Kibana Agent Builder (Recommended)</option>
+                  <option value="docker">Elasticsearch Search API / MCP Docker (Recommended)</option>
                   <option value="direct">Direct HTTP/SSE MCP Endpoint</option>
-                  <option value="docker">Local Elasticsearch stdio (Docker)</option>
+                  <option value="kibana">Hosted Kibana Agent Builder MCP (Advanced)</option>
                 </select>
               </div>
 
@@ -1863,6 +1863,9 @@ function ApiSettingsForm({ onCancel }: { onCancel: () => void }) {
                       placeholder="https://your-deployment.kb.your-region.elastic-cloud.com"
                       className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white"
                     />
+                    <span className="text-[10px] text-amber-300/80 block mt-1">
+                      Only use this if your Kibana deployment exposes Agent Builder MCP. Most Elastic Cloud deployments should use the Elasticsearch URL option instead.
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -1925,6 +1928,9 @@ function ApiSettingsForm({ onCancel }: { onCancel: () => void }) {
                       placeholder="https://your-elasticsearch-endpoint:9200"
                       className="w-full h-9 rounded-lg border border-zinc-800 bg-[#121214] px-3 outline-none focus:border-brand/40 text-white"
                     />
+                    <span className="text-[10px] text-zinc-500 block mt-1">
+                      Use the Elasticsearch endpoint, not the Kibana URL. The app can query this directly and can also use the Elasticsearch MCP Docker image when available.
+                    </span>
                   </div>
                   <div>
                     <label className="block font-semibold mb-1 text-zinc-300">Elasticsearch API Key</label>

@@ -53,10 +53,18 @@ function cleanUrl(value: string | undefined): string | undefined {
     return trimmed.replace(/\/+$/, "");
 }
 
-function buildAgentBuilderMcpUrl(kibanaUrl: string, space?: string): string {
+export function buildAgentBuilderMcpUrl(kibanaUrl: string, space?: string): string {
     const base = cleanUrl(kibanaUrl)!;
     const spacePath = space?.trim() ? `/s/${encodeURIComponent(space.trim())}` : "";
     return `${base}${spacePath}/api/agent_builder/mcp`;
+}
+
+export function getElasticBaseUrl(): string | undefined {
+    return cleanUrl(getElasticConnectorConfig().elasticsearchUrl);
+}
+
+export function getElasticApiKey(): string | undefined {
+    return getElasticConnectorConfig().elasticsearchApiKey?.trim() || getElasticConnectorConfig().apiKey?.trim();
 }
 
 export function getElasticConnectorConfig(): ElasticConnectorConfig {
@@ -86,11 +94,7 @@ export function getDefaultElasticMcpServer(): { name: string; config: McpServerD
         return null;
     }
 
-    const explicitMcpUrl = cleanUrl(config.mcpUrl);
-    const derivedMcpUrl = !explicitMcpUrl && config.kibanaUrl
-        ? buildAgentBuilderMcpUrl(config.kibanaUrl, config.space)
-        : undefined;
-    const mcpUrl = explicitMcpUrl || derivedMcpUrl;
+    const mcpUrl = cleanUrl(config.mcpUrl);
 
     if (mcpUrl) {
         const authHeader = config.authHeader || (config.apiKey ? `ApiKey ${config.apiKey}` : undefined);

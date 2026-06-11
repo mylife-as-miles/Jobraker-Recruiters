@@ -1,5 +1,5 @@
 import { executeTool, listTools } from "../mcp/mcp.js";
-import { getElasticConnectorConfig, getElasticIndices } from "./connector.js";
+import { getElasticApiKey, getElasticBaseUrl, getElasticConnectorConfig, getElasticIndices } from "./connector.js";
 
 export type ElasticRetrievalTarget = "workspaces" | "knowledge" | "bases" | "graph" | "candidates" | "all";
 
@@ -124,6 +124,87 @@ function extractHits(raw: unknown): ElasticEvidence[] {
     return candidates.map(normalizeHit).filter(hit => hit.preview || hit.title);
 }
 
+async function directElasticsearchSearch(
+    query: string,
+    target: ElasticRetrievalTarget,
+    limit: number,
+    filters?: Record<string, unknown>,
+): Promise<{ results: ElasticEvidence[]; raw: unknown } | null> {
+    const baseUrl = getElasticBaseUrl();
+    const apiKey = getElasticApiKey();
+    if (!baseUrl || !apiKey) {
+        return null;
+    }
+
+    const indices = indicesForTarget(target);
+    const indexPath = indices.map(encodeURIComponent).join(",");
+    const filterClauses = Object.entries(filters || {}).map(([field, value]) => ({
+        term: { [field]: value },
+    }));
+
+    const body = {
+        size: limit,
+        query: {
+            bool: {
+                must: [
+                    {
+                        multi_match: {
+                            query,
+                            fields: [
+                                "name^4",
+                                "title^3",
+                                "skills^3",
+                                "location^2",
+                                "summary^2",
+                                "content",
+                                "text",
+                                "body",
+                                "note",
+                                "highlights",
+                                "aiInsight",
+                            ],
+                            fuzziness: "AUTO",
+                        },
+                    },
+                ],
+                ...(filterClauses.length ? { filter: filterClauses } : {}),
+            },
+        },
+        highlight: {
+            fields: {
+                content: {},
+                text: {},
+                body: {},
+                note: {},
+                highlights: {},
+                aiInsight: {},
+            },
+        },
+    };
+
+    const response = await fetch(`${baseUrl}/${indexPath}/_search`, {
+        method: "POST",
+        headers: {
+            Authorization: `ApiKey ${apiKey}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+    });
+
+    const raw = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const message = raw && typeof raw === "object" && "error" in raw
+            ? JSON.stringify((raw as Record<string, unknown>).error)
+            : response.statusText;
+        throw new Error(`Elasticsearch _search failed (${response.status}): ${message}`);
+    }
+
+    return {
+        results: extractHits(raw).slice(0, limit),
+        raw,
+    };
+}
+
 function pickSearchTool(tools: { name: string; description?: string; inputSchema?: unknown }[]): { name: string; inputSchema?: unknown } | null {
     const preferred = tools.find(tool => /index.*search|search.*index|semantic.*search|search/i.test(tool.name));
     if (preferred) {
@@ -173,6 +254,23 @@ export async function elasticRetrieve(
     const limit = Math.max(1, Math.min(options.limit || 10, 50));
 
     try {
+        const directOnly = !getElasticConnectorConfig().mcpUrl && getElasticBaseUrl() && getElasticApiKey();
+        if (directOnly) {
+            const direct = await directElasticsearchSearch(query, target, limit, options.filters);
+            if (direct) {
+                return {
+                    success: true,
+                    provider: "elastic",
+                    serverName,
+                    toolName: "elasticsearch._search",
+                    target,
+                    query,
+                    results: direct.results,
+                    raw: direct.raw,
+                };
+            }
+        }
+
         const { tools } = await listTools(serverName);
         const tool = pickSearchTool(tools);
         if (!tool) {
@@ -199,6 +297,32 @@ export async function elasticRetrieve(
             raw,
         };
     } catch (error) {
+        try {
+            const direct = await directElasticsearchSearch(query, target, limit, options.filters);
+            if (direct) {
+                return {
+                    success: true,
+                    provider: "elastic",
+                    serverName,
+                    toolName: "elasticsearch._search",
+                    target,
+                    query,
+                    results: direct.results,
+                    raw: direct.raw,
+                };
+            }
+        } catch (fallbackError) {
+            return {
+                success: false,
+                provider: "elastic",
+                serverName,
+                target,
+                query,
+                results: [],
+                error: fallbackError instanceof Error ? fallbackError.message : "Elastic direct retrieval failed.",
+            };
+        }
+
         return {
             success: false,
             provider: "elastic",
