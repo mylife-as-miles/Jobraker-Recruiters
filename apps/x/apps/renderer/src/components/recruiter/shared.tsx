@@ -436,18 +436,91 @@ export function EmptyState({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: EASE }}
-      className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-foreground/[0.02] px-6 py-14 text-center"
+      transition={{ duration: 0.6, ease: EASE }}
+      className="relative flex flex-col items-center justify-center rounded-3xl border border-border/40 bg-[#050705]/10 px-8 py-16 text-center shadow-2xl backdrop-blur-md overflow-hidden max-w-lg mx-auto"
     >
-      <div className="relative mb-4 flex size-14 items-center justify-center rounded-2xl border border-brand/20 bg-brand/10 text-brand">
-        <span className="absolute inset-0 rounded-2xl bg-brand/10 blur-xl" />
-        <span className="relative">{icon}</span>
+      {/* Premium ambient glow background effect */}
+      <div className="absolute inset-x-0 -top-40 -z-10 flex justify-center overflow-hidden pointer-events-none">
+        <div className="w-[300px] h-[300px] bg-brand/5 rounded-full blur-[80px] animate-pulse" style={{ animationDuration: '6s' }} />
       </div>
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-      <p className="mt-1 max-w-xs text-xs text-muted-foreground">{body}</p>
-      {action && <div className="mt-4">{action}</div>}
+      
+      {/* Advanced animated floating icon orb with pulsing background rings */}
+      <div className="relative mb-6 flex items-center justify-center">
+        {/* Pulsing ring 1 */}
+        <motion.div
+          className="absolute size-24 rounded-full border border-brand/5 bg-brand/2"
+          animate={{
+            scale: [1, 1.4, 1],
+            opacity: [0.3, 0.6, 0.3],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        {/* Pulsing ring 2 */}
+        <motion.div
+          className="absolute size-32 rounded-full border border-brand/2 bg-brand/1"
+          animate={{
+            scale: [1, 1.6, 1],
+            opacity: [0.1, 0.4, 0.1],
+          }}
+          transition={{
+            duration: 6,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 1,
+          }}
+        />
+        {/* Floating icon container */}
+        <motion.div
+          animate={{
+            y: [0, -8, 0],
+          }}
+          transition={{
+            duration: 3.5,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="relative flex size-16 items-center justify-center rounded-2xl border border-brand/25 bg-gradient-to-br from-brand/15 to-brand/5 text-brand shadow-[0_8px_30px_rgb(29,255,0,0.08)] backdrop-blur-sm"
+        >
+          <div className="absolute inset-0 rounded-2xl bg-brand/5 blur-md" />
+          <div className="relative z-10">{icon}</div>
+        </motion.div>
+      </div>
+
+      {/* Staggered text animations */}
+      <motion.h3
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.15, ease: EASE }}
+        className="text-sm font-bold text-white tracking-tight"
+      >
+        {title}
+      </motion.h3>
+      
+      <motion.p
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.25, ease: EASE }}
+        className="mt-2 max-w-sm text-xs leading-relaxed text-zinc-400"
+      >
+        {body}
+      </motion.p>
+      
+      {action && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, delay: 0.35, ease: EASE }}
+          className="mt-6"
+        >
+          {action}
+        </motion.div>
+      )}
     </motion.div>
   )
 }
