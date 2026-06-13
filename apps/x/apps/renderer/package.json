@@ -4,8 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "npm run build --prefix ../../packages/shared",
-    "build": "tsc -b && vite build",
+    "build": "npm run build --prefix ../../packages/shared && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
