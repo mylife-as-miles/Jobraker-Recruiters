@@ -135,7 +135,7 @@ ADK sits alongside other Google Cloud integrations that feed the agent context:
 * **Frontend UI**: React 19, TypeScript 5.9, Vite 7
 * **Styling & Motion**: Tailwind CSS, Motion, Radix UI
 * **Monorepo Structure**: `pnpm` workspaces (`@x/shared`, `@x/core`, preload, renderer, main)
-* **Copilot Orchestration**: Vercel AI SDK
+* **Copilot Orchestration**: Gemini SDK
 * **Validation**: Zod (IPC and domain schema validation)
 * **Bundling & Packaging**: `esbuild` + Electron Forge
 
@@ -143,7 +143,7 @@ ADK sits alongside other Google Cloud integrations that feed the agent context:
 * **Model Context Protocol (MCP)**: External tool servers (including Elasticsearch)
 * **Composio**: Third-party SaaS actions (Slack, Linear, GitHub, Notion, Jira, etc.)
 * **Firecrawl**: `web-search` and `web-scrape` tools for web extraction
-* **Elasticsearch**: Optional hybrid semantic retrieval for knowledge and candidate evidence
+* **Elasticsearch**: hybrid semantic retrieval for knowledge and candidate evidence
 * **Product Telemetry**: PostHog (Optional)
 * **Enrichment & Voice**: People Data Labs, Enrich.so, Deepgram (STT), ElevenLabs (TTS)
 
