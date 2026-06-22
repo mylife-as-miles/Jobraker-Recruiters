@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabaseClient";
 
+declare var pendo: { trackAgent: (eventType: string, metadata: object) => void };
+
 type SupportMessage = {
   id: string;
   role: "assistant" | "user";
@@ -388,8 +390,18 @@ export function SupportFloatingWidget({
             return [...prev, mappedMsg];
           });
 
-          if (newMsg.sender_role === "ai" && newMsg.metadata?.suggestedActions) {
-            setSuggestedActions(newMsg.metadata.suggestedActions);
+          if (newMsg.sender_role === "ai") {
+            try {
+              pendo.trackAgent("agent_response", {
+                agentId: "TMlQPaeROC3ud1UbAvM71wIwoyo",
+                conversationId: activeTicketId,
+                messageId: newMsg.id,
+                content: newMsg.content,
+              });
+            } catch (_) { /* pendo may not be loaded */ }
+            if (newMsg.metadata?.suggestedActions) {
+              setSuggestedActions(newMsg.metadata.suggestedActions);
+            }
           }
         }
       )
@@ -444,6 +456,15 @@ export function SupportFloatingWidget({
 
       // Auto-insert a welcome message or the user's initial prompt
       if (prompt) {
+        try {
+          pendo.trackAgent("prompt", {
+            agentId: "TMlQPaeROC3ud1UbAvM71wIwoyo",
+            conversationId: ticket.id,
+            messageId: `prompt_${Date.now()}`,
+            content: prompt,
+            suggestedPrompt: false,
+          });
+        } catch (_) { /* pendo may not be loaded */ }
         // Insert user's query
         const { error: userMsgError } = await supabase
           .from("support_messages")
@@ -520,6 +541,17 @@ export function SupportFloatingWidget({
 
     setDraft("");
     setIsSending(true);
+
+    const promptMessageId = `prompt_${Date.now()}`;
+    try {
+      pendo.trackAgent("prompt", {
+        agentId: "TMlQPaeROC3ud1UbAvM71wIwoyo",
+        conversationId: activeTicketId,
+        messageId: promptMessageId,
+        content: trimmed,
+        suggestedPrompt: false,
+      });
+    } catch (_) { /* pendo may not be loaded */ }
 
     try {
       // 1. Write user message to DB

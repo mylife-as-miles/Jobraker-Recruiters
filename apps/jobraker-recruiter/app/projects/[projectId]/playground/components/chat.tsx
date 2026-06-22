@@ -13,6 +13,8 @@ import { FeedbackModal } from "./feedback-modal";
 import { FIX_WORKFLOW_PROMPT, FIX_WORKFLOW_PROMPT_WITH_FEEDBACK, EXPLAIN_WORKFLOW_PROMPT_ASSISTANT, EXPLAIN_WORKFLOW_PROMPT_TOOL, EXPLAIN_WORKFLOW_PROMPT_TRANSITION } from "../copilot-prompts";
 import { TurnEvent } from "@/src/entities/models/turn";
 
+declare var pendo: { trackAgent: (eventType: string, metadata: object) => void };
+
 export function Chat({
     projectId,
     workflow,
@@ -153,6 +155,16 @@ export function Chat({
     }, []);
 
     function handleUserMessage(prompt: string) {
+        const promptMessageId = `prompt_${Date.now()}`;
+        try {
+            pendo.trackAgent("prompt", {
+                agentId: "wrZM9UOiX2rvhlGgL9IpVg-GccU",
+                conversationId: conversationId.current || projectId,
+                messageId: promptMessageId,
+                content: prompt,
+                suggestedPrompt: false,
+            });
+        } catch (_) { /* pendo may not be loaded */ }
         const updatedMessages: z.infer<typeof Message>[] = [...messages, {
             role: 'user',
             content: prompt,
@@ -280,6 +292,19 @@ export function Chat({
                                     turn: turnEvent.turn,
                                     messages: turnEvent.turn.output,
                                 });
+
+                                // Track agent response for each assistant message
+                                const assistantOutputs = (turnEvent.turn.output || []).filter((m: any) => m.role === 'assistant');
+                                for (const assistantMsg of assistantOutputs) {
+                                    try {
+                                        pendo.trackAgent("agent_response", {
+                                            agentId: "wrZM9UOiX2rvhlGgL9IpVg-GccU",
+                                            conversationId: conversationId.current || projectId,
+                                            messageId: `agent_response_${Date.now()}`,
+                                            content: assistantMsg.content || "",
+                                        });
+                                    } catch (_) { /* pendo may not be loaded */ }
+                                }
 
                                 // Commit all streamed messages atomically to the source of truth
                                 setMessages([...messages, ...turnEvent.turn.output]);
@@ -467,6 +492,14 @@ export function Chat({
                                 size="sm"
                                 color="danger"
                                 onPress={() => {
+                                    try {
+                                        pendo.trackAgent("user_reaction", {
+                                            agentId: "wrZM9UOiX2rvhlGgL9IpVg-GccU",
+                                            conversationId: conversationId.current || projectId,
+                                            messageId: `retry_${Date.now()}`,
+                                            content: "retry",
+                                        });
+                                    } catch (_) { /* pendo may not be loaded */ }
                                     setError(null);
                                     setBillingError(null);
                                 }}

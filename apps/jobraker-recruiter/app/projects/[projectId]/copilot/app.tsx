@@ -18,6 +18,8 @@ import { SHOW_COPILOT_MARQUEE } from "@/app/lib/feature_flags";
 import Image from "next/image";
 import mascot from "@/public/mascot.png";
 
+declare var pendo: { trackAgent: (eventType: string, metadata: object) => void };
+
 const CopilotContext = createContext<{
     workflow: z.infer<typeof Workflow> | null;
     dispatch: (action: any) => void;
@@ -110,7 +112,18 @@ const App = forwardRef<{ handleCopyChat: () => void; handleUserMessage: (message
     }, [chatContext]);
 
     // Memoized handleUserMessage for useImperativeHandle and hooks
+    const copilotConversationIdRef = useRef(`copilot_${projectId}_${Date.now()}`);
     const handleUserMessage = useCallback((prompt: string) => {
+        const promptMessageId = `prompt_${Date.now()}`;
+        try {
+            pendo.trackAgent("prompt", {
+                agentId: "FrBiKalS1PP4BoQg73fKyjFfHO8",
+                conversationId: copilotConversationIdRef.current,
+                messageId: promptMessageId,
+                content: prompt,
+                suggestedPrompt: false,
+            });
+        } catch (_) { /* pendo may not be loaded */ }
         // Before starting streaming, lock the context to the current pendingContext
         setLockedContext(pendingContext);
         setMessages(currentMessages => [...currentMessages, {
@@ -118,7 +131,7 @@ const App = forwardRef<{ handleCopyChat: () => void; handleUserMessage: (message
             content: prompt
         }]);
         setIsLastInteracted(true);
-    }, [setMessages, setIsLastInteracted, pendingContext, setLockedContext]);
+    }, [setMessages, setIsLastInteracted, pendingContext, setLockedContext, projectId]);
 
     // Effect for getting copilot response
     useEffect(() => {
@@ -133,6 +146,15 @@ const App = forwardRef<{ handleCopyChat: () => void; handleUserMessage: (message
 
         if (currentStart) {
             currentStart(messages, (finalResponse: string) => {
+                const responseMessageId = `agent_response_${Date.now()}`;
+                try {
+                    pendo.trackAgent("agent_response", {
+                        agentId: "FrBiKalS1PP4BoQg73fKyjFfHO8",
+                        conversationId: copilotConversationIdRef.current,
+                        messageId: responseMessageId,
+                        content: finalResponse,
+                    });
+                } catch (_) { /* pendo may not be loaded */ }
                 setMessages(prev => [
                     ...prev,
                     {
@@ -281,6 +303,14 @@ const App = forwardRef<{ handleCopyChat: () => void; handleUserMessage: (message
                                 size="sm"
                                 color="danger"
                                 onClick={() => {
+                                    try {
+                                        pendo.trackAgent("user_reaction", {
+                                            agentId: "FrBiKalS1PP4BoQg73fKyjFfHO8",
+                                            conversationId: copilotConversationIdRef.current,
+                                            messageId: `retry_${Date.now()}`,
+                                            content: "retry",
+                                        });
+                                    } catch (_) { /* pendo may not be loaded */ }
                                     // remove the last assistant message, if any
                                     setMessages(prev => {
                                         const lastMessage = prev[prev.length - 1];
