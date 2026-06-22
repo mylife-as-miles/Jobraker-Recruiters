@@ -2,6 +2,18 @@ import posthog from "@/lib/posthog";
 import { supabase } from "@/lib/supabaseClient";
 import { getStoredAttributionProperties } from "@/lib/utmAttribution";
 
+// Pendo Track Event helper — safely calls pendo.track() when the Pendo agent is loaded.
+function pendoTrack(event: string, properties?: Record<string, unknown>) {
+  try {
+    const w = window as any;
+    if (typeof w.pendo?.track === "function") {
+      w.pendo.track(event, properties);
+    }
+  } catch {
+    // Never let Pendo tracking break application flow
+  }
+}
+
 // Lightweight analytics abstraction. Falls back to console if no provider configured.
 
 export type AnalyticsEvent = {
@@ -72,6 +84,7 @@ export function captureClientEvent(
     ...getStoredAttributionProperties(),
     ...properties,
   });
+  pendoTrack(event, properties);
 }
 
 export async function captureServerEvent(
@@ -115,6 +128,7 @@ export function track(name: string, props?: Record<string, unknown>) {
     buffer.push(evt);
     try { localStorage.setItem(LS_KEY, JSON.stringify(buffer)); } catch {}
   }
+  pendoTrack(name, props);
 }
 
 // Helper wrappers for core funnel events (keep args explicit for DX)

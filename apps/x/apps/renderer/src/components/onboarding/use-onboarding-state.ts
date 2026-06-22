@@ -445,6 +445,16 @@ export function useOnboardingState(open: boolean, onComplete: () => void) {
       if (result.success) {
         setTestState({ status: "success" })
         await window.ipc.invoke("models:saveConfig", providerConfig)
+        try {
+          const w = window as any
+          if (typeof w.pendo?.track === 'function') {
+            w.pendo.track('llm_config_saved', {
+              llm_provider: llmProvider,
+              model,
+              has_custom_base_url: !!baseURL,
+            })
+          }
+        } catch {}
         window.dispatchEvent(new Event('models-config-changed'))
         handleNext()
       } else {

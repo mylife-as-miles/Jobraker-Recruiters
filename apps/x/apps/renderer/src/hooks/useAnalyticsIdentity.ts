@@ -2,6 +2,15 @@ import { useEffect } from 'react'
 import posthog from 'posthog-js'
 import { identifyUser, isAnalyticsEnabled, resetAnalyticsIdentity } from '@/lib/analytics'
 
+function pendoTrack(event: string, properties?: Record<string, unknown>) {
+  try {
+    const w = window as any
+    if (typeof w.pendo?.track === 'function') {
+      w.pendo.track(event, properties)
+    }
+  } catch {}
+}
+
 /**
  * Identifies the user in PostHog when signed into JobrakerRecruiter,
  * and sets user properties for connected OAuth providers.
@@ -78,6 +87,7 @@ export function useAnalyticsIdentity() {
         }
         posthog.people.set({ signed_in: true, jobraker_recruiter_connected: true })
         posthog.capture('user_signed_in')
+        pendoTrack('user_signed_in', { auth_method: 'oauth', signup_surface: 'electron_app' })
         return
       }
 
@@ -85,6 +95,7 @@ export function useAnalyticsIdentity() {
       // future events on this device don't get attributed to the prior user.
       posthog.people.set({ signed_in: false, jobraker_recruiter_connected: false })
       posthog.capture('user_signed_out')
+      pendoTrack('user_signed_out')
       resetAnalyticsIdentity()
     })
 

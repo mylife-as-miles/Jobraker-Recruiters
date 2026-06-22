@@ -25,6 +25,15 @@ import {
   type IntentSignal,
 } from './data'
 
+function pendoTrack(event: string, properties?: Record<string, unknown>) {
+  try {
+    const w = window as any
+    if (typeof w.pendo?.track === 'function') {
+      w.pendo.track(event, properties)
+    }
+  } catch {}
+}
+
 export type RecruiterScreenId = 'roles' | 'candidates' | 'pipeline' | 'analytics' | 'sourcing'
 
 export type RecruiterScreensProps = {
@@ -187,6 +196,13 @@ export function RecruiterScreens({
       })
     } catch {}
 
+    pendoTrack('candidate_added', {
+      source: newCandidate.source,
+      stage: newCandidate.stage,
+      match_score: newCandidate.matchScore,
+      has_skills: newCandidate.skills.length > 0,
+      experience_years: newCandidate.experienceYears,
+    })
     toast.success(`Candidate ${newCandidate.name} added successfully!`)
     setActiveModal(null)
   }
@@ -275,6 +291,13 @@ export function RecruiterScreens({
     }
 
     setRoles((prev) => [...prev, newRole])
+    pendoTrack('role_created', {
+      department: newRole.department,
+      location: newRole.location,
+      employment_type: newRole.employmentType,
+      level: newRole.level,
+      status: newRole.status,
+    })
     toast.success(`Role ${newRole.title} created successfully!`)
     setActiveModal(null)
   }
@@ -319,6 +342,10 @@ export function RecruiterScreens({
       saveRecruiterState('pipeline-board', nextBoard)
     } catch {}
 
+    pendoTrack('interview_scheduled', {
+      interview_title: details.title,
+      has_ai_questions: !!details.noteAppend,
+    })
     toast.success(`Interview scheduled for ${details.date} at ${details.time}!`)
     setActiveModal(null)
   }
@@ -616,6 +643,10 @@ function CandidateForm({
       if (data.matchScore) setMatchScore(Number(data.matchScore))
       if (data.startupFitScore) setStartupFitScore(Number(data.startupFitScore))
 
+      pendoTrack('ai_insights_generated', {
+        candidate_name: name,
+        candidate_title: title,
+      })
       toast.success('AI Insights generated successfully!')
     } catch (err: any) {
       console.error(err)
@@ -1223,6 +1254,11 @@ function EmailOutreachForm({
         ? `Initiated 3-step automated follow-up sequence for ${candidate.name}.`
         : `Delivered message to ${candidate.name} (${candidate.email}) successfully.`
         
+      pendoTrack('outreach_sent', {
+        outreach_mode: outreachMode,
+        candidate_name: candidate.name,
+        candidate_email: candidate.email,
+      })
       toast.success(message, {
         description: desc,
       })
@@ -1528,6 +1564,11 @@ function InterviewScheduleForm({
         .filter(Boolean)
       
       setAiQuestions(list.slice(0, 3))
+      pendoTrack('ai_interview_questions_generated', {
+        interview_title: title,
+        questions_count: list.slice(0, 3).length,
+        candidate_title: candidate.title,
+      })
       toast.success('AI Interview Questions generated!')
     } catch (err: any) {
       console.error(err)
@@ -1778,6 +1819,12 @@ function ApiSettingsForm({ onCancel }: { onCancel: () => void }) {
       // Dispatch event to reload configuration in components
       window.dispatchEvent(new Event("connectors:updated"))
       
+      pendoTrack('connector_settings_saved', {
+        elastic_enabled: elasticEnabled,
+        connection_type: connectionType,
+        has_pdl_key: !!pdlKey,
+        has_enrichso_key: !!enrichsoKey,
+      })
       toast.success('API and Elastic Settings saved successfully!')
       onCancel()
     } catch (err: any) {
