@@ -29,6 +29,7 @@ export function UserButton({ useBilling, collapsed }: { useBilling?: boolean, co
         <DropdownMenu
             onAction={(key) => {
                 if (key === 'logout') {
+                    pendo.clearSession();
                     router.push('/auth/logout');
                 }
                 if (key === 'billing') {
