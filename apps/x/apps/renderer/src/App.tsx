@@ -5,6 +5,8 @@ import { RunEvent, ListRunsResponse } from '@x/shared/src/runs.js';
 import type { LanguageModelUsage, ToolUIPart } from 'ai';
 import './App.css'
 import z from 'zod';
+
+declare var pendo: { trackAgent: (eventType: string, metadata: object) => void };
 import { CheckIcon, LoaderIcon, ChevronLeftIcon, ChevronRightIcon, Plus, HistoryIcon, Loader2, Mic, Square, PanelLeftIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MarkdownEditor, type MarkdownEditorHandle } from './components/markdown-editor';
@@ -2276,6 +2278,14 @@ function App() {
             setCurrentAssistantMessage(currentMsg => {
               if (currentMsg) {
                 const cleanedContent = currentMsg.replace(/<\/?voice>/g, '')
+                try {
+                  pendo.trackAgent("agent_response", {
+                    agentId: "xms4Os6EPHaxZzW4AUEkJDMDdvY",
+                    conversationId: event.runId,
+                    messageId: event.messageId,
+                    content: cleanedContent,
+                  })
+                } catch (_) { /* pendo may not be loaded */ }
                 setConversation(prev => {
                   const exists = prev.some(m =>
                     m.id === event.messageId && 'role' in m && m.role === 'assistant'
@@ -2549,6 +2559,16 @@ function App() {
     setMessage('')
 
     const userMessageId = `user-${Date.now()}`
+    try {
+      pendo.trackAgent("prompt", {
+        agentId: "xms4Os6EPHaxZzW4AUEkJDMDdvY",
+        conversationId: runId || submitTabId,
+        messageId: userMessageId,
+        content: userMessage,
+        suggestedPrompt: false,
+        fileUploaded: hasAttachments,
+      })
+    } catch (_) { /* pendo may not be loaded */ }
     const displayAttachments: ChatMessage['attachments'] = hasAttachments
       ? stagedAttachments.map((attachment) => ({
           path: attachment.path,

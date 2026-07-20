@@ -111,6 +111,8 @@ import { useSubscriptionTier } from "@/hooks/useSubscriptionTier";
 import { hasSubscriptionAccess } from "@/lib/subscriptionAccess";
 import { motion } from "framer-motion";
 
+declare var pendo: { trackAgent: (eventType: string, metadata: object) => void };
+
 // Custom styles for the new design
 const customStyles = `
   .glass-panel {
@@ -1709,6 +1711,15 @@ const useChat = (opts: UseChatOptions): UseChatReturn => {
   const regenerate = () => {
     if (status === "in_progress" || !lastTurnRef.current) return;
     const lastTurn = lastTurnRef.current;
+    const lastAssistantMsg = [...messages].reverse().find(m => m.role === "assistant");
+    try {
+      pendo.trackAgent("user_reaction", {
+        agentId: "WNOPTj6ytcPIJPZkFmJsJj6Bys4",
+        conversationId: messages[0]?.id || "unknown",
+        messageId: lastAssistantMsg?.id || `retry_${Date.now()}`,
+        content: "retry",
+      });
+    } catch (_) { /* pendo may not be loaded */ }
     setMessages(lastTurn.historyBeforeUser);
     setResponseId(null);
     void sendMessage(
@@ -1982,8 +1993,17 @@ export const ChatPage = () => {
   // Chat logic
   const chat = useChat({
     api: "/api/ai-chat",
-    onFinish: () => {
+    onFinish: (msg) => {
       fetchChatQuota();
+      try {
+        pendo.trackAgent("agent_response", {
+          agentId: "WNOPTj6ytcPIJPZkFmJsJj6Bys4",
+          conversationId: activeSessionId || "unknown",
+          messageId: msg.id,
+          content: msg.content,
+          toolsUsed: msg.toolCalls?.map(t => t.name) || [],
+        });
+      } catch (_) { /* pendo may not be loaded */ }
     },
     onCreditsUpdated: fetchChatQuota,
     onUiAction: (action) => {
@@ -2553,6 +2573,18 @@ export const ChatPage = () => {
       .from("chat_sessions")
       .update({ persona: mode, model })
       .eq("id", sessionId);
+
+    const promptMessageId = `prompt_${Date.now()}`;
+    try {
+      pendo.trackAgent("prompt", {
+        agentId: "WNOPTj6ytcPIJPZkFmJsJj6Bys4",
+        conversationId: sessionId || "unknown",
+        messageId: promptMessageId,
+        content: content.trim(),
+        suggestedPrompt: false,
+        fileUploaded: attachmentFiles.length > 0,
+      });
+    } catch (_) { /* pendo may not be loaded */ }
 
     append(
       {
