@@ -31,6 +31,15 @@ import { cn } from '@/lib/utils'
 import { enrichLinkedInProfile, getApiKey } from './enrichment'
 import type { EnrichmentProvider } from './enrichment'
 
+function pendoTrack(event: string, properties?: Record<string, unknown>) {
+  try {
+    const w = window as any
+    if (typeof w.pendo?.track === 'function') {
+      w.pendo.track(event, properties)
+    }
+  } catch {}
+}
+
 type SourcingPageProps = {
   candidates: Candidate[]
   roles: Role[]
@@ -129,6 +138,11 @@ export function SourcingPage({
       
       if (res && Array.isArray(res.results)) {
         setElasticResults(res.results)
+        pendoTrack('elastic_search_executed', {
+          query: elasticQuery.slice(0, 100),
+          results_count: res.results.length,
+          search_type: 'elastic',
+        })
         if (res.results.length === 0) {
           toast.info('No results found for your query.')
         } else {
@@ -254,6 +268,11 @@ export function SourcingPage({
     }
 
     setIsProcessingAll(false)
+    pendoTrack('candidate_enriched', {
+      success_count: successCount,
+      total_count: itemsToProcess.length,
+      enrichment_source: provider,
+    })
     toast.success(`Enrichment finished. Successfully enriched ${successCount}/${itemsToProcess.length} profiles.`)
   }
 
@@ -308,6 +327,13 @@ export function SourcingPage({
       )
     )
 
+    const assignedRole = roles.find((r) => r.id === assignRoleId)
+    pendoTrack('candidate_imported', {
+      import_count: importCount,
+      import_source: 'sourcing_bulk',
+      assigned_role: assignedRole?.title ?? 'none',
+      initial_stage: initialStage,
+    })
     toast.success(`Successfully imported ${importCount} candidates to your list.`)
   }
 

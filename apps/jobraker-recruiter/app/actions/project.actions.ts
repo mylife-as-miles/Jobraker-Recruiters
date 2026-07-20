@@ -2,6 +2,29 @@
 import { z } from 'zod';
 import { container } from "@/di/container";
 import { redirect } from "next/navigation";
+
+const PENDO_TRACK_URL = 'https://data.pendo.io/data/track';
+const PENDO_INTEGRATION_KEY = '38f17b37-4071-402c-8ced-93c327993a7a';
+
+function pendoTrackServer(event: string, visitorId: string, properties?: Record<string, unknown>): void {
+    try {
+        fetch(PENDO_TRACK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-pendo-integration-key': PENDO_INTEGRATION_KEY,
+            },
+            body: JSON.stringify({
+                type: 'track',
+                event,
+                visitorId,
+                accountId: visitorId,
+                timestamp: Date.now(),
+                properties,
+            }),
+        }).catch(() => {});
+    } catch {}
+}
 // Fetch library templates from the unified assistant templates repository
 import { MongoDBAssistantTemplatesRepository } from "@/src/infrastructure/repositories/mongodb.assistant-templates.repository";
 import { authCheck } from "./auth.actions";
@@ -80,6 +103,12 @@ export async function createProject(formData: FormData): Promise<{ id: string } 
                     template: templateKey || 'default',
                 },
             },
+        });
+
+        pendoTrackServer('project_created', user.id, {
+            project_id: project.id,
+            template: templateKey || 'default',
+            has_workflow_json: false,
         });
 
         return { id: project.id };
@@ -245,6 +274,12 @@ export async function publishWorkflow(projectId: string, workflow: z.infer<typeo
         userId: user.id,
         projectId,
         workflow,
+    });
+
+    pendoTrackServer('workflow_published', user.id, {
+        project_id: projectId,
+        agent_count: Array.isArray((workflow as any).agents) ? (workflow as any).agents.length : 0,
+        tool_count: Array.isArray((workflow as any).tools) ? (workflow as any).tools.length : 0,
     });
 }
 

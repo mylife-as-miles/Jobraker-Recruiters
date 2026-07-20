@@ -3,6 +3,29 @@ import { z } from 'zod';
 import { DataSourceDoc } from "@/src/entities/models/data-source-doc";
 import { DataSource } from "@/src/entities/models/data-source";
 import { container } from "@/di/container";
+
+const PENDO_TRACK_URL = 'https://data.pendo.io/data/track';
+const PENDO_INTEGRATION_KEY = '38f17b37-4071-402c-8ced-93c327993a7a';
+
+function pendoTrackServer(event: string, visitorId: string, properties?: Record<string, unknown>): void {
+    try {
+        fetch(PENDO_TRACK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-pendo-integration-key': PENDO_INTEGRATION_KEY,
+            },
+            body: JSON.stringify({
+                type: 'track',
+                event,
+                visitorId,
+                accountId: visitorId,
+                timestamp: Date.now(),
+                properties,
+            }),
+        }).catch(() => {});
+    } catch {}
+}
 import { IFetchDataSourceController } from "@/src/interface-adapters/controllers/data-sources/fetch-data-source.controller";
 import { authCheck } from "./auth.actions";
 import { IListDataSourcesController } from "@/src/interface-adapters/controllers/data-sources/list-data-sources.controller";
@@ -64,7 +87,7 @@ export async function createDataSource({
     status?: 'pending' | 'ready',
 }): Promise<z.infer<typeof DataSource>> {
     const user = await authCheck();
-    return await createDataSourceController.execute({
+    const result = await createDataSourceController.execute({
         caller: 'user',
         userId: user.id,
         data: {
@@ -75,6 +98,14 @@ export async function createDataSource({
             data,
         },
     });
+
+    pendoTrackServer('data_source_created', user.id, {
+        project_id: projectId,
+        source_type: (data as any)?.type ?? 'unknown',
+        source_name: name,
+    });
+
+    return result;
 }
 
 export async function recrawlWebDataSource(sourceId: string) {

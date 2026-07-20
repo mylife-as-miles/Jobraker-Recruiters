@@ -156,6 +156,9 @@ export function PipelinePage({
   }, [board])
 
   const moveCard = (candidateId: string, toStage: PipelineStage) => {
+    const c = candidatesList.find((cand) => cand.id === candidateId)
+    const fromStage = c?.stage ?? 'New'
+
     let targetCandidateStage: CandidateStage = 'New'
     if (toStage === 'Sourced') targetCandidateStage = 'New'
     else if (toStage === 'Contacted') targetCandidateStage = 'In Review'
@@ -165,8 +168,20 @@ export function PipelinePage({
     else if (toStage === 'Hired') targetCandidateStage = 'Hired'
 
     onStageChange(candidateId, targetCandidateStage)
+
+    try {
+      const w = window as any
+      if (typeof w.pendo?.track === 'function') {
+        w.pendo.track('pipeline_stage_changed', {
+          candidate_id: candidateId,
+          candidate_name: c?.name,
+          from_stage: fromStage,
+          to_stage: toStage,
+          role_title: c?.title,
+        })
+      }
+    } catch {}
     
-    const c = candidatesList.find((cand) => cand.id === candidateId)
     toast.success(`Moved ${c?.name ?? 'Candidate'} to ${toStage}`)
   }
 

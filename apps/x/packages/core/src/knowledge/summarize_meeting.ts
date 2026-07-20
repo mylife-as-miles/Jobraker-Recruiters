@@ -166,5 +166,27 @@ export async function summarizeMeeting(transcript: string, meetingStartTime?: st
         usage: result.usage,
     });
 
+    try {
+        const PENDO_TRACK_URL = 'https://data.pendo.io/data/track';
+        const PENDO_KEY = '38f17b37-4071-402c-8ced-93c327993a7a';
+        fetch(PENDO_TRACK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-pendo-integration-key': PENDO_KEY },
+            body: JSON.stringify({
+                type: 'track',
+                event: 'meeting_notes_generated',
+                visitorId: 'system',
+                accountId: 'system',
+                timestamp: Date.now(),
+                properties: {
+                    model: modelId,
+                    provider: providerName,
+                    has_calendar_event: !!calendarEventJson,
+                    transcript_length: transcript.length,
+                },
+            }),
+        }).catch(() => {});
+    } catch {}
+
     return result.text.trim();
 }

@@ -1,3 +1,4 @@
+import { useCallback } from "react"
 import { CheckCircle2 } from "lucide-react"
 import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
@@ -8,8 +9,24 @@ interface CompletionStepProps {
 }
 
 export function CompletionStep({ state }: CompletionStepProps) {
-  const { connectedProviders, gmailConnected, googleCalendarConnected, handleComplete } = state
+  const { connectedProviders, gmailConnected, googleCalendarConnected, handleComplete, llmProvider, onboardingPath } = state
   const hasConnections = connectedProviders.length > 0 || gmailConnected || googleCalendarConnected
+
+  const handleCompleteWithTracking = useCallback(() => {
+    try {
+      const w = window as any
+      if (typeof w.pendo?.track === 'function') {
+        w.pendo.track('recruiter_onboarding_completed', {
+          onboarding_path: onboardingPath,
+          llm_provider: llmProvider,
+          connected_providers: connectedProviders.join(','),
+          gmail_connected: gmailConnected,
+          calendar_connected: googleCalendarConnected,
+        })
+      }
+    } catch {}
+    handleComplete()
+  }, [handleComplete, onboardingPath, llmProvider, connectedProviders, gmailConnected, googleCalendarConnected])
 
   return (
     <div className="flex flex-col items-center justify-center text-center flex-1">
@@ -120,7 +137,7 @@ export function CompletionStep({ state }: CompletionStepProps) {
         transition={{ delay: 0.6 }}
       >
         <Button
-          onClick={handleComplete}
+          onClick={handleCompleteWithTracking}
           size="lg"
           className="w-full max-w-xs h-12 text-base font-medium"
         >
