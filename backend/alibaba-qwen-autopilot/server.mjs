@@ -1,15 +1,16 @@
 import http from 'node:http'
 
-const PORT = Number(process.env.PORT || 8080)
+const PORT = Number(process.env.FC_CUSTOM_LISTEN_PORT || process.env.PORT || 8080)
 const QWEN_BASE_URL = process.env.DASHSCOPE_BASE_URL || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
 const QWEN_MODEL = process.env.DASHSCOPE_MODEL || 'qwen3.7-plus'
+const SERVICE_KEY = process.env.AUTOPILOT_SERVICE_KEY?.trim()
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'access-control-allow-origin': process.env.CORS_ORIGIN || '*',
     'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-allow-headers': 'content-type,authorization',
+    'access-control-allow-headers': 'content-type,authorization,x-jobraker-service-key',
   })
   res.end(JSON.stringify(payload))
 }
@@ -23,6 +24,50 @@ async function readJson(req) {
     }
   }
   return body ? JSON.parse(body) : {}
+}
+
+function isAuthorized(req) {
+  if (!SERVICE_KEY) return true
+  return req.headers['x-jobraker-service-key'] === SERVICE_KEY
+}
+
+function stripJsonFence(text) {
+  return text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim()
+}
+
+async function callQwen({ systemPrompt, prompt, temperature = 0.2 }) {
+  const apiKey = process.env.DASHSCOPE_API_KEY?.trim()
+  if (!apiKey) {
+    throw new Error('DASHSCOPE_API_KEY is not configured on the Alibaba Cloud backend')
+  }
+
+  const response = await fetch(`${QWEN_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: QWEN_MODEL,
+      temperature,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ],
+    }),
+  })
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data?.error?.message || `Qwen Cloud request failed with ${response.status}`)
+  }
+
+  const text = data?.choices?.[0]?.message?.content
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error('Qwen Cloud returned an empty response')
+  }
+
+  return text.trim()
 }
 
 function buildPrompt(candidate, role) {
@@ -48,45 +93,14 @@ Return only valid JSON:
 }
 
 async function runQwenAutopilot(candidate, role) {
-  const apiKey = process.env.DASHSCOPE_API_KEY?.trim()
-  if (!apiKey) {
-    throw new Error('DASHSCOPE_API_KEY is not configured on the Alibaba Cloud backend')
-  }
-
-  const response = await fetch(`${QWEN_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: QWEN_MODEL,
-      temperature: 0.2,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are Jobraker Recruiter Autopilot, a review-first agent for startup recruiting workflows. Recommend actions, preserve human approval for candidate-facing steps, and output only valid JSON.',
-        },
-        {
-          role: 'user',
-          content: buildPrompt(candidate, role),
-        },
-      ],
-    }),
+  const text = await callQwen({
+    systemPrompt:
+      'You are Jobraker Recruiter Autopilot, a review-first agent for startup recruiting workflows. Recommend actions, preserve human approval for candidate-facing steps, and output only valid JSON.',
+    prompt: buildPrompt(candidate, role),
+    temperature: 0.2,
   })
 
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    throw new Error(data?.error?.message || `Qwen Cloud request failed with ${response.status}`)
-  }
-
-  const text = data?.choices?.[0]?.message?.content
-  if (typeof text !== 'string' || !text.trim()) {
-    throw new Error('Qwen Cloud returned an empty response')
-  }
-
-  return JSON.parse(text.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '').trim())
+  return JSON.parse(stripJsonFence(text))
 }
 
 const server = http.createServer(async (req, res) => {
@@ -99,10 +113,35 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         ok: true,
         service: 'jobraker-alibaba-qwen-autopilot',
-        cloud: 'Alibaba Cloud',
+        cloud: 'Alibaba Cloud Function Compute',
         qwenBaseUrl: QWEN_BASE_URL,
         qwenModel: QWEN_MODEL,
         hasDashscopeKey: Boolean(process.env.DASHSCOPE_API_KEY),
+        serviceAuthenticationEnabled: Boolean(SERVICE_KEY),
+      })
+    }
+
+    if (!isAuthorized(req)) {
+      return sendJson(res, 401, { error: 'Unauthorized' })
+    }
+
+    if (req.method === 'POST' && req.url === '/api/recruiter/generate') {
+      const { systemPrompt, prompt, temperature } = await readJson(req)
+      if (typeof systemPrompt !== 'string' || typeof prompt !== 'string') {
+        return sendJson(res, 400, { error: 'systemPrompt and prompt are required' })
+      }
+
+      const text = await callQwen({
+        systemPrompt,
+        prompt,
+        temperature: typeof temperature === 'number' ? temperature : 0.4,
+      })
+
+      return sendJson(res, 200, {
+        provider: 'Alibaba Cloud Qwen Cloud',
+        deployment: 'Alibaba Cloud Function Compute',
+        model: QWEN_MODEL,
+        text,
       })
     }
 
@@ -115,6 +154,7 @@ const server = http.createServer(async (req, res) => {
       const result = await runQwenAutopilot(candidate, role)
       return sendJson(res, 200, {
         provider: 'Alibaba Cloud Qwen Cloud',
+        deployment: 'Alibaba Cloud Function Compute',
         model: QWEN_MODEL,
         result,
       })
@@ -128,6 +168,6 @@ const server = http.createServer(async (req, res) => {
   }
 })
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Jobraker Alibaba Qwen Autopilot backend listening on ${PORT}`)
 })

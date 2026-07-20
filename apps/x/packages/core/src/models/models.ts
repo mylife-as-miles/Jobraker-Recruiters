@@ -100,11 +100,69 @@ export async function testModelConnection(
     }
 }
 
+type AlibabaRecruiterResponse = {
+    text?: unknown;
+    error?: unknown;
+};
+
+async function generateRecruiterTextThroughAlibaba(
+    serviceUrl: string,
+    systemPrompt: string,
+    prompt: string,
+    temperature?: number,
+): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
+    const serviceKey = process.env.ALIBABA_AUTOPILOT_SERVICE_KEY?.trim();
+
+    try {
+        const response = await fetch(
+            `${serviceUrl.replace(/\/+$/, '')}/api/recruiter/generate`,
+            {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                    ...(serviceKey ? { 'x-jobraker-service-key': serviceKey } : {}),
+                },
+                body: JSON.stringify({ systemPrompt, prompt, temperature }),
+                signal: controller.signal,
+            },
+        );
+
+        const data = await response.json().catch(() => ({})) as AlibabaRecruiterResponse;
+        if (!response.ok) {
+            throw new Error(
+                typeof data.error === 'string'
+                    ? data.error
+                    : `Alibaba recruiter AI request failed with ${response.status}`,
+            );
+        }
+
+        if (typeof data.text !== 'string' || !data.text.trim()) {
+            throw new Error('Alibaba recruiter AI returned an empty response');
+        }
+
+        return data.text.trim();
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
 export async function generateRecruiterLlmText(
     systemPrompt: string,
     prompt: string,
     temperature?: number,
 ): Promise<string> {
+    const alibabaAutopilotUrl = process.env.ALIBABA_AUTOPILOT_URL?.trim();
+    if (alibabaAutopilotUrl) {
+        return generateRecruiterTextThroughAlibaba(
+            alibabaAutopilotUrl,
+            systemPrompt,
+            prompt,
+            temperature,
+        );
+    }
+
     const dashscopeApiKey = process.env.DASHSCOPE_API_KEY?.trim();
     if (dashscopeApiKey) {
         const qwen = createOpenAICompatible({
@@ -162,4 +220,3 @@ export async function generateRecruiterLlmText(
     }
     return responseText.trim();
 }
-

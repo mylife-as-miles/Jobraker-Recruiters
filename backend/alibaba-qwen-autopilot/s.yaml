@@ -3,7 +3,7 @@ name: jobraker-qwen-autopilot
 access: default
 
 vars:
-  region: us-west-1
+  region: ap-southeast-1
 
 resources:
   jobraker_qwen_autopilot:
@@ -25,13 +25,16 @@ resources:
       customContainerConfig:
         port: 8080
       environmentVariables:
+        NODE_ENV: production
+        PORT: '8080'
         DASHSCOPE_API_KEY: ${env(DASHSCOPE_API_KEY)}
         DASHSCOPE_BASE_URL: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
         DASHSCOPE_MODEL: qwen3.7-plus
+        AUTOPILOT_SERVICE_KEY: ${env(AUTOPILOT_SERVICE_KEY)}
       triggers:
         - triggerName: http
           triggerType: http
-          description: Public HTTP endpoint for hackathon deployment proof
+          description: HTTP endpoint secured with the Jobraker service key
           triggerConfig:
             authType: anonymous
             methods:
