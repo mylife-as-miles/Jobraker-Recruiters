@@ -105,6 +105,24 @@ export async function generateRecruiterLlmText(
     prompt: string,
     temperature?: number,
 ): Promise<string> {
+    const dashscopeApiKey = process.env.DASHSCOPE_API_KEY?.trim();
+    if (dashscopeApiKey) {
+        const qwen = createOpenAICompatible({
+            name: "qwen-cloud",
+            apiKey: dashscopeApiKey,
+            baseURL: process.env.DASHSCOPE_BASE_URL?.trim() || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        });
+
+        const result = await generateText({
+            model: qwen.languageModel(process.env.DASHSCOPE_MODEL?.trim() || "qwen3.7-plus"),
+            system: systemPrompt,
+            prompt,
+            temperature,
+        });
+
+        return result.text.trim();
+    }
+
     const repo = container.resolve<IModelConfigRepo>("modelConfigRepo");
     const config = await repo.getConfig();
 
