@@ -1,0 +1,39 @@
+edition: 3.0.0
+name: jobraker-qwen-autopilot
+access: default
+
+vars:
+  region: us-west-1
+
+resources:
+  jobraker_qwen_autopilot:
+    component: fc3
+    actions:
+      pre-deploy:
+        - component: fc3 build --dockerfile ./Dockerfile
+    props:
+      region: ${vars.region}
+      functionName: jobraker-qwen-autopilot
+      description: Jobraker Track 4 Autopilot Agent backend using Alibaba Cloud Qwen Cloud
+      runtime: custom-container
+      handler: not-used
+      timeout: 60
+      memorySize: 512
+      cpu: 0.5
+      diskSize: 512
+      internetAccess: true
+      customContainerConfig:
+        port: 8080
+      environmentVariables:
+        DASHSCOPE_API_KEY: ${env(DASHSCOPE_API_KEY)}
+        DASHSCOPE_BASE_URL: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+        DASHSCOPE_MODEL: qwen3.7-plus
+      triggers:
+        - triggerName: http
+          triggerType: http
+          description: Public HTTP endpoint for hackathon deployment proof
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
